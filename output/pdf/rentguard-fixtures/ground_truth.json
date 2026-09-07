@@ -1,0 +1,63 @@
+{
+  "fixture_version": "1.0.0",
+  "notice": "All names, identifiers, addresses and institutions are synthetic test data.",
+  "case_id": "RG-HIGH-001",
+  "input": {
+    "address": "서울특별시 강서구 화곡로 123",
+    "deposit": 150000000,
+    "monthly_rent": 100000
+  },
+  "expected": {
+    "registry": {
+      "owner": "김민준",
+      "mortgage_amount": 110000000,
+      "seizure": false,
+      "provisional_seizure": false,
+      "trust": false
+    },
+    "building_ledger": {
+      "building_use": "다세대주택",
+      "is_illegal_building": false,
+      "approval_date": "2017-06-20",
+      "households": 8
+    },
+    "lease_contract": {
+      "landlord": "김민준",
+      "tenant": "이서연",
+      "deposit": 150000000,
+      "monthly_rent": 100000,
+      "lease_start": "2026-10-10",
+      "lease_end": "2028-10-09"
+    },
+    "cross_checks": {
+      "owner_matches_landlord": true,
+      "deposit_matches_input": true
+    },
+    "risk": {
+      "score": 73,
+      "grade": "높음"
+    }
+  },
+  "files": [
+    {
+      "name": "registry_risky_digital.pdf",
+      "kind": "registry",
+      "mode": "digital_text"
+    },
+    {
+      "name": "registry_risky_scan_noisy.pdf",
+      "kind": "registry",
+      "mode": "image_only_noisy_scan"
+    },
+    {
+      "name": "building_ledger_risky.pdf",
+      "kind": "building_ledger",
+      "mode": "digital_text"
+    },
+    {
+      "name": "lease_contract_risky.pdf",
+      "kind": "lease_contract",
+      "mode": "digital_text"
+    }
+  ]
+}
