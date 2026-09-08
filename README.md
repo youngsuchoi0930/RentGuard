@@ -7,9 +7,12 @@
 - 문서별 구조화 추출 결과
 - 소유자/계약자, 보증금, 근저당, 위반건축물 교차검증
 - 규칙 기반 위험 점수와 근거
+- 개인정보를 제외한 구조화 결과의 Gemini 쉬운 설명
 - 계약 전에 해야 할 행동 추천
 
 LLM은 최종 설명 계층에만 연결하도록 설계하며, 위험 판단은 재현 가능한 Rule/ML 계층에서 수행합니다.
+
+Gemini 설명 기능은 저장소 루트의 `.env`에 `GEMINI_API_KEY`를 설정하면 활성화됩니다. 기존 로컬 설정과의 호환을 위해 `gemini_key`도 인식합니다. 모델 기본값은 무료 등급을 지원하는 `gemini-3.5-flash-lite`이며 `GEMINI_MODEL`로 변경할 수 있습니다. Gemini에는 PDF 원문, 주소, 이름, 금액, 증거 원문을 보내지 않고 위험 신호 범주와 검증 상태만 전송합니다. 키가 없거나 호출·검증에 실패하면 규칙 기반 결과만 반환합니다.
 
 ## 실행
 
@@ -24,16 +27,18 @@ pnpm install
 pnpm dev:web
 ```
 
-http://localhost:3000 에서 확인할 수 있습니다. API가 실행 중이지 않으면 프런트엔드의 동일한 규칙 엔진으로 데모가 동작합니다.
+http://localhost:3000 에서 확인할 수 있습니다. 프런트엔드는 실제 `POST /api/v1/analyses` 응답만 표시하며, OCR이 끝날 때까지 진행 화면을 유지합니다. API 오류는 목업 결과로 대체하지 않고 입력 화면에 표시합니다.
 
 ### API
 
 ```bat
 cd apps/api
-py -m venv .venv
+py -3.12 -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
 .venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
 ```
+
+Windows 로컬 OCR 환경은 PaddlePaddle 휠과 맞는 Python 3.12를 사용합니다. Python 3.14로 가상환경을 만들면 OCR 의존성을 설치할 수 없습니다.
 
 API 문서는 http://localhost:8000/docs 에서 확인할 수 있습니다.
 
@@ -70,6 +75,9 @@ apps\api\.venv\Scripts\python scripts\evaluate_registry.py --pdf output\pdf\rent
 | `POST /api/v1/documents/building-ledger/extract` | 건축물대장 추출 |
 | `POST /api/v1/documents/lease-contract/extract` | 임대차계약서 추출 |
 | `POST /api/v1/document-bundles/extract` | 세 문서 추출 및 주소·소유자·금액 교차검증 |
+| `POST /api/v1/analyses` | 세 문서를 실제 추출·교차검증한 뒤 문서 기반 위험 신호 생성 |
+
+`POST /api/v1/analyses`는 세 PDF를 모두 필수로 받습니다. 공공 실거래가가 연결되기 전에는 `estimated_value`, 최근 거래 수, 가격 변동성을 `null`로 반환하고 `market_data.status`를 `not_connected`로 표시합니다. 이 상태에서는 시세 대비 보증금·근저당 비율을 계산하지 않습니다.
 
 실제 샘플 확보와 익명화 방법은 `docs/sample-data-guide.md`를 참고합니다.
 
@@ -85,4 +93,4 @@ output/pdf      테스트용 합성 PDF와 정답 데이터
 
 ## 현재 데모의 경계
 
-세 문서의 텍스트 추출과 OCR, 주요 필드 추출 및 1차 교차검증까지 실제로 동작합니다. 다만 현재 파서는 합성 테스트 문서를 기준으로 검증되었고, 국토교통부/건축HUB 연동과 실제 문서 변형 회귀 테스트는 아직 남아 있습니다. 자동 추출 실패나 일부증명서는 `needs_review`로 보내며, 실제 계약 판단에는 원문 확인이 필요합니다.
+세 문서의 텍스트 추출과 OCR, 주요 필드 추출, 교차검증과 문서 기반 위험 신호까지 실제로 동작합니다. CASE-001 익명화 실문서 레이아웃으로도 검증했고, 프런트엔드도 장시간 OCR 응답을 기다린 뒤 실제 결과 또는 오류를 표시합니다. 국토교통부/건축HUB 시세 연동은 아직 남아 있습니다. 자동 추출 실패나 일부증명서는 `needs_review`로 보내며, 실제 계약 판단에는 원문 확인이 필요합니다.

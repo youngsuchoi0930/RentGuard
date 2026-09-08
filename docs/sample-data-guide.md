@@ -64,13 +64,13 @@
 C:\RentGuard-private-raw\case-001\
   registry-original.pdf
   building-ledger-original.pdf
-  lease-contract-original.pdf
+  lease-contract-template.pdf
 ```
 
 ### 개발용 익명화 사본
 
 ```text
-C:\Users\y1692\OneDrive\바탕 화면\RentGuard\local-fixtures\case-001\
+RentGuard\local-fixtures\case-001\
   registry.pdf
   building-ledger.pdf
   lease-contract.pdf
@@ -80,3 +80,29 @@ C:\Users\y1692\OneDrive\바탕 화면\RentGuard\local-fixtures\case-001\
 지금 발급받은 등기사항증명서 원본의 파일명은 `registry-original.pdf`로 변경한다. 익명화가 끝난 뒤 생성한 별도 사본만 `registry.pdf`라는 이름으로 개발용 폴더에 넣는다.
 
 `local-fixtures/`는 `.gitignore`에 포함한다. `expected.json`에는 직접 확인한 정답만 기록하고, 자동 추출 결과를 그대로 정답으로 복사하지 않는다.
+
+## 회전된 PDF 전처리
+
+원본 페이지 내용이 옆으로 저장된 문서는 원본을 수정하지 않고 새 사본을 만든다. 다음 명령은 `/Rotate` 메타데이터만 바꾸지 않고 새 페이지에 내용을 실제로 회전 배치한다.
+
+```bat
+cd apps\api
+.venv\Scripts\python -m app.services.pdf_rotation ^
+  C:\RentGuard-private-raw\case-001\building-ledger-original.pdf ^
+  C:\RentGuard-private-raw\case-001\building-ledger-upright-private.pdf ^
+  --rotation 270
+```
+
+출력 파일이 이미 있거나 입력과 출력 경로가 같으면 작업을 중단한다. 링크, 주석, PDF 입력 폼이 있는 문서는 별도 보존 절차가 필요하다.
+
+## CASE-001 익명화 사본 생성
+
+정방향 건축물대장까지 준비한 뒤 저장소 루트에서 아래 명령을 실행한다.
+
+```bat
+apps\api\.venv\Scripts\python scripts\prepare_case_001.py
+```
+
+이 스크립트는 세 문서에서 식별 정보를 가상 값으로 교체하고, 마스킹 결과를 이미지 전용 PDF로 다시 만든다. 따라서 원본 텍스트 레이어·주석·메타데이터는 개발용 사본에 남지 않는다. 생성 결과와 사람이 확인할 기준값은 `local-fixtures\case-001\`에 저장되며, 기존 결과 파일이 있으면 덮어쓰지 않고 중단한다.
+
+좌표 프로필은 현재 CASE-001 원본 레이아웃 전용이다. 다른 형식의 문서를 추가할 때는 별도 프로필을 만들고, 생성된 모든 페이지를 눈으로 확인한 다음 OCR 결과와 `expected.json`을 대조한다.

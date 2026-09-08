@@ -1,20 +1,21 @@
 import os
 from datetime import datetime, timezone
 from typing import Annotated
-from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 
-from .risk_engine import analyze_risk
 from .building_schemas import BuildingLedgerExtraction
 from .cross_check_schemas import DocumentBundleExtraction
 from .lease_schemas import LeaseContractExtraction
 from .registry_schemas import RegistryExtraction
-from .schemas import AnalysisResponse, ExtractedFacts
+from .schemas import AnalysisResponse
+from .services.analysis_service import build_analysis
 from .services.building_parser import extract_building_ledger
 from .services.cross_checker import cross_check_documents
 from .services.lease_parser import extract_lease_contract
+from .services.llm_explainer import generate_gemini_explanation
 from .services.registry_parser import extract_registry
 
 app = FastAPI(
@@ -99,35 +100,33 @@ async def create_analysis(
     address: Annotated[str, Form(min_length=5)],
     deposit: Annotated[int, Form(gt=0)],
     monthly_rent: Annotated[int, Form(ge=0)],
-    registry: Annotated[UploadFile | None, File()] = None,
-    building_ledger: Annotated[UploadFile | None, File()] = None,
-    lease_contract: Annotated[UploadFile | None, File()] = None,
+    registry: Annotated[UploadFile, File(description="등기사항증명서 PDF")],
+    building_ledger: Annotated[UploadFile, File(description="건축물대장 PDF")],
+    lease_contract: Annotated[UploadFile, File(description="주택임대차계약서 PDF")],
 ) -> AnalysisResponse:
-    # The MVP keeps a stable no-key demo at the same boundary where OCR and
-    # public-data adapters will be connected next.
-    del address, monthly_rent, registry, building_ledger, lease_contract
-    facts = ExtractedFacts(
-        owner="김민준",
-        contract_owner="김민준",
-        mortgage_amount=110_000_000,
+    uploads = (registry, building_ledger, lease_contract)
+    if any(upload.content_type not in {"application/pdf", "application/octet-stream"} for upload in uploads):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=415, detail="세 문서 모두 PDF 파일이어야 합니다.")
+
+    registry_bytes = await registry.read()
+    ledger_bytes = await building_ledger.read()
+    contract_bytes = await lease_contract.read()
+    registry_result = await run_in_threadpool(extract_registry, registry_bytes)
+    ledger_result = await run_in_threadpool(extract_building_ledger, ledger_bytes)
+    contract_result = await run_in_threadpool(extract_lease_contract, contract_bytes)
+    analysis = build_analysis(
+        address=address,
         deposit=deposit,
-        estimated_value=220_000_000,
-        building_use="다세대주택",
-        is_illegal_building=False,
-        approval_year=2017,
-        recent_transactions=3,
-        local_price_volatility=.08,
+        monthly_rent=monthly_rent,
+        registry=registry_result,
+        building_ledger=ledger_result,
+        lease_contract=contract_result,
     )
-    result = analyze_risk(facts)
-    return AnalysisResponse(
-        analysis_id=str(uuid4()),
-        score=result.score,
-        grade=result.grade,  # type: ignore[arg-type]
-        headline=result.headline,
-        summary=result.summary,
-        facts=facts,
-        signals=result.signals,
-        checks=result.checks,
-        actions=result.actions,
-        disclaimer="이 결과는 계약 의사결정을 돕는 참고 정보이며 법률 자문이나 보증 가입 심사를 대신하지 않습니다.",
+    analysis.ai_explanation = await generate_gemini_explanation(
+        grade=analysis.grade,
+        signals=analysis.signals,
+        checks=analysis.checks,
+        market_data=analysis.market_data,
     )
+    return analysis

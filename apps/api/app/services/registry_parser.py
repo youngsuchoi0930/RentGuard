@@ -129,6 +129,7 @@ def _issued_at(text: str) -> str | None:
 def _extract_owners(document: ExtractedDocument, text: str) -> list[OwnershipEntry]:
     owners: list[OwnershipEntry] = []
     seen: set[str] = set()
+    non_names = {"지분", "주소", "등록번호", "주민등록번호", "소유자", "공유자"}
     patterns = [
         re.compile(r"소유자\s*([가-힣]{2,10})"),
         re.compile(r"공유자\s*([가-힣]{2,10})"),
@@ -136,7 +137,7 @@ def _extract_owners(document: ExtractedDocument, text: str) -> list[OwnershipEnt
     for pattern in patterns:
         for match in pattern.finditer(text):
             name = match.group(1)
-            if name in seen:
+            if name in seen or name in non_names:
                 continue
             seen.add(name)
             snippet = match.group(0)

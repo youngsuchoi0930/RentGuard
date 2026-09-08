@@ -17,8 +17,11 @@ def _normalized(value: str | None) -> str | None:
 def _address_key(value: str | None) -> str | None:
     if not value:
         return None
-    match = re.search(r"(.+?(?:대로|로|길)\s*\d+(?:-\d+)?)", value)
-    return _normalized(match.group(1) if match else value)
+    # Registry OCR can retain a document-type prefix such as "[집합건물]".
+    # It is not part of the property address and must not cause a mismatch.
+    without_heading = re.sub(r"^\s*\[[^\]]+\]\s*", "", value)
+    match = re.search(r"(.+?(?:대로|로|길)\s*\d+(?:-\d+)?)", without_heading)
+    return _normalized(match.group(1) if match else without_heading)
 
 
 def _matches(left: str | None, right: str | None) -> bool | None:

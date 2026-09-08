@@ -26,7 +26,25 @@ from .pdf_extractor import ExtractedDocument, extract_pdf
 
 
 def _money_field(document: ExtractedDocument, text: str, labels: tuple[str, ...]) -> ContractMoney:
-    raw = labeled_value(text, labels)
+    raw = None
+    compact_labels = tuple(compact(label) for label in labels)
+    # OCR commonly reads a populated table row as one line (for example,
+    # "보증금150,000,000원") while also detecting an unrelated blank label cell
+    # elsewhere in a multi-page form. Prefer an inline value that actually
+    # contains a number before falling back to generic label-cell handling.
+    for line in (line.strip() for line in text.splitlines() if line.strip()):
+        line_compact = compact(line)
+        for label in compact_labels:
+            if not line_compact.startswith(label) or len(line_compact) == len(label):
+                continue
+            candidate = line_compact[len(label):]
+            if parse_money(candidate) is not None:
+                raw = candidate
+                break
+        if raw is not None:
+            break
+    if raw is None:
+        raw = labeled_value(text, labels)
     return ContractMoney(
         value=parse_money(raw) if raw else None,
         evidence=evidence(document, raw, "contract_terms") if raw else None,
@@ -45,6 +63,8 @@ def _parties(document: ExtractedDocument, text: str) -> list[ContractParty]:
             ("tenant", intro.group(2), intro.group(0)),
         ])
     for role_ko, role in (("임대인", "landlord"), ("임차인", "tenant"), ("대리인", "agent")):
+        if any(found_role == role for found_role, _, _ in found):
+            continue
         match = re.search(rf"(?:^|\n){role_ko}\s*\n\s*([가-힣A-Za-z·]{{2,30}})(?:\n|$)", text)
         if match:
             found.append((role, match.group(1), match.group(0)))
