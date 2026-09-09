@@ -30,6 +30,26 @@ class Settings(BaseSettings):
         le=60,
         validation_alias="GEMINI_TIMEOUT_SECONDS",
     )
+    juso_confirm_key: SecretStr | None = Field(
+        default=None,
+        validation_alias="JUSO_CONFIRM_KEY",
+    )
+    data_go_kr_service_key: SecretStr | None = Field(
+        default=None,
+        validation_alias="DATA_GO_KR_SERVICE_KEY",
+    )
+    public_api_timeout_seconds: float = Field(
+        default=15.0,
+        gt=0,
+        le=60,
+        validation_alias="PUBLIC_API_TIMEOUT_SECONDS",
+    )
+    public_market_months: int = Field(
+        default=12,
+        ge=1,
+        le=24,
+        validation_alias="PUBLIC_MARKET_MONTHS",
+    )
 
 
 @lru_cache

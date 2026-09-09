@@ -1,8 +1,8 @@
 import os
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 
@@ -10,12 +10,13 @@ from .building_schemas import BuildingLedgerExtraction
 from .cross_check_schemas import DocumentBundleExtraction
 from .lease_schemas import LeaseContractExtraction
 from .registry_schemas import RegistryExtraction
-from .schemas import AnalysisResponse
+from .schemas import AddressSearchResponse, AnalysisResponse
 from .services.analysis_service import build_analysis
 from .services.building_parser import extract_building_ledger
 from .services.cross_checker import cross_check_documents
 from .services.lease_parser import extract_lease_contract
 from .services.llm_explainer import generate_gemini_explanation
+from .services.public_data import PublicAPIError, fetch_public_data, search_addresses
 from .services.registry_parser import extract_registry
 
 app = FastAPI(
@@ -37,6 +38,16 @@ app.add_middleware(
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "time": datetime.now(timezone.utc).isoformat()}
+
+
+@app.get("/api/v1/addresses/search", response_model=AddressSearchResponse)
+async def search_road_addresses(
+    keyword: Annotated[str, Query(min_length=2, max_length=100)],
+) -> AddressSearchResponse:
+    try:
+        return AddressSearchResponse(items=await search_addresses(keyword, limit=10))
+    except PublicAPIError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.post("/api/v1/documents/registry/extract", response_model=RegistryExtraction)
@@ -102,19 +113,28 @@ async def create_analysis(
     monthly_rent: Annotated[int, Form(ge=0)],
     registry: Annotated[UploadFile, File(description="등기사항증명서 PDF")],
     building_ledger: Annotated[UploadFile, File(description="건축물대장 PDF")],
-    lease_contract: Annotated[UploadFile, File(description="주택임대차계약서 PDF")],
+    analysis_mode: Annotated[Literal["precheck", "contract_review"], Form()] = "contract_review",
+    lease_contract: Annotated[
+        UploadFile | None,
+        File(description="계약서 교차검증 모드에서 필요한 주택임대차계약서 PDF"),
+    ] = None,
 ) -> AnalysisResponse:
-    uploads = (registry, building_ledger, lease_contract)
+    if analysis_mode == "contract_review" and lease_contract is None:
+        raise HTTPException(status_code=422, detail="계약서 교차검증 모드에는 임대차계약서가 필요합니다.")
+
+    uploads = [registry, building_ledger]
+    if analysis_mode == "contract_review" and lease_contract:
+        uploads.append(lease_contract)
     if any(upload.content_type not in {"application/pdf", "application/octet-stream"} for upload in uploads):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=415, detail="세 문서 모두 PDF 파일이어야 합니다.")
+        raise HTTPException(status_code=415, detail="업로드 문서는 모두 PDF 파일이어야 합니다.")
 
     registry_bytes = await registry.read()
     ledger_bytes = await building_ledger.read()
-    contract_bytes = await lease_contract.read()
     registry_result = await run_in_threadpool(extract_registry, registry_bytes)
     ledger_result = await run_in_threadpool(extract_building_ledger, ledger_bytes)
-    contract_result = await run_in_threadpool(extract_lease_contract, contract_bytes)
+    contract_result = None
+    if analysis_mode == "contract_review" and lease_contract:
+        contract_result = await run_in_threadpool(extract_lease_contract, await lease_contract.read())
     analysis = build_analysis(
         address=address,
         deposit=deposit,
@@ -122,6 +142,8 @@ async def create_analysis(
         registry=registry_result,
         building_ledger=ledger_result,
         lease_contract=contract_result,
+        mode=analysis_mode,
+        public_data=await fetch_public_data(address),
     )
     analysis.ai_explanation = await generate_gemini_explanation(
         grade=analysis.grade,

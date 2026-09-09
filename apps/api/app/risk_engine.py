@@ -45,6 +45,7 @@ def analyze_risk(facts: ExtractedFacts) -> RiskResult:
             description="등기부상 채권최고액이 예상 주택가액의 절반 이상입니다.",
             evidence=f"근저당 비율 {mortgage_ratio * 100:.0f}%", points=20,
         ))
+        actions.append("특약사항에 잔금 전 근저당 말소 조건을 명확히 추가하세요.")
     elif mortgage_ratio is not None and mortgage_ratio >= .3:
         signals.append(RiskSignal(
             id="mortgage", severity="warning", title="근저당 설정을 확인하세요",
@@ -107,13 +108,13 @@ def analyze_risk(facts: ExtractedFacts) -> RiskResult:
     if facts.estimated_value is None:
         grade, headline = "주의", "시세 확인 후 최종 판단이 필요합니다"
         signals.append(RiskSignal(
-            id="market-data-unavailable", severity="notice", title="실거래가 분석은 아직 포함되지 않았어요",
-            description="문서 교차검증은 완료했지만 예상 주택가액과 시세 비율은 계산하지 않았습니다.",
-            evidence="공공 실거래가 연동 전", points=0,
+            id="market-data-unavailable", severity="notice", title="실거래가 기반 시세를 계산하지 못했어요",
+            description="공공 실거래가에서 동일·유사 매물 근거가 부족해 예상 주택가액을 계산하지 않았습니다.",
+            evidence="비교 가능한 실거래가 부족", points=0,
         ))
     elif score >= 65:
         grade, headline = "높음", "주의가 필요한 계약입니다"
-    elif score >= 35:
+    elif score >= 35 or any(signal.severity == "danger" for signal in signals):
         grade, headline = "주의", "몇 가지 확인이 필요한 계약입니다"
     else:
         grade, headline = "낮음", "현재 확인된 위험 신호는 낮습니다"
@@ -146,7 +147,7 @@ def analyze_risk(facts: ExtractedFacts) -> RiskResult:
     if deposit_ratio is None or burden_ratio is None:
         summary = (
             f"등기부에서 채권최고액 {facts.mortgage_amount:,}원을 확인했습니다. "
-            "공공 실거래가가 아직 연결되지 않아 보증금·근저당 비율은 계산하지 않았습니다."
+            "비교 가능한 공공 실거래가가 없어 보증금·근저당 비율은 계산하지 않았습니다."
         )
     else:
         summary = (

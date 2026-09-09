@@ -30,6 +30,16 @@ def test_safe_contract_stays_low():
     assert result.grade == "낮음"
 
 
+def test_danger_signal_never_receives_low_grade():
+    result = analyze_risk(make_facts(
+        mortgage_amount=120_000_000, deposit=10_000_000, estimated_value=220_000_000,
+        recent_transactions=20, local_price_volatility=.02,
+    ))
+    assert result.score == 20
+    assert any(signal.severity == "danger" for signal in result.signals)
+    assert result.grade == "주의"
+
+
 def test_owner_mismatch_is_flagged():
     result = analyze_risk(make_facts(contract_owner="박서준"))
     assert any(signal.id == "owner-mismatch" for signal in result.signals)

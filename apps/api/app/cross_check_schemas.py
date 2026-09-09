@@ -18,6 +18,6 @@ class CrossCheckItem(BaseModel):
 class DocumentBundleExtraction(BaseModel):
     registry: RegistryExtraction
     building_ledger: BuildingLedgerExtraction
-    lease_contract: LeaseContractExtraction
+    lease_contract: LeaseContractExtraction | None = None
     cross_checks: list[CrossCheckItem]
 

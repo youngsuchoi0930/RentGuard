@@ -11,6 +11,8 @@ class ExtractedFacts(BaseModel):
     mortgage_amount: int = Field(ge=0)
     deposit: int = Field(ge=0)
     estimated_value: int | None = Field(default=None, gt=0)
+    estimated_value_low: int | None = Field(default=None, gt=0)
+    estimated_value_high: int | None = Field(default=None, gt=0)
     building_use: str | None = None
     is_illegal_building: bool | None = None
     approval_year: int | None = None
@@ -34,8 +36,22 @@ class CheckItem(BaseModel):
 
 
 class MarketDataState(BaseModel):
-    status: Literal["not_connected", "available"]
+    status: Literal["not_connected", "available", "unavailable"]
     message: str
+    source: str | None = None
+    method: str | None = None
+    as_of: str | None = None
+
+
+class AddressSuggestion(BaseModel):
+    road_address: str
+    jibun_address: str
+    zip_code: str
+    building_name: str | None = None
+
+
+class AddressSearchResponse(BaseModel):
+    items: list[AddressSuggestion]
 
 
 class AIExplanation(BaseModel):
@@ -51,6 +67,7 @@ class AIExplanation(BaseModel):
 
 class AnalysisResponse(BaseModel):
     analysis_id: str
+    mode: Literal["precheck", "contract_review"]
     status: Literal["complete", "partial", "needs_review"]
     score: int = Field(ge=0, le=100)
     grade: Literal["낮음", "주의", "높음"]

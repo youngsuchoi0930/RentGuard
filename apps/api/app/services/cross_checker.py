@@ -61,20 +61,66 @@ def _item(
 def cross_check_documents(
     registry: RegistryExtraction,
     building_ledger: BuildingLedgerExtraction,
-    lease_contract: LeaseContractExtraction,
+    lease_contract: LeaseContractExtraction | None,
     *,
     input_address: str,
     input_deposit: int,
     input_monthly_rent: int,
 ) -> DocumentBundleExtraction:
     owner = registry.ownership[0].owner_name if registry.ownership else None
-    landlord = next((party.name for party in lease_contract.parties if party.role == "landlord"), None)
     registry_address = registry.property.road_address or registry.property.lot_address
     ledger_address = building_ledger.property.road_address or building_ledger.property.lot_address
+
+    if lease_contract is None:
+        checks = [
+            _item(
+                id="registry-owner",
+                label="등기 소유자 확인",
+                result=True if owner else None,
+                success="등기부에서 현재 소유자를 확인했습니다.",
+                failure="등기 소유자를 확인하지 못했습니다.",
+                review="등기 소유자를 추출하지 못해 원문 확인이 필요합니다.",
+                values={"registry_owner": owner},
+            ),
+            _item(
+                id="property-address",
+                label="입력 주소와 두 문서",
+                result=(
+                    _address_matches(input_address, registry_address, ledger_address)
+                    if registry_address and ledger_address
+                    else None
+                ),
+                success="입력 주소와 두 문서의 도로명주소가 일치합니다.",
+                failure="입력 주소와 두 문서 중 하나 이상의 주소가 다릅니다.",
+                review="주소를 충분히 추출하지 못해 원문 확인이 필요합니다.",
+                values={
+                    "input": input_address,
+                    "registry": registry_address,
+                    "building_ledger": ledger_address,
+                },
+            ),
+            _item(
+                id="illegal-building",
+                label="위반건축물 여부",
+                result=(not building_ledger.property.is_illegal_building)
+                if building_ledger.property.is_illegal_building is not None else None,
+                success="건축물대장에서 위반건축물 표기가 확인되지 않았습니다.",
+                failure="건축물대장에 위반건축물 표기가 있습니다.",
+                review="위반건축물 여부를 추출하지 못했습니다.",
+                values={"is_illegal_building": building_ledger.property.is_illegal_building},
+            ),
+        ]
+        return DocumentBundleExtraction(
+            registry=registry,
+            building_ledger=building_ledger,
+            lease_contract=None,
+            cross_checks=checks,
+        )
+
+    landlord = next((party.name for party in lease_contract.parties if party.role == "landlord"), None)
     contract_address = lease_contract.property.address
     contract_deposit = lease_contract.deposit.value
     contract_monthly_rent = lease_contract.monthly_rent.value
-
     checks = [
         _item(
             id="owner-landlord",

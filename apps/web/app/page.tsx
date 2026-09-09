@@ -27,10 +27,19 @@ import {
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
 type Stage = "form" | "analyzing" | "result";
+type AnalysisMode = "precheck" | "contract_review";
 type DocKey = "registry" | "building_ledger" | "lease_contract";
+
+type AddressSuggestion = {
+  road_address: string;
+  jibun_address: string;
+  zip_code: string;
+  building_name: string | null;
+};
 
 type Analysis = {
   analysis_id: string;
+  mode: AnalysisMode;
   status: "complete" | "partial" | "needs_review";
   score: number;
   grade: "낮음" | "주의" | "높음";
@@ -42,6 +51,8 @@ type Analysis = {
     mortgage_amount: number;
     deposit: number;
     estimated_value: number | null;
+    estimated_value_low: number | null;
+    estimated_value_high: number | null;
     building_use: string | null;
     is_illegal_building: boolean | null;
     approval_year: number | null;
@@ -63,8 +74,11 @@ type Analysis = {
   }>;
   actions: string[];
   market_data: {
-    status: "not_connected" | "available";
+    status: "not_connected" | "available" | "unavailable";
     message: string;
+    source: string | null;
+    method: string | null;
+    as_of: string | null;
   };
   ai_explanation: {
     status: "generated" | "unavailable" | "disabled";
@@ -103,8 +117,13 @@ function formatInput(value: string) {
   return digits ? Number(digits).toLocaleString("ko-KR") : "";
 }
 
+function addressUnit(value: string) {
+  return value.match(/[가-힣A-Za-z0-9-]*\d{1,5}\s*호\b/)?.[0] ?? "";
+}
+
 export default function HomePage() {
   const [stage, setStage] = useState<Stage>("form");
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("precheck");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [address, setAddress] = useState("");
   const [deposit, setDeposit] = useState("");
@@ -115,9 +134,14 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [expandedSignal, setExpandedSignal] = useState<string | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
 
-  const uploadedCount = Object.keys(files).length;
-  const canAnalyze = address.trim().length >= 5 && parseMoney(deposit) > 0 && uploadedCount === DOCUMENTS.length;
+  const requiredDocuments = analysisMode === "precheck" ? DOCUMENTS.slice(0, 2) : DOCUMENTS;
+  const uploadedCount = requiredDocuments.filter((document) => files[document.key]).length;
+  const canAnalyze = address.trim().length >= 5
+    && parseMoney(deposit) > 0
+    && requiredDocuments.every((document) => files[document.key]);
   const hasMarketData = analysis?.market_data.status === "available" && analysis.facts.estimated_value !== null;
   const steps = useMemo(() => [
     { label: "계약 정보", done: stage !== "form", current: stage === "form" },
@@ -151,9 +175,34 @@ export default function HomePage() {
     setFiles((current) => ({ ...current, [key]: file }));
   };
 
+  const searchAddress = async () => {
+    if (address.trim().length < 2) {
+      setError("도로명이나 지번을 두 글자 이상 입력해주세요.");
+      return;
+    }
+    setError(null);
+    setAddressSuggestions([]);
+    setIsSearchingAddress(true);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const response = await fetch(`${apiBase}/api/v1/addresses/search?keyword=${encodeURIComponent(address.trim())}`);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(payload?.detail || "주소 검색에 실패했습니다.");
+      }
+      const payload = await response.json() as { items: AddressSuggestion[] };
+      setAddressSuggestions(payload.items);
+      if (payload.items.length === 0) setError("검색 결과가 없습니다. 도로명과 건물번호를 확인해주세요.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "주소 검색에 실패했습니다.");
+    } finally {
+      setIsSearchingAddress(false);
+    }
+  };
+
   const runAnalysis = async () => {
     if (!canAnalyze) {
-      setError("주소와 보증금을 입력하고 PDF 문서 3개를 모두 올려주세요.");
+      setError(`주소와 보증금을 입력하고 PDF 문서 ${requiredDocuments.length}개를 모두 올려주세요.`);
       return;
     }
 
@@ -167,7 +216,11 @@ export default function HomePage() {
     formData.set("address", address);
     formData.set("deposit", String(parseMoney(deposit)));
     formData.set("monthly_rent", String(parseMoney(monthlyRent)));
-    Object.entries(files).forEach(([key, file]) => file && formData.set(key, file));
+    formData.set("analysis_mode", analysisMode);
+    requiredDocuments.forEach(({ key }) => {
+      const file = files[key];
+      if (file) formData.set(key, file);
+    });
 
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1/analyses`, {
@@ -249,16 +302,42 @@ export default function HomePage() {
             <section className="form-stage">
               {error && <div className="error-banner" role="alert"><AlertTriangle size={18} />{error}</div>}
               <div className="page-heading">
-                <div className="eyebrow"><Sparkles size={15} /> AI 계약서류 교차검증</div>
+                <div className="eyebrow"><Sparkles size={15} /> AI 부동산 서류 점검</div>
                 <h1>계약하기 전,<br /><em>서류 속 위험</em>을 먼저 확인하세요.</h1>
-                <p>주소와 계약 조건, 서류 3가지만 준비하면 복잡한 권리관계를 한눈에 정리해드려요.</p>
+                <p>계약서가 없어도 사전점검을 시작하고, 계약서가 생기면 문서끼리 교차검증할 수 있어요.</p>
+              </div>
+
+              <div className="mode-picker" role="group" aria-label="분석 방식 선택">
+                <button type="button" className={analysisMode === "precheck" ? "active" : ""} aria-pressed={analysisMode === "precheck"} onClick={() => { setAnalysisMode("precheck"); setError(null); }}>
+                  <span>추천 · 계약 전</span>
+                  <strong>사전점검</strong>
+                  <small>등기부등본 + 건축물대장</small>
+                </button>
+                <button type="button" className={analysisMode === "contract_review" ? "active" : ""} aria-pressed={analysisMode === "contract_review"} onClick={() => { setAnalysisMode("contract_review"); setError(null); }}>
+                  <span>계약서 작성 후</span>
+                  <strong>계약서 교차검증</strong>
+                  <small>계약서까지 포함한 서류 3종</small>
+                </button>
               </div>
 
               <div className="form-grid">
                 <div className="form-card">
-                  <div className="card-title"><span>1</span><div><h2>계약 정보를 알려주세요</h2><p>계약서에 적힌 내용을 그대로 입력해주세요.</p></div></div>
+                  <div className="card-title"><span>1</span><div><h2>계약 조건을 알려주세요</h2><p>{analysisMode === "precheck" ? "예정한 보증금과 월세를 입력해주세요." : "계약서에 적힌 내용을 그대로 입력해주세요."}</p></div></div>
                   <label className="field-label" htmlFor="address">집 주소</label>
-                  <div className="input-shell"><MapPin size={19} /><input id="address" placeholder="계약서의 도로명주소" value={address} onChange={(e) => setAddress(e.target.value)} /><button>주소 찾기</button></div>
+                  <div className="address-field">
+                    <div className="input-shell"><MapPin size={19} /><input id="address" placeholder="점검할 집의 도로명주소" value={address} onChange={(e) => { setAddress(e.target.value); setAddressSuggestions([]); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void searchAddress(); } }} /><button type="button" onClick={searchAddress} disabled={isSearchingAddress}>{isSearchingAddress ? "검색 중" : "주소 찾기"}</button></div>
+                    {addressSuggestions.length > 0 && (
+                      <div className="address-results" role="listbox" aria-label="주소 검색 결과">
+                        {addressSuggestions.map((item) => (
+                          <button type="button" key={`${item.road_address}-${item.jibun_address}`} onClick={() => { const unit = addressUnit(address); setAddress(`${item.road_address}${unit ? `, ${unit}` : ""}`); setAddressSuggestions([]); setError(null); }}>
+                            <span><b>도로명</b>{item.road_address}</span>
+                            <span><b>지번</b>{item.jibun_address}</span>
+                            <small>우편번호 {item.zip_code}{item.building_name ? ` · ${item.building_name}` : ""}</small>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <div className="money-grid">
                     <div>
                       <label className="field-label" htmlFor="deposit">보증금</label>
@@ -270,14 +349,14 @@ export default function HomePage() {
                     </div>
                   </div>
                   <div className="mini-summary">
-                    <Info size={16} /> {parseMoney(deposit) > 0 ? `${money(parseMoney(deposit))} 보증부 계약으로 분석합니다.` : "보증금을 입력하면 문서 추출값과 비교합니다."}
+                    <Info size={16} /> {parseMoney(deposit) > 0 ? `${money(parseMoney(deposit))} 보증부 계약으로 분석합니다.` : analysisMode === "precheck" ? "예정 보증금을 입력하면 시세와 근저당에 함께 대입합니다." : "보증금을 입력하면 계약서 추출값과 비교합니다."}
                   </div>
                 </div>
 
                 <div className="form-card documents-card">
-                  <div className="card-title"><span>2</span><div><h2>계약 서류를 올려주세요</h2><p>PDF · 파일당 최대 20MB</p></div><div className="count-badge">{uploadedCount}/3</div></div>
+                  <div className="card-title"><span>2</span><div><h2>{analysisMode === "precheck" ? "확인 서류를 올려주세요" : "계약 서류를 올려주세요"}</h2><p>PDF · 파일당 최대 20MB</p></div><div className="count-badge">{uploadedCount}/{requiredDocuments.length}</div></div>
                   <div className="document-list">
-                    {DOCUMENTS.map((doc) => {
+                    {requiredDocuments.map((doc) => {
                       const file = files[doc.key];
                       return (
                         <label className={`document-row ${file ? "uploaded" : ""}`} key={doc.key}>
@@ -289,13 +368,13 @@ export default function HomePage() {
                       );
                     })}
                   </div>
-                  <div className="sample-note"><UploadCloud size={18} /><div><strong>PDF 세 종류가 모두 필요해요</strong><span>목업 결과 없이 업로드한 문서만 분석합니다.</span></div></div>
+                  <div className="sample-note"><UploadCloud size={18} /><div><strong>{analysisMode === "precheck" ? "계약서 없이 사전점검할 수 있어요" : "PDF 세 종류가 모두 필요해요"}</strong><span>{analysisMode === "precheck" ? "입력 조건과 등기부·건축물대장을 기준으로 분석합니다." : "계약서 내용까지 추출해 문서끼리 대조합니다."}</span></div></div>
                 </div>
               </div>
 
               <div className="form-footer">
                 <div><ShieldCheck size={18} /><span>원본 파일은 분석 후 즉시 삭제됩니다.</span></div>
-                <button className="primary-button" disabled={!canAnalyze} onClick={runAnalysis}>계약 위험 분석하기 <ArrowRight size={19} /></button>
+                <button className="primary-button" disabled={!canAnalyze} onClick={runAnalysis}>{analysisMode === "precheck" ? "사전 위험 점검하기" : "계약서 교차검증하기"} <ArrowRight size={19} /></button>
               </div>
             </section>
           )}
@@ -314,7 +393,7 @@ export default function HomePage() {
               <div className="analysis-steps">
                 <span className={progress > 18 ? "done" : "active"}><CheckCircle2 /> 문서 분류</span>
                 <span className={progress > 45 ? "done" : progress > 18 ? "active" : ""}><FileText /> 핵심정보 추출</span>
-                <span className={progress > 70 ? "done" : progress > 45 ? "active" : ""}><Building2 /> 문서 교차검증</span>
+                <span className={progress > 70 ? "done" : progress > 45 ? "active" : ""}><Building2 /> 공공데이터 대조</span>
                 <span className={progress > 90 ? "active" : ""}><ShieldCheck /> 위험도 계산</span>
               </div>
             </section>
@@ -325,7 +404,7 @@ export default function HomePage() {
               <div className="result-header">
                 <button className="back-button" onClick={() => setStage("form")}><ArrowLeft size={17} /> 새 계약 분석</button>
                 <div>
-                  <div className="eyebrow"><CheckCircle2 size={15} /> {analysis.status === "complete" ? "분석 완료" : analysis.status === "partial" ? "문서 분석 완료 · 시세 연동 전" : "확인 필요한 항목 있음"} · {analysis.analysis_id.slice(0, 8)}</div>
+                  <div className="eyebrow"><CheckCircle2 size={15} /> {analysis.mode === "precheck" ? "사전점검" : "계약서 교차검증"} · {analysis.status === "complete" ? "분석 완료" : analysis.status === "partial" ? (analysis.market_data.status === "unavailable" ? "비교 거래 부족" : "시세 연동 전") : "확인 필요한 항목 있음"} · {analysis.analysis_id.slice(0, 8)}</div>
                   <h1>{address}</h1>
                   <p>보증금 {money(analysis.facts.deposit)} · 월세 {money(parseMoney(monthlyRent))}</p>
                 </div>
@@ -343,7 +422,7 @@ export default function HomePage() {
                       </div>
                     </div>
                     <div className="risk-copy">
-                      <span className="danger-pill"><AlertTriangle size={15} /> 문서 위험도 {analysis.grade}</span>
+                      <span className="danger-pill"><AlertTriangle size={15} /> 종합 위험도 {analysis.grade}</span>
                       <h2>{analysis.headline}</h2>
                       <p>{analysis.summary}</p>
                     </div>
@@ -368,9 +447,9 @@ export default function HomePage() {
                   <article className="metric-card">
                     <div className="section-heading"><div><span>핵심 수치</span><h2>돈의 흐름을 먼저 확인했어요</h2></div><button><Info size={16} /> 산정 기준</button></div>
                     <div className="metrics">
-                      <div><span>예상 주택가액</span><strong>{money(analysis.facts.estimated_value)}</strong><small>{hasMarketData ? `${analysis.facts.recent_transactions ?? 0}건 실거래 기준` : "공공 실거래가 연동 전"}</small></div>
+                      <div><span>예상 주택가액</span><strong>{money(analysis.facts.estimated_value)}</strong><small>{hasMarketData && analysis.facts.estimated_value_low !== null && analysis.facts.estimated_value_high !== null ? `중간 50% 범위 ${money(analysis.facts.estimated_value_low)} ~ ${money(analysis.facts.estimated_value_high)} · ${analysis.facts.recent_transactions ?? 0}건` : hasMarketData ? `${analysis.facts.recent_transactions ?? 0}건 · ${analysis.market_data.method ?? "실거래 중간가격"}` : analysis.market_data.status === "unavailable" ? "비교 거래 부족" : "공공 실거래가 연동 전"}</small></div>
                       <div><span>근저당 채권최고액</span><strong className="danger-text">{money(analysis.facts.mortgage_amount)}</strong><small>등기부등본 추출</small></div>
-                      <div><span>입력 보증금</span><strong>{money(analysis.facts.deposit)}</strong><small>계약서 추출값과 교차검증</small></div>
+                      <div><span>입력 보증금</span><strong>{money(analysis.facts.deposit)}</strong><small>{analysis.mode === "precheck" ? "사용자가 입력한 예정 계약 조건" : "계약서 추출값과 교차검증"}</small></div>
                     </div>
                     {hasMarketData && analysis.facts.estimated_value !== null ? (
                       <div className="burden-bar">
@@ -411,7 +490,7 @@ export default function HomePage() {
                   </article>
 
                   <article className="checks-card">
-                    <div className="section-heading"><div><span>서류 교차검증</span><h2>{analysis.checks.length}개 항목 확인</h2></div></div>
+                    <div className="section-heading"><div><span>{analysis.mode === "precheck" ? "서류·공공데이터 확인" : "서류 교차검증"}</span><h2>{analysis.checks.length}개 항목 확인</h2></div></div>
                     <div className="check-list">
                       {analysis.checks.map((check) => (
                         <div key={check.label}>
@@ -424,7 +503,7 @@ export default function HomePage() {
 
                   <article className="source-card">
                     <ShieldCheck size={22} />
-                    <div><strong>{hasMarketData ? "공식 데이터로 확인했어요" : "업로드한 문서 3종으로 확인했어요"}</strong><p>{hasMarketData ? "등기부등본 · 건축물대장 · 국토교통부 실거래가" : "등기부등본 · 건축물대장 · 임대차계약서 · 실거래가 미연동"}</p></div>
+                    <div><strong>{hasMarketData ? "공식 데이터로 확인했어요" : "업로드 문서와 공식 주소를 확인했어요"}</strong><p>{hasMarketData ? `등기부등본 · 건축HUB · 국토교통부 실거래가${analysis.mode === "contract_review" ? " · 임대차계약서" : ""}` : `등기부등본 · 건축물대장${analysis.mode === "contract_review" ? " · 임대차계약서" : ""} · ${analysis.market_data.status === "unavailable" ? "비교 거래 부족" : "실거래가 미연동"}`}</p></div>
                   </article>
                 </aside>
               </div>
