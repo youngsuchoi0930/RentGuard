@@ -5,6 +5,27 @@ from pydantic import BaseModel, Field
 from .cross_check_schemas import DocumentBundleExtraction
 
 
+class UserCorrection(BaseModel):
+    field: str = Field(min_length=3, max_length=120)
+    label: str = Field(min_length=1, max_length=80)
+    previous_value: str | int | bool | None = None
+    corrected_value: str | int | bool | None = None
+
+
+class EvidenceReference(BaseModel):
+    document: Literal["registry", "building_ledger", "lease_contract"]
+    field: str
+    label: str
+    page: int | None = Field(default=None, ge=1)
+    section: str | None = None
+    raw_text: str | None = None
+    extraction_method: Literal["pdf_text", "ocr"] | None = None
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    corrected: bool = False
+    previous_value: str | int | bool | None = None
+    corrected_value: str | int | bool | None = None
+
+
 class ExtractedFacts(BaseModel):
     owner: str | None = None
     contract_owner: str | None = None
@@ -27,12 +48,14 @@ class RiskSignal(BaseModel):
     description: str
     evidence: str
     points: int
+    sources: list[EvidenceReference] = Field(default_factory=list)
 
 
 class CheckItem(BaseModel):
     label: str
     status: Literal["verified", "warning", "needs_review"]
     detail: str
+    sources: list[EvidenceReference] = Field(default_factory=list)
 
 
 class MarketDataState(BaseModel):
@@ -80,4 +103,14 @@ class AnalysisResponse(BaseModel):
     market_data: MarketDataState
     ai_explanation: AIExplanation
     documents: DocumentBundleExtraction
+    corrections: list[UserCorrection] = Field(default_factory=list)
     disclaimer: str
+
+
+class AnalysisFromExtractionsRequest(BaseModel):
+    mode: Literal["precheck", "contract_review"]
+    address: str = Field(min_length=5, max_length=200)
+    deposit: int = Field(gt=0)
+    monthly_rent: int = Field(ge=0)
+    documents: DocumentBundleExtraction
+    corrections: list[UserCorrection] = Field(default_factory=list, max_length=50)

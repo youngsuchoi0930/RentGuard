@@ -160,6 +160,15 @@ def parse_lease_contract(document: ExtractedDocument) -> LeaseContractExtraction
     warnings: list[str] = []
     if document.method == "ocr" and document_confidence(document) < .75:
         warnings.append("OCR 평균 신뢰도가 낮아 계약서 원문 확인이 필요합니다.")
+    evidence_map = {
+        field: evidence(document, raw, "contract_property")
+        for field, raw in (
+            ("address", address),
+            ("building_description", building),
+            ("leased_part", leased_part),
+        )
+        if raw
+    }
     return LeaseContractExtraction(
         document=ContractMetadata(
             contract_type=_contract_type(text, deposit.value, monthly_rent.value),
@@ -167,6 +176,7 @@ def parse_lease_contract(document: ExtractedDocument) -> LeaseContractExtraction
             pages=len(document.pages),
         ),
         property=ContractProperty(address=address, building_description=building, leased_part=leased_part),
+        evidence=evidence_map,
         parties=parties,
         deposit=deposit,
         contract_payment=contract_payment,

@@ -26,9 +26,78 @@ import {
 } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
-type Stage = "form" | "analyzing" | "result";
+type Stage = "form" | "extracting" | "review" | "analyzing" | "result";
 type AnalysisMode = "precheck" | "contract_review";
 type DocKey = "registry" | "building_ledger" | "lease_contract";
+
+type ScalarValue = string | number | boolean | null;
+
+type SourceEvidence = {
+  page: number;
+  section: string;
+  raw_text: string;
+  extraction_method: "pdf_text" | "ocr";
+  confidence: number;
+};
+
+type ReviewItem = { code: string; severity: "info" | "warning" | "blocking"; message: string };
+
+type RegistryExtraction = {
+  property: { road_address: string | null; lot_address: string | null; building_name: string | null; unit: string | null };
+  evidence: Record<string, SourceEvidence>;
+  ownership: Array<{ owner_name: string; status: "active" | "cancelled" | "unknown"; evidence: SourceEvidence | null; rank?: string | null; share?: string | null; registered_at?: string | null }>;
+  encumbrances: Array<{ right_type: string; maximum_claim_amount: number | null; status: "active" | "cancelled" | "unknown"; evidence: SourceEvidence | null; rank?: string | null; holder?: string | null; debtor?: string | null; registered_at?: string | null }>;
+  confidence: number;
+  needs_review: ReviewItem[];
+  [key: string]: unknown;
+};
+
+type BuildingExtraction = {
+  property: { road_address: string | null; lot_address: string | null; building_name: string | null; main_use: string | null; structure: string | null; households: number | null; approval_date: string | null; is_illegal_building: boolean | null };
+  evidence: Record<string, SourceEvidence>;
+  confidence: number;
+  needs_review: ReviewItem[];
+  [key: string]: unknown;
+};
+
+type LeaseExtraction = {
+  property: { address: string | null; building_description: string | null; leased_part: string | null };
+  evidence: Record<string, SourceEvidence>;
+  parties: Array<{ role: "landlord" | "tenant" | "agent"; name: string; evidence: SourceEvidence | null }>;
+  deposit: { value: number | null; evidence: SourceEvidence | null };
+  monthly_rent: { value: number | null; evidence: SourceEvidence | null };
+  confidence: number;
+  needs_review: ReviewItem[];
+  [key: string]: unknown;
+};
+
+type DocumentBundle = {
+  registry: RegistryExtraction;
+  building_ledger: BuildingExtraction;
+  lease_contract: LeaseExtraction | null;
+  cross_checks: Array<{ id: string; status: string; label: string; detail: string; values: Record<string, ScalarValue> }>;
+};
+
+type UserCorrection = {
+  field: string;
+  label: string;
+  previous_value: ScalarValue;
+  corrected_value: ScalarValue;
+};
+
+type EvidenceReference = {
+  document: DocKey;
+  field: string;
+  label: string;
+  page: number | null;
+  section: string | null;
+  raw_text: string | null;
+  extraction_method: "pdf_text" | "ocr" | null;
+  confidence: number | null;
+  corrected: boolean;
+  previous_value: ScalarValue;
+  corrected_value: ScalarValue;
+};
 
 type AddressSuggestion = {
   road_address: string;
@@ -66,11 +135,13 @@ type Analysis = {
     description: string;
     evidence: string;
     points: number;
+    sources: EvidenceReference[];
   }>;
   checks: Array<{
     label: string;
     status: "verified" | "warning" | "needs_review";
     detail: string;
+    sources: EvidenceReference[];
   }>;
   actions: string[];
   market_data: {
@@ -90,6 +161,8 @@ type Analysis = {
     privacy_note: string | null;
     message: string | null;
   };
+  documents: DocumentBundle;
+  corrections: UserCorrection[];
   disclaimer: string;
 };
 
@@ -121,6 +194,100 @@ function addressUnit(value: string) {
   return value.match(/[가-힣A-Za-z0-9-]*\d{1,5}\s*호\b/)?.[0] ?? "";
 }
 
+function nestedValue(source: unknown, path: string): ScalarValue {
+  let cursor: unknown = source;
+  for (const part of path.split(".")) {
+    if (cursor === null || typeof cursor !== "object") return null;
+    cursor = (cursor as Record<string, unknown>)[part];
+  }
+  return typeof cursor === "string" || typeof cursor === "number" || typeof cursor === "boolean" || cursor === null
+    ? cursor
+    : null;
+}
+
+function withNestedValue<T>(source: T, path: string, value: ScalarValue): T {
+  const copy = structuredClone(source);
+  const parts = path.split(".");
+  let cursor = copy as Record<string, unknown>;
+  parts.slice(0, -1).forEach((part) => {
+    cursor = cursor[part] as Record<string, unknown>;
+  });
+  cursor[parts.at(-1) as string] = value;
+  return copy;
+}
+
+function documentName(key: DocKey) {
+  return key === "registry" ? "등기부등본" : key === "building_ledger" ? "건축물대장" : "임대차계약서";
+}
+
+function EvidenceList({ sources }: { sources: EvidenceReference[] }) {
+  if (!sources.length) return null;
+  return (
+    <div className="evidence-list">
+      {sources.map((source, index) => (
+        <div className="evidence-item" key={`${source.field}-${index}`}>
+          <div>
+            <strong>{source.label}</strong>
+            <span>{documentName(source.document)}{source.page ? ` · ${source.page}페이지` : ""}{source.confidence !== null ? ` · 신뢰도 ${Math.round(source.confidence * 100)}%` : ""}</span>
+          </div>
+          {source.raw_text && <q>{source.raw_text}</q>}
+          {source.corrected && <small>사용자 수정: {String(source.previous_value ?? "미추출")} → {String(source.corrected_value ?? "미입력")}</small>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function prepareForReview(bundle: DocumentBundle) {
+  const prepared = structuredClone(bundle);
+  if (prepared.registry.ownership.length === 0) {
+    prepared.registry.ownership.push({
+      owner_name: "",
+      status: "active",
+      evidence: null,
+    });
+  }
+  if (prepared.lease_contract && !prepared.lease_contract.parties.some((party) => party.role === "landlord")) {
+    prepared.lease_contract.parties.push({ role: "landlord", name: "", evidence: null });
+  }
+  return prepared;
+}
+
+function ReviewField({
+  label,
+  value,
+  evidence,
+  moneyField = false,
+  onChange,
+}: {
+  label: string;
+  value: string | number | null;
+  evidence?: SourceEvidence | null;
+  moneyField?: boolean;
+  onChange: (value: string | number | null) => void;
+}) {
+  const displayed = moneyField && typeof value === "number" ? value.toLocaleString("ko-KR") : String(value ?? "");
+  return (
+    <label className="review-field">
+      <span>{label}{evidence && <small>{evidence.page}페이지 · {Math.round(evidence.confidence * 100)}%</small>}</span>
+      <input
+        value={displayed}
+        inputMode={moneyField ? "numeric" : undefined}
+        placeholder="추출하지 못함"
+        onChange={(event) => {
+          if (moneyField) {
+            const digits = event.target.value.replace(/[^0-9]/g, "");
+            onChange(digits ? Number(digits) : null);
+          } else {
+            onChange(event.target.value || null);
+          }
+        }}
+      />
+      {evidence?.raw_text && <q>{evidence.raw_text}</q>}
+    </label>
+  );
+}
+
 export default function HomePage() {
   const [stage, setStage] = useState<Stage>("form");
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("precheck");
@@ -131,6 +298,9 @@ export default function HomePage() {
   const [files, setFiles] = useState<Partial<Record<DocKey, File>>>({});
   const [progress, setProgress] = useState(0);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [documents, setDocuments] = useState<DocumentBundle | null>(null);
+  const [originalDocuments, setOriginalDocuments] = useState<DocumentBundle | null>(null);
+  const [corrections, setCorrections] = useState<UserCorrection[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [expandedSignal, setExpandedSignal] = useState<string | null>(null);
@@ -145,12 +315,12 @@ export default function HomePage() {
   const hasMarketData = analysis?.market_data.status === "available" && analysis.facts.estimated_value !== null;
   const steps = useMemo(() => [
     { label: "계약 정보", done: stage !== "form", current: stage === "form" },
-    { label: "서류 분석", done: stage === "result", current: stage === "analyzing" },
+    { label: "추출값 확인", done: stage === "analyzing" || stage === "result", current: stage === "extracting" || stage === "review" },
     { label: "위험 리포트", done: false, current: stage === "result" },
   ], [stage]);
 
   useEffect(() => {
-    if (stage !== "analyzing") return;
+    if (stage !== "extracting" && stage !== "analyzing") return;
     const timer = window.setInterval(() => {
       setElapsedSeconds((current) => current + 1);
       setProgress((current) => Math.min(current + (current < 35 ? 6 : current < 70 ? 2 : 1), 94));
@@ -200,7 +370,7 @@ export default function HomePage() {
     }
   };
 
-  const runAnalysis = async () => {
+  const runExtraction = async () => {
     if (!canAnalyze) {
       setError(`주소와 보증금을 입력하고 PDF 문서 ${requiredDocuments.length}개를 모두 올려주세요.`);
       return;
@@ -208,9 +378,12 @@ export default function HomePage() {
 
     setError(null);
     setAnalysis(null);
+    setDocuments(null);
+    setOriginalDocuments(null);
+    setCorrections([]);
     setProgress(4);
     setElapsedSeconds(0);
-    setStage("analyzing");
+    setStage("extracting");
 
     const formData = new FormData();
     formData.set("address", address);
@@ -223,9 +396,64 @@ export default function HomePage() {
     });
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1/analyses`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1/document-bundles/extract`, {
         method: "POST",
         body: formData,
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { detail?: unknown } | null;
+        const detail = typeof payload?.detail === "string" ? payload.detail : `분석 요청에 실패했습니다. (${response.status})`;
+        throw new Error(detail);
+      }
+      const result = prepareForReview(await response.json() as DocumentBundle);
+      setDocuments(result);
+      setOriginalDocuments(structuredClone(result));
+      setProgress(100);
+      setStage("review");
+    } catch (cause) {
+      const message = cause instanceof Error && cause.message !== "Failed to fetch"
+        ? cause.message
+        : "분석 API에 연결할 수 없습니다. API 서버가 실행 중인지 확인해주세요.";
+      setError(message);
+      setProgress(0);
+      setStage("form");
+    }
+  };
+
+  const updateExtractedValue = (path: string, label: string, value: ScalarValue) => {
+    if (!documents || !originalDocuments) return;
+    const previousValue = nestedValue(originalDocuments, path);
+    setDocuments(withNestedValue(documents, path, value));
+    setCorrections((current) => {
+      const withoutField = current.filter((item) => item.field !== path);
+      return previousValue === value
+        ? withoutField
+        : [...withoutField, { field: path, label, previous_value: previousValue, corrected_value: value }];
+    });
+  };
+
+  const submitAnalysis = async () => {
+    if (!documents) {
+      setError("먼저 문서 추출을 완료해주세요.");
+      setStage("form");
+      return;
+    }
+    setError(null);
+    setProgress(54);
+    setElapsedSeconds(0);
+    setStage("analyzing");
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1/analyses/from-extractions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: analysisMode,
+          address,
+          deposit: parseMoney(deposit),
+          monthly_rent: parseMoney(monthlyRent),
+          documents,
+          corrections,
+        }),
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { detail?: unknown } | null;
@@ -238,12 +466,9 @@ export default function HomePage() {
       setProgress(100);
       setStage("result");
     } catch (cause) {
-      const message = cause instanceof Error && cause.message !== "Failed to fetch"
-        ? cause.message
-        : "분석 API에 연결할 수 없습니다. API 서버가 실행 중인지 확인해주세요.";
-      setError(message);
+      setError(cause instanceof Error ? cause.message : "분석 요청에 실패했습니다.");
       setProgress(0);
-      setStage("form");
+      setStage("review");
     }
   };
 
@@ -374,20 +599,83 @@ export default function HomePage() {
 
               <div className="form-footer">
                 <div><ShieldCheck size={18} /><span>원본 파일은 분석 후 즉시 삭제됩니다.</span></div>
-                <button className="primary-button" disabled={!canAnalyze} onClick={runAnalysis}>{analysisMode === "precheck" ? "사전 위험 점검하기" : "계약서 교차검증하기"} <ArrowRight size={19} /></button>
+                <button className="primary-button" disabled={!canAnalyze} onClick={runExtraction}>문서에서 값 추출하기 <ArrowRight size={19} /></button>
               </div>
             </section>
           )}
 
-          {stage === "analyzing" && (
+          {stage === "review" && documents && (
+            <section className="review-stage">
+              {error && <div className="error-banner" role="alert"><AlertTriangle size={18} />{error}</div>}
+              <div className="review-header">
+                <button className="back-button" onClick={() => setStage("form")}><ArrowLeft size={17} /> 파일 다시 선택</button>
+                <div>
+                  <div className="eyebrow"><FileCheck2 size={15} /> 추출 완료 · 사용자 확인 단계</div>
+                  <h1>분석 전에 추출값을 확인해주세요</h1>
+                  <p>틀린 값만 수정하면 됩니다. 수정 내역은 결과 근거에 함께 표시돼요.</p>
+                </div>
+                <div className={`correction-badge ${corrections.length ? "changed" : ""}`}>{corrections.length}개 수정</div>
+              </div>
+
+              <div className="review-grid">
+                <article className="review-card">
+                  <div className="review-card-head"><div className="doc-icon"><FileText size={20} /></div><div><strong>등기부등본</strong><span>소유자·주소·근저당</span></div><small>신뢰도 {Math.round(documents.registry.confidence * 100)}%</small></div>
+                  <ReviewField label="도로명주소" value={documents.registry.property.road_address} evidence={documents.registry.evidence.road_address} onChange={(value) => updateExtractedValue("registry.property.road_address", "등기부 도로명주소", value)} />
+                  <ReviewField label="현재 소유자" value={documents.registry.ownership[0]?.owner_name ?? null} evidence={documents.registry.ownership[0]?.evidence} onChange={(value) => updateExtractedValue("registry.ownership.0.owner_name", "등기 소유자", value)} />
+                  {documents.registry.encumbrances.filter((entry) => entry.right_type === "mortgage" && entry.status === "active").map((entry) => {
+                    const index = documents.registry.encumbrances.indexOf(entry);
+                    return <ReviewField key={`mortgage-${index}`} label={`근저당 채권최고액${index > 0 ? ` ${index + 1}` : ""}`} value={entry.maximum_claim_amount} evidence={entry.evidence} moneyField onChange={(value) => updateExtractedValue(`registry.encumbrances.${index}.maximum_claim_amount`, "근저당 채권최고액", value)} />;
+                  })}
+                  {!documents.registry.encumbrances.some((entry) => entry.right_type === "mortgage" && entry.status === "active") && <div className="empty-extraction"><CheckCircle2 size={16} /> 추출된 활성 근저당권이 없습니다.</div>}
+                </article>
+
+                <article className="review-card">
+                  <div className="review-card-head"><div className="doc-icon"><Building2 size={20} /></div><div><strong>건축물대장</strong><span>주소·용도·위반 여부</span></div><small>신뢰도 {Math.round(documents.building_ledger.confidence * 100)}%</small></div>
+                  <ReviewField label="도로명주소" value={documents.building_ledger.property.road_address} evidence={documents.building_ledger.evidence.road_address} onChange={(value) => updateExtractedValue("building_ledger.property.road_address", "건축물대장 도로명주소", value)} />
+                  <ReviewField label="주용도" value={documents.building_ledger.property.main_use} evidence={documents.building_ledger.evidence.main_use} onChange={(value) => updateExtractedValue("building_ledger.property.main_use", "건축물 주용도", value)} />
+                  <ReviewField label="사용승인일" value={documents.building_ledger.property.approval_date} evidence={documents.building_ledger.evidence.approval_date} onChange={(value) => updateExtractedValue("building_ledger.property.approval_date", "사용승인일", value)} />
+                  <label className="review-field">
+                    <span>위반건축물 여부{documents.building_ledger.evidence.is_illegal_building && <small>{documents.building_ledger.evidence.is_illegal_building.page}페이지 · {Math.round(documents.building_ledger.evidence.is_illegal_building.confidence * 100)}%</small>}</span>
+                    <select value={documents.building_ledger.property.is_illegal_building === null ? "unknown" : documents.building_ledger.property.is_illegal_building ? "yes" : "no"} onChange={(event) => updateExtractedValue("building_ledger.property.is_illegal_building", "위반건축물 여부", event.target.value === "unknown" ? null : event.target.value === "yes")}>
+                      <option value="unknown">확인하지 못함</option><option value="no">해당 없음</option><option value="yes">위반건축물 해당</option>
+                    </select>
+                    {documents.building_ledger.evidence.is_illegal_building?.raw_text && <q>{documents.building_ledger.evidence.is_illegal_building.raw_text}</q>}
+                  </label>
+                </article>
+
+                {documents.lease_contract && (() => {
+                  const contract = documents.lease_contract;
+                  const landlordIndex = contract.parties.findIndex((party) => party.role === "landlord");
+                  const landlord = contract.parties[landlordIndex];
+                  return (
+                    <article className="review-card">
+                      <div className="review-card-head"><div className="doc-icon"><FileCheck2 size={20} /></div><div><strong>임대차계약서</strong><span>임대인·주소·계약 금액</span></div><small>신뢰도 {Math.round(contract.confidence * 100)}%</small></div>
+                      <ReviewField label="목적물 주소" value={contract.property.address} evidence={contract.evidence.address} onChange={(value) => updateExtractedValue("lease_contract.property.address", "계약서 목적물 주소", value)} />
+                      <ReviewField label="임대인" value={landlord?.name ?? null} evidence={landlord?.evidence} onChange={(value) => updateExtractedValue(`lease_contract.parties.${landlordIndex}.name`, "계약서 임대인", value)} />
+                      <ReviewField label="보증금" value={contract.deposit.value} evidence={contract.deposit.evidence} moneyField onChange={(value) => updateExtractedValue("lease_contract.deposit.value", "계약서 보증금", value)} />
+                      <ReviewField label="월세" value={contract.monthly_rent.value} evidence={contract.monthly_rent.evidence} moneyField onChange={(value) => updateExtractedValue("lease_contract.monthly_rent.value", "계약서 월세", value)} />
+                    </article>
+                  );
+                })()}
+              </div>
+
+              <div className="review-notice"><Info size={17} /><div><strong>원문과 한 번만 대조해주세요</strong><span>페이지와 OCR 원문을 함께 표시했습니다. 사용자가 수정한 값은 자동 추출값과 구분해 결과에 남깁니다.</span></div></div>
+              <div className="form-footer review-footer">
+                <button className="outline-button" onClick={() => setStage("form")}><ArrowLeft size={16} /> 파일 다시 선택</button>
+                <button className="primary-button" onClick={submitAnalysis}>확인한 값으로 위험 분석 <ArrowRight size={19} /></button>
+              </div>
+            </section>
+          )}
+
+          {(stage === "extracting" || stage === "analyzing") && (
             <section className="analyzing-stage">
               <div className="scan-visual">
                 <div className="scan-paper"><FileText size={58} /><span className="scan-line" /></div>
                 <div className="orbit"><ShieldCheck size={25} /></div>
               </div>
               <div className="eyebrow"><LoaderCircle className="spin" size={15} /> DOCUMENT AI</div>
-              <h1>서류를 꼼꼼히<br />교차검증하고 있어요</h1>
-              <p>문서에서 핵심 정보를 읽고 서로 대조합니다. 스캔 문서는 몇 분 걸릴 수 있어요.</p>
+              <h1>{stage === "extracting" ? <>서류에서 핵심 정보를<br />추출하고 있어요</> : <>공공데이터와 위험도를<br />계산하고 있어요</>}</h1>
+              <p>{stage === "extracting" ? "주소·소유자·근저당 등 확인할 값을 찾습니다. 스캔 문서는 몇 분 걸릴 수 있어요." : "확인한 추출값을 공식 데이터와 대조하고 위험 신호를 계산합니다."}</p>
               <div className="progress-shell"><div style={{ width: `${progress}%` }} /></div>
               <strong className="progress-number">{progress}% · {elapsedSeconds}초 경과</strong>
               <div className="analysis-steps">
@@ -408,7 +696,7 @@ export default function HomePage() {
                   <h1>{address}</h1>
                   <p>보증금 {money(analysis.facts.deposit)} · 월세 {money(parseMoney(monthlyRent))}</p>
                 </div>
-                <button className="outline-button" onClick={runAnalysis}><RefreshCw size={16} /> 다시 분석</button>
+                <button className="outline-button" onClick={() => setStage("review")}><RefreshCw size={16} /> 추출값 다시 확인</button>
               </div>
 
               <div className="report-layout">
@@ -425,6 +713,7 @@ export default function HomePage() {
                       <span className="danger-pill"><AlertTriangle size={15} /> 종합 위험도 {analysis.grade}</span>
                       <h2>{analysis.headline}</h2>
                       <p>{analysis.summary}</p>
+                      {analysis.corrections.length > 0 && <small className="applied-corrections"><CheckCircle2 size={14} /> 사용자 수정 {analysis.corrections.length}건을 반영했습니다</small>}
                     </div>
                   </article>
 
@@ -470,7 +759,7 @@ export default function HomePage() {
                         return (
                           <button className={`signal-row ${signal.severity} ${open ? "open" : ""}`} key={signal.id} onClick={() => setExpandedSignal(open ? null : signal.id)}>
                             <span className="signal-icon">{signal.severity === "notice" ? <Info size={19} /> : <AlertTriangle size={19} />}</span>
-                            <span className="signal-copy"><strong>{signal.title}</strong><small>{signal.evidence}</small>{open && <p>{signal.description}</p>}</span>
+                            <div className="signal-copy"><strong>{signal.title}</strong><small>{signal.evidence}</small>{open && <><p>{signal.description}</p><EvidenceList sources={signal.sources} /></>}</div>
                             <span className="points">{signal.points > 0 ? `+${signal.points}점` : "확인"}</span>
                             <ChevronDown className="chevron" size={18} />
                           </button>
@@ -495,7 +784,7 @@ export default function HomePage() {
                       {analysis.checks.map((check) => (
                         <div key={check.label}>
                           <span className={check.status}>{check.status === "verified" ? <Check size={14} /> : <AlertTriangle size={14} />}</span>
-                          <p><strong>{check.label}</strong><small>{check.detail}</small></p>
+                          <div className="check-copy"><strong>{check.label}</strong><small>{check.detail}</small><EvidenceList sources={check.sources} /></div>
                         </div>
                       ))}
                     </div>

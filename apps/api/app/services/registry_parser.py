@@ -245,6 +245,15 @@ def parse_registry(document: ExtractedDocument) -> RegistryExtraction:
     if document.method == "ocr" and document.pages and min(page.confidence for page in document.pages) < .75:
         warnings.append("OCR 평균 신뢰도가 낮아 원문 확인이 필요합니다.")
 
+    evidence_map: dict[str, SourceEvidence] = {}
+    for field, raw in (
+        ("road_address", road_address),
+        ("lot_address", lot_address),
+        ("building_name", building_name),
+    ):
+        if raw:
+            evidence_map[field] = _evidence(document, raw, "title", raw)
+
     confidences = [page.confidence for page in document.pages]
     confidence = sum(confidences) / len(confidences) if confidences else 0.0
     unit_match = re.search(r"(?:제)?(\d{2,5})호", road_address or building_name or "")
@@ -261,6 +270,7 @@ def parse_registry(document: ExtractedDocument) -> RegistryExtraction:
             building_name=building_name,
             unit=f"{unit_match.group(1)}호" if unit_match else None,
         ),
+        evidence=evidence_map,
         ownership=ownership,
         encumbrances=encumbrances,
         extraction_method=document.method,

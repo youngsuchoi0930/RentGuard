@@ -5,14 +5,16 @@ from uuid import uuid4
 
 from ..building_schemas import BuildingLedgerExtraction
 from ..lease_schemas import LeaseContractExtraction
-from ..registry_schemas import RegistryExtraction
+from ..registry_schemas import RegistryExtraction, ReviewItem, SourceEvidence
 from ..risk_engine import analyze_risk
 from ..schemas import (
     AIExplanation,
     AnalysisResponse,
     CheckItem,
+    EvidenceReference,
     ExtractedFacts,
     MarketDataState,
+    UserCorrection,
 )
 from .cross_checker import _address_matches, cross_check_documents
 from .public_data import PublicDataResult
@@ -25,14 +27,206 @@ def _approval_year(ledger: BuildingLedgerExtraction) -> int | None:
     return int(value[:4])
 
 
-def _bundle_checks(bundle) -> list[CheckItem]:
+def _reference(
+    *,
+    document: Literal["registry", "building_ledger", "lease_contract"],
+    field: str,
+    label: str,
+    evidence: SourceEvidence | None,
+    corrections: dict[str, UserCorrection],
+) -> EvidenceReference | None:
+    correction = corrections.get(field)
+    if evidence is None and correction is None:
+        return None
+    return EvidenceReference(
+        document=document,
+        field=field,
+        label=label,
+        page=evidence.page if evidence else None,
+        section=evidence.section if evidence else None,
+        raw_text=evidence.raw_text if evidence else None,
+        extraction_method=evidence.extraction_method if evidence else None,
+        confidence=evidence.confidence if evidence else None,
+        corrected=correction is not None,
+        previous_value=correction.previous_value if correction else None,
+        corrected_value=correction.corrected_value if correction else None,
+    )
+
+
+def _source_map(
+    registry: RegistryExtraction,
+    building_ledger: BuildingLedgerExtraction,
+    lease_contract: LeaseContractExtraction | None,
+    corrections: list[UserCorrection],
+) -> dict[str, list[EvidenceReference]]:
+    correction_map = {item.field: item for item in corrections}
+
+    def refs(*items: EvidenceReference | None) -> list[EvidenceReference]:
+        return [item for item in items if item is not None]
+
+    registry_addresses = refs(*(
+        _reference(
+            document="registry",
+            field=f"registry.property.{field}",
+            label=f"등기부 {label}",
+            evidence=registry.evidence.get(field),
+            corrections=correction_map,
+        )
+        for field, label in (("road_address", "도로명주소"), ("lot_address", "지번주소"))
+    ))
+    building_addresses = refs(*(
+        _reference(
+            document="building_ledger",
+            field=f"building_ledger.property.{field}",
+            label=f"건축물대장 {label}",
+            evidence=building_ledger.evidence.get(field),
+            corrections=correction_map,
+        )
+        for field, label in (("road_address", "도로명주소"), ("lot_address", "지번주소"))
+    ))
+    owners = refs(*(
+        _reference(
+            document="registry",
+            field=f"registry.ownership.{index}.owner_name",
+            label="등기 소유자",
+            evidence=entry.evidence,
+            corrections=correction_map,
+        )
+        for index, entry in enumerate(registry.ownership)
+    ))
+    mortgages = refs(*(
+        _reference(
+            document="registry",
+            field=f"registry.encumbrances.{index}.maximum_claim_amount",
+            label="근저당 채권최고액",
+            evidence=entry.evidence,
+            corrections=correction_map,
+        )
+        for index, entry in enumerate(registry.encumbrances)
+        if entry.right_type == "mortgage" and entry.status == "active"
+    ))
+    illegal = refs(_reference(
+        document="building_ledger",
+        field="building_ledger.property.is_illegal_building",
+        label="위반건축물 여부",
+        evidence=building_ledger.evidence.get("is_illegal_building"),
+        corrections=correction_map,
+    ))
+    lease_addresses: list[EvidenceReference] = []
+    landlords: list[EvidenceReference] = []
+    deposits: list[EvidenceReference] = []
+    rents: list[EvidenceReference] = []
+    if lease_contract:
+        lease_addresses = refs(_reference(
+            document="lease_contract",
+            field="lease_contract.property.address",
+            label="계약서 목적물 주소",
+            evidence=lease_contract.evidence.get("address"),
+            corrections=correction_map,
+        ))
+        landlords = refs(*(
+            _reference(
+                document="lease_contract",
+                field=f"lease_contract.parties.{index}.name",
+                label="계약서 임대인",
+                evidence=party.evidence,
+                corrections=correction_map,
+            )
+            for index, party in enumerate(lease_contract.parties)
+            if party.role == "landlord"
+        ))
+        deposits = refs(_reference(
+            document="lease_contract",
+            field="lease_contract.deposit.value",
+            label="계약서 보증금",
+            evidence=lease_contract.deposit.evidence,
+            corrections=correction_map,
+        ))
+        rents = refs(_reference(
+            document="lease_contract",
+            field="lease_contract.monthly_rent.value",
+            label="계약서 월세",
+            evidence=lease_contract.monthly_rent.evidence,
+            corrections=correction_map,
+        ))
+
+    addresses = registry_addresses + building_addresses + lease_addresses
+    return {
+        "registry-owner": owners,
+        "owner-landlord": owners + landlords,
+        "property-address": addresses,
+        "deposit": deposits,
+        "monthly-rent": rents,
+        "illegal-building": illegal,
+        "senior-burden": mortgages + deposits,
+        "mortgage": mortgages,
+        "mortgage-present": mortgages,
+        "deposit-ratio": deposits,
+        "owner-mismatch": owners + landlords,
+    }
+
+
+def _active_reviews(
+    registry: RegistryExtraction,
+    building_ledger: BuildingLedgerExtraction,
+    lease_contract: LeaseContractExtraction | None,
+) -> list[ReviewItem]:
+    resolved_registry = {
+        "OWNER_NOT_FOUND": any(entry.owner_name.strip() for entry in registry.ownership),
+        "ADDRESS_NOT_FOUND": bool(registry.property.road_address or registry.property.lot_address),
+        "MORTGAGE_AMOUNT_NOT_FOUND": all(
+            entry.maximum_claim_amount is not None
+            for entry in registry.encumbrances
+            if entry.right_type == "mortgage"
+        ),
+    }
+    resolved_building = {
+        "LEDGER_ADDRESS_NOT_FOUND": bool(
+            building_ledger.property.road_address or building_ledger.property.lot_address
+        ),
+        "BUILDING_USE_NOT_FOUND": bool(building_ledger.property.main_use),
+        "ILLEGAL_STATUS_UNKNOWN": building_ledger.property.is_illegal_building is not None,
+    }
+    reviews = [
+        item for item in registry.needs_review
+        if not resolved_registry.get(item.code, False)
+    ] + [
+        item for item in building_ledger.needs_review
+        if not resolved_building.get(item.code, False)
+    ]
+    if lease_contract:
+        landlord_found = any(
+            party.role == "landlord" and party.name.strip()
+            for party in lease_contract.parties
+        )
+        resolved_lease = {
+            "CONTRACT_ADDRESS_NOT_FOUND": bool(lease_contract.property.address),
+            "LANDLORD_NOT_FOUND": landlord_found,
+            "DEPOSIT_NOT_FOUND": lease_contract.deposit.value is not None,
+            "LEASE_PERIOD_NOT_FOUND": bool(
+                lease_contract.lease_period.start and lease_contract.lease_period.end
+            ),
+        }
+        reviews.extend(
+            item for item in lease_contract.needs_review
+            if not resolved_lease.get(item.code, False)
+        )
+    return reviews
+
+
+def _bundle_checks(bundle, sources: dict[str, list[EvidenceReference]]) -> list[CheckItem]:
     status_map = {
         "verified": "verified",
         "mismatch": "warning",
         "needs_review": "needs_review",
     }
     checks = [
-        CheckItem(label=item.label, status=status_map[item.status], detail=item.detail)
+        CheckItem(
+            label=item.label,
+            status=status_map[item.status],
+            detail=item.detail,
+            sources=sources.get(item.id, []),
+        )
         for item in bundle.cross_checks
     ]
     checks.append(
@@ -59,7 +253,9 @@ def build_analysis(
     lease_contract: LeaseContractExtraction | None,
     mode: Literal["precheck", "contract_review"] = "contract_review",
     public_data: PublicDataResult | None = None,
+    corrections: list[UserCorrection] | None = None,
 ) -> AnalysisResponse:
+    applied_corrections = corrections or []
     bundle = cross_check_documents(
         registry,
         building_ledger,
@@ -68,6 +264,7 @@ def build_analysis(
         input_deposit=deposit,
         input_monthly_rent=monthly_rent,
     )
+    sources = _source_map(registry, building_ledger, lease_contract, applied_corrections)
     owner = registry.ownership[0].owner_name if registry.ownership else None
     landlord = (
         next((party.name for party in lease_contract.parties if party.role == "landlord"), None)
@@ -111,13 +308,13 @@ def build_analysis(
         local_price_volatility=market.volatility if market else None,
     )
     risk = analyze_risk(facts)
-    document_reviews = registry.needs_review + building_ledger.needs_review
-    if lease_contract:
-        document_reviews += lease_contract.needs_review
+    for signal in risk.signals:
+        signal.sources = sources.get(signal.id, [])
+    document_reviews = _active_reviews(registry, building_ledger, lease_contract)
     has_blocking_review = any(item.severity == "blocking" for item in document_reviews)
     has_mismatch = any(item.status == "mismatch" for item in bundle.cross_checks)
     has_official_mismatch = False
-    checks = _bundle_checks(bundle)
+    checks = _bundle_checks(bundle, sources)
     if official_building and official_building.status == "available":
         official_detail = " · ".join(
             value
@@ -246,6 +443,7 @@ def build_analysis(
             message="AI 설명 생성 전입니다.",
         ),
         documents=bundle,
+        corrections=applied_corrections,
         disclaimer=(
             "이 사전점검 결과는 입력 조건과 현재 서류를 바탕으로 한 참고 정보이며 "
             "계약서 교차검증, 법률 자문 또는 보증 가입 심사를 대신하지 않습니다."

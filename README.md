@@ -5,8 +5,10 @@
 현재 MVP는 두 가지 분석 모드를 제공합니다. `사전점검`은 주소/예정 계약 조건과 등기부등본·건축물대장만 사용하고, `계약서 교차검증`은 임대차계약서까지 포함합니다.
 
 - 문서별 구조화 추출 결과
+- 분석 전 추출값 확인·수정과 사용자 수정 이력
 - 소유자/계약자, 보증금, 근저당, 위반건축물 교차검증
 - 규칙 기반 위험 점수와 근거
+- 위험 신호별 출처 문서·페이지·OCR 원문·신뢰도
 - 개인정보를 제외한 구조화 결과의 Gemini 쉬운 설명
 - 계약 전에 해야 할 행동 추천
 
@@ -29,7 +31,7 @@ pnpm install
 pnpm dev:web
 ```
 
-http://localhost:3000 에서 확인할 수 있습니다. 프런트엔드는 실제 `POST /api/v1/analyses` 응답만 표시하며, OCR이 끝날 때까지 진행 화면을 유지합니다. API 오류는 목업 결과로 대체하지 않고 입력 화면에 표시합니다.
+http://localhost:3000 에서 확인할 수 있습니다. 프런트엔드는 PDF를 먼저 `POST /api/v1/document-bundles/extract`로 추출하고 사용자가 핵심 값을 확인·수정한 다음 `POST /api/v1/analyses/from-extractions`에서 공공데이터 대조와 위험 계산을 수행합니다. API 오류는 목업 결과로 대체하지 않습니다.
 
 ### API
 
@@ -77,12 +79,15 @@ apps\api\.venv\Scripts\python scripts\evaluate_registry.py --pdf output\pdf\rent
 | `POST /api/v1/documents/building-ledger/extract` | 건축물대장 추출 |
 | `GET /api/v1/addresses/search` | 도로명주소 검색 및 지번·법정동 코드 확인 |
 | `POST /api/v1/documents/lease-contract/extract` | 임대차계약서 추출 |
-| `POST /api/v1/document-bundles/extract` | 세 문서 추출 및 주소·소유자·금액 교차검증 |
+| `POST /api/v1/document-bundles/extract` | 분석 모드에 필요한 문서 추출 및 1차 교차검증 |
 | `POST /api/v1/analyses` | 사전점검(2종) 또는 계약서 교차검증(3종) 후 위험 신호 생성 |
+| `POST /api/v1/analyses/from-extractions` | 사용자가 확인·수정한 추출값으로 공공데이터 대조 및 위험 분석 |
 
 `POST /api/v1/analyses`의 `analysis_mode`는 `precheck` 또는 `contract_review`입니다. `precheck`에는 등기부등본과 건축물대장만 필요하며, `contract_review`에는 임대차계약서도 필요합니다. 주소정보에서 법정동 코드와 지번을 확인하고, 건축HUB 표제부 및 최근 12개월 연립·다세대 매매 실거래가를 조회합니다. 같은 지번 또는 같은 법정동의 유사 전용면적 거래만 비교하고, 중간가격과 함께 비교 거래의 25~75백분위 예상 범위를 반환합니다. 근거가 부족하면 `estimated_value`를 `null`, `market_data.status`를 `unavailable`로 반환하며 시세 대비 보증금·근저당 비율을 계산하지 않습니다.
 
 입력 주소와 건축HUB 공식 도로명주소의 대조 결과는 업로드 문서 OCR 주소 대조와 별도 항목으로 표시합니다. 위반건축물 여부는 건축HUB 응답에 관련 플래그가 있을 때 공식 값을 우선 사용하고, 현재 표제부 API처럼 해당 필드가 없으면 업로드한 건축물대장 원문 확인이 필요하다고 명시합니다.
+
+추출값 확인 화면에서 수정한 값은 자동 추출값을 덮어쓰되 수정 전·후 값을 `corrections`에 남깁니다. 결과의 위험 신호와 문서 검증 항목에는 `sources` 배열로 문서 종류, 페이지, 추출 원문, 추출 방식, 신뢰도와 사용자 수정 여부를 반환합니다. 사용자 수정은 원문 추출과 구분되어 표시됩니다.
 
 실제 샘플 확보와 익명화 방법은 `docs/sample-data-guide.md`를 참고합니다.
 

@@ -10,7 +10,7 @@ from .building_schemas import BuildingLedgerExtraction
 from .cross_check_schemas import DocumentBundleExtraction
 from .lease_schemas import LeaseContractExtraction
 from .registry_schemas import RegistryExtraction
-from .schemas import AddressSearchResponse, AnalysisResponse
+from .schemas import AddressSearchResponse, AnalysisFromExtractionsRequest, AnalysisResponse
 from .services.analysis_service import build_analysis
 from .services.building_parser import extract_building_ledger
 from .services.cross_checker import cross_check_documents
@@ -87,15 +87,24 @@ async def extract_document_bundle(
     monthly_rent: Annotated[int, Form(ge=0)],
     registry: Annotated[UploadFile, File(description="등기사항증명서 PDF")],
     building_ledger: Annotated[UploadFile, File(description="건축물대장 PDF")],
-    lease_contract: Annotated[UploadFile, File(description="주택임대차계약서 PDF")],
+    analysis_mode: Annotated[Literal["precheck", "contract_review"], Form()] = "contract_review",
+    lease_contract: Annotated[
+        UploadFile | None,
+        File(description="계약서 교차검증 모드에서 필요한 주택임대차계약서 PDF"),
+    ] = None,
 ) -> DocumentBundleExtraction:
-    uploads = (registry, building_ledger, lease_contract)
+    if analysis_mode == "contract_review" and lease_contract is None:
+        raise HTTPException(status_code=422, detail="계약서 교차검증 모드에는 임대차계약서가 필요합니다.")
+    uploads = [registry, building_ledger]
+    if analysis_mode == "contract_review" and lease_contract:
+        uploads.append(lease_contract)
     if any(upload.content_type not in {"application/pdf", "application/octet-stream"} for upload in uploads):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=415, detail="세 문서 모두 PDF 파일이어야 합니다.")
-    registry_result = extract_registry(await registry.read())
-    ledger_result = extract_building_ledger(await building_ledger.read())
-    contract_result = extract_lease_contract(await lease_contract.read())
+        raise HTTPException(status_code=415, detail="업로드 문서는 모두 PDF 파일이어야 합니다.")
+    registry_result = await run_in_threadpool(extract_registry, await registry.read())
+    ledger_result = await run_in_threadpool(extract_building_ledger, await building_ledger.read())
+    contract_result = None
+    if analysis_mode == "contract_review" and lease_contract:
+        contract_result = await run_in_threadpool(extract_lease_contract, await lease_contract.read())
     return cross_check_documents(
         registry_result,
         ledger_result,
@@ -144,6 +153,38 @@ async def create_analysis(
         lease_contract=contract_result,
         mode=analysis_mode,
         public_data=await fetch_public_data(address),
+    )
+    analysis.ai_explanation = await generate_gemini_explanation(
+        grade=analysis.grade,
+        signals=analysis.signals,
+        checks=analysis.checks,
+        market_data=analysis.market_data,
+    )
+    return analysis
+
+
+@app.post("/api/v1/analyses/from-extractions", response_model=AnalysisResponse)
+async def create_analysis_from_extractions(
+    payload: AnalysisFromExtractionsRequest,
+) -> AnalysisResponse:
+    lease_contract = (
+        payload.documents.lease_contract
+        if payload.mode == "contract_review"
+        else None
+    )
+    if payload.mode == "contract_review" and lease_contract is None:
+        raise HTTPException(status_code=422, detail="계약서 교차검증 모드에는 임대차계약서가 필요합니다.")
+
+    analysis = build_analysis(
+        address=payload.address,
+        deposit=payload.deposit,
+        monthly_rent=payload.monthly_rent,
+        registry=payload.documents.registry,
+        building_ledger=payload.documents.building_ledger,
+        lease_contract=lease_contract,
+        mode=payload.mode,
+        public_data=await fetch_public_data(payload.address),
+        corrections=payload.corrections,
     )
     analysis.ai_explanation = await generate_gemini_explanation(
         grade=analysis.grade,

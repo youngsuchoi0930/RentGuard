@@ -21,7 +21,7 @@ class ContractProperty(BaseModel):
 class ContractParty(BaseModel):
     role: Literal["landlord", "tenant", "agent"]
     name: str
-    evidence: SourceEvidence
+    evidence: SourceEvidence | None = None
 
 
 class ContractMoney(BaseModel):
@@ -44,6 +44,7 @@ class SpecialTerm(BaseModel):
 class LeaseContractExtraction(BaseModel):
     document: ContractMetadata
     property: ContractProperty
+    evidence: dict[str, SourceEvidence] = Field(default_factory=dict)
     parties: list[ContractParty]
     deposit: ContractMoney
     contract_payment: ContractMoney

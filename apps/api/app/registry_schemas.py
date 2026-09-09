@@ -60,7 +60,7 @@ class OwnershipEntry(BaseModel):
     share: str | None = None
     status: Literal["active", "cancelled", "unknown"] = "active"
     registered_at: str | None = None
-    evidence: SourceEvidence
+    evidence: SourceEvidence | None = None
 
 
 class EncumbranceEntry(BaseModel):
@@ -78,12 +78,13 @@ class EncumbranceEntry(BaseModel):
     debtor: str | None = None
     status: Literal["active", "cancelled", "unknown"] = "active"
     registered_at: str | None = None
-    evidence: SourceEvidence
+    evidence: SourceEvidence | None = None
 
 
 class RegistryExtraction(BaseModel):
     document: RegistryMetadata
     property: RegistryProperty
+    evidence: dict[str, SourceEvidence] = Field(default_factory=dict)
     ownership: list[OwnershipEntry]
     encumbrances: list[EncumbranceEntry]
     extraction_method: ExtractionMethod

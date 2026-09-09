@@ -161,6 +161,78 @@ def test_precheck_accepts_registry_and_building_ledger_without_contract(monkeypa
     assert all("계약서" not in check["label"] for check in result["documents"]["cross_checks"])
 
 
+def test_reviewed_extractions_apply_corrections_and_keep_page_evidence(monkeypatch):
+    from pathlib import Path
+
+    from app.schemas import AIExplanation
+
+    async def fake_explanation(**_kwargs):
+        return AIExplanation(
+            status="disabled",
+            provider="gemini",
+            model="gemini-3.5-flash-lite",
+            message="테스트에서는 생성하지 않습니다.",
+        )
+
+    async def fake_public_data(_address):
+        return None
+
+    monkeypatch.setattr("app.main.generate_gemini_explanation", fake_explanation)
+    monkeypatch.setattr("app.main.fetch_public_data", fake_public_data)
+
+    root = Path(__file__).resolve().parents[3]
+    fixtures = root / "output" / "pdf" / "rentguard-fixtures"
+    registry_path = fixtures / "registry_risky_digital.pdf"
+    ledger_path = fixtures / "building_ledger_risky.pdf"
+    with registry_path.open("rb") as registry, ledger_path.open("rb") as ledger:
+        extraction_response = client.post(
+            "/api/v1/document-bundles/extract",
+            data={
+                "analysis_mode": "precheck",
+                "address": "서울특별시 강서구 화곡로 123",
+                "deposit": "30000000",
+                "monthly_rent": "1300000",
+            },
+            files={
+                "registry": (registry_path.name, registry, "application/pdf"),
+                "building_ledger": (ledger_path.name, ledger, "application/pdf"),
+            },
+        )
+    assert extraction_response.status_code == 200
+    documents = extraction_response.json()
+    documents["registry"]["ownership"][0]["owner_name"] = "수정소유자"
+
+    response = client.post(
+        "/api/v1/analyses/from-extractions",
+        json={
+            "mode": "precheck",
+            "address": "서울특별시 강서구 화곡로 123",
+            "deposit": 30000000,
+            "monthly_rent": 1300000,
+            "documents": documents,
+            "corrections": [{
+                "field": "registry.ownership.0.owner_name",
+                "label": "등기 소유자",
+                "previous_value": "김민준",
+                "corrected_value": "수정소유자",
+            }],
+        },
+    )
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["facts"]["owner"] == "수정소유자"
+    assert result["corrections"][0]["field"] == "registry.ownership.0.owner_name"
+    mortgage_signal = next(signal for signal in result["signals"] if signal["id"] == "mortgage-present")
+    assert mortgage_signal["sources"][0]["page"] >= 1
+    assert mortgage_signal["sources"][0]["raw_text"]
+    owner_check = next(check for check in result["checks"] if check["label"] == "등기 소유자 확인")
+    assert owner_check["sources"][0]["corrected"] is True
+    assert owner_check["sources"][0]["corrected_value"] == "수정소유자"
+    address_check = next(check for check in result["checks"] if check["label"] == "입력 주소와 두 문서")
+    assert len(address_check["sources"]) >= 2
+
+
 def test_address_search_endpoint_returns_safe_public_fields(monkeypatch):
     from app.schemas import AddressSuggestion
 
