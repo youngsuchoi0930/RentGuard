@@ -1,0 +1,6 @@
+*.jsonl
+*.csv
+*.tmp
+*.manifest.json
+*-report.json
+!.gitignore

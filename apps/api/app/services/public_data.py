@@ -228,10 +228,10 @@ async def _get_building_data(
     params = _building_params(address, key)
     try:
         async with httpx.AsyncClient(timeout=settings.public_api_timeout_seconds) as client:
-            title_response, area_response = await asyncio.gather(
-                client.get(BUILDING_TITLE_URL, params=params),
-                client.get(BUILDING_AREA_URL, params=params),
-            )
+            # Avoid concurrent calls with the same key because the provider can
+            # throttle the title and area endpoints independently.
+            title_response = await client.get(BUILDING_TITLE_URL, params=params)
+            area_response = await client.get(BUILDING_AREA_URL, params=params)
             title_response.raise_for_status()
             area_response.raise_for_status()
             title_payload = title_response.json()

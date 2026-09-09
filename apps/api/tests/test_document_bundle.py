@@ -2,8 +2,10 @@ import json
 from pathlib import Path
 
 from app.services.building_parser import extract_building_ledger
-from app.services.cross_checker import cross_check_documents
+from app.services.building_parser import parse_building_ledger
+from app.services.cross_checker import _address_matches, cross_check_documents
 from app.services.lease_parser import extract_lease_contract
+from app.services.pdf_extractor import ExtractedDocument, ExtractedPage
 from app.services.registry_parser import extract_registry
 
 
@@ -39,6 +41,70 @@ def test_building_ledger_extracts_expected_fields():
     assert result.property.approval_date == expected["approval_date"]
     assert result.property.households == expected["households"]
     assert result.needs_review == []
+
+
+def test_collective_unit_ocr_extracts_identity_use_and_exclusive_area():
+    document = ExtractedDocument(
+        method="ocr",
+        pages=[
+            ExtractedPage(
+                number=1,
+                confidence=.93,
+                text="""
+                집합건축물대장(전유부, 갑)
+                명칭
+                호명칭
+                안심맨션
+                201호
+                대지위치
+                서울특별시 강서구 안전동
+                지번
+                870-31외 3필지
+                도로명주소 서울특별시 강서구 안심로35길26(안전동)
+                전유부분
+                구분
+                층별
+                구조
+                용도
+                면적(m²)
+                주
+                2층
+                철근콘크리트
+                연립주택
+                84.59
+                공용부분
+                """,
+            ),
+        ],
+    )
+
+    result = parse_building_ledger(document)
+
+    assert result.property.building_name == "안심맨션"
+    assert result.property.unit == "201호"
+    assert result.property.floor == 2
+    assert result.property.main_use == "연립주택"
+    assert result.property.structure == "철근콘크리트"
+    assert result.property.exclusive_area == 84.59
+
+
+def test_side_road_address_normalization_keeps_full_road_name_and_number():
+    assert _address_matches(
+        "서울특별시 강서구 안심로35길 26, 201호",
+        "서울특별시강서구 안심로35길26(안전동)",
+    ) is True
+    assert _address_matches(
+        "서울특별시 강서구 안심로35길 26",
+        "서울특별시 강서구 다른로29길 36",
+    ) is False
+
+
+def test_side_road_address_normalization_ignores_optional_internal_space():
+    assert _address_matches(
+        "서울특별시 강서구 안심로 35길 26, 201호",
+        "서울특별시 강서구 안심로35길 26",
+        "서울특별시강서구안심로35길26(안전동)",
+    ) is True
 
 
 def test_three_documents_cross_check_against_user_input():

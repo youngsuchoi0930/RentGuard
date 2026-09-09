@@ -53,7 +53,7 @@ type RegistryExtraction = {
 };
 
 type BuildingExtraction = {
-  property: { road_address: string | null; lot_address: string | null; building_name: string | null; main_use: string | null; structure: string | null; households: number | null; approval_date: string | null; is_illegal_building: boolean | null };
+  property: { road_address: string | null; lot_address: string | null; building_name: string | null; unit: string | null; floor: number | null; exclusive_area: number | null; main_use: string | null; structure: string | null; households: number | null; approval_date: string | null; is_illegal_building: boolean | null };
   evidence: Record<string, SourceEvidence>;
   confidence: number;
   needs_review: ReviewItem[];
@@ -119,6 +119,7 @@ type Analysis = {
     contract_owner: string | null;
     mortgage_amount: number;
     deposit: number;
+    monthly_rent: number;
     estimated_value: number | null;
     estimated_value_low: number | null;
     estimated_value_high: number | null;
@@ -150,6 +151,17 @@ type Analysis = {
     source: string | null;
     method: string | null;
     as_of: string | null;
+  };
+  deposit_market: {
+    status: "available" | "unavailable" | "out_of_scope";
+    message: string;
+    expected_deposit: number | null;
+    upper_deposit: number | null;
+    upper_ratio: number | null;
+    exceeds_upper: boolean | null;
+    source: string;
+    model_version: string | null;
+    training_period_end: string | null;
   };
   ai_explanation: {
     status: "generated" | "unavailable" | "disabled";
@@ -258,12 +270,14 @@ function ReviewField({
   value,
   evidence,
   moneyField = false,
+  numericField = false,
   onChange,
 }: {
   label: string;
   value: string | number | null;
   evidence?: SourceEvidence | null;
   moneyField?: boolean;
+  numericField?: boolean;
   onChange: (value: string | number | null) => void;
 }) {
   const displayed = moneyField && typeof value === "number" ? value.toLocaleString("ko-KR") : String(value ?? "");
@@ -272,12 +286,15 @@ function ReviewField({
       <span>{label}{evidence && <small>{evidence.page}페이지 · {Math.round(evidence.confidence * 100)}%</small>}</span>
       <input
         value={displayed}
-        inputMode={moneyField ? "numeric" : undefined}
+        inputMode={moneyField ? "numeric" : numericField ? "decimal" : undefined}
         placeholder="추출하지 못함"
         onChange={(event) => {
           if (moneyField) {
             const digits = event.target.value.replace(/[^0-9]/g, "");
             onChange(digits ? Number(digits) : null);
+          } else if (numericField) {
+            const number = Number(event.target.value.replace(/[^0-9.]/g, ""));
+            onChange(Number.isFinite(number) && event.target.value.trim() ? number : null);
           } else {
             onChange(event.target.value || null);
           }
@@ -632,6 +649,8 @@ export default function HomePage() {
                 <article className="review-card">
                   <div className="review-card-head"><div className="doc-icon"><Building2 size={20} /></div><div><strong>건축물대장</strong><span>주소·용도·위반 여부</span></div><small>신뢰도 {Math.round(documents.building_ledger.confidence * 100)}%</small></div>
                   <ReviewField label="도로명주소" value={documents.building_ledger.property.road_address} evidence={documents.building_ledger.evidence.road_address} onChange={(value) => updateExtractedValue("building_ledger.property.road_address", "건축물대장 도로명주소", value)} />
+                  <ReviewField label="호수" value={documents.building_ledger.property.unit} evidence={documents.building_ledger.evidence.unit} onChange={(value) => updateExtractedValue("building_ledger.property.unit", "건축물대장 호수", value)} />
+                  <ReviewField label="전용면적(㎡)" value={documents.building_ledger.property.exclusive_area} evidence={documents.building_ledger.evidence.exclusive_area} numericField onChange={(value) => updateExtractedValue("building_ledger.property.exclusive_area", "전용면적", value)} />
                   <ReviewField label="주용도" value={documents.building_ledger.property.main_use} evidence={documents.building_ledger.evidence.main_use} onChange={(value) => updateExtractedValue("building_ledger.property.main_use", "건축물 주용도", value)} />
                   <ReviewField label="사용승인일" value={documents.building_ledger.property.approval_date} evidence={documents.building_ledger.evidence.approval_date} onChange={(value) => updateExtractedValue("building_ledger.property.approval_date", "사용승인일", value)} />
                   <label className="review-field">
@@ -717,21 +736,29 @@ export default function HomePage() {
                     </div>
                   </article>
 
-                  {analysis.ai_explanation.status === "generated" && analysis.ai_explanation.overview && (
-                    <article className="ai-explanation-card">
+                  <article className={`ai-explanation-card ${analysis.ai_explanation.status !== "generated" ? "is-unavailable" : ""}`}>
                       <div className="ai-explanation-head">
                         <div><Sparkles size={17} /><span>Gemini 쉬운 설명</span></div>
-                        <small>개인정보 제외 후 생성</small>
+                        <small>{analysis.ai_explanation.status === "generated" ? "개인정보 제외 후 생성" : "규칙 기반 결과 유지"}</small>
                       </div>
-                      <h2>분석 결과를 쉽게 풀어봤어요</h2>
-                      <p>{analysis.ai_explanation.overview}</p>
-                      <div className="ai-explanation-points">
-                        {analysis.ai_explanation.caution && <div><strong>왜 확인해야 하나요?</strong><span>{analysis.ai_explanation.caution}</span></div>}
-                        {analysis.ai_explanation.limitation && <div><strong>어디까지 참고해야 하나요?</strong><span>{analysis.ai_explanation.limitation}</span></div>}
-                      </div>
-                      {analysis.ai_explanation.privacy_note && <small className="ai-privacy"><LockKeyhole size={13} /> {analysis.ai_explanation.privacy_note}</small>}
-                    </article>
-                  )}
+                      {analysis.ai_explanation.status === "generated" && analysis.ai_explanation.overview ? (
+                        <>
+                          <h2>분석 결과를 쉽게 풀어봤어요</h2>
+                          <p>{analysis.ai_explanation.overview}</p>
+                          <div className="ai-explanation-points">
+                            {analysis.ai_explanation.caution && <div><strong>왜 확인해야 하나요?</strong><span>{analysis.ai_explanation.caution}</span></div>}
+                            {analysis.ai_explanation.limitation && <div><strong>어디까지 참고해야 하나요?</strong><span>{analysis.ai_explanation.limitation}</span></div>}
+                          </div>
+                          {analysis.ai_explanation.privacy_note && <small className="ai-privacy"><LockKeyhole size={13} /> {analysis.ai_explanation.privacy_note}</small>}
+                        </>
+                      ) : (
+                        <>
+                          <h2>Gemini 설명을 표시하지 못했어요</h2>
+                          <p>{analysis.ai_explanation.message ?? "규칙 기반 분석 결과는 정상적으로 사용할 수 있습니다."}</p>
+                          <small className="ai-privacy"><Info size={13} /> 사용 모델: {analysis.ai_explanation.model}</small>
+                        </>
+                      )}
+                  </article>
 
                   <article className="metric-card">
                     <div className="section-heading"><div><span>핵심 수치</span><h2>돈의 흐름을 먼저 확인했어요</h2></div><button><Info size={16} /> 산정 기준</button></div>
@@ -748,6 +775,25 @@ export default function HomePage() {
                       </div>
                     ) : (
                       <div className="market-pending"><Info size={17} /><div><strong>시세 비율은 아직 계산하지 않았어요</strong><span>{analysis.market_data.message}</span></div></div>
+                    )}
+                    {analysis.deposit_market.status === "available" ? (
+                      <div className={`deposit-benchmark ${analysis.deposit_market.exceeds_upper ? "warning" : "normal"}`}>
+                        <div className="deposit-benchmark-head">
+                          <div>{analysis.deposit_market.exceeds_upper ? <AlertTriangle size={17} /> : <CheckCircle2 size={17} />}<strong>유사 계약 보증금 범위</strong></div>
+                          <span>{analysis.deposit_market.exceeds_upper ? "상위 범위 초과" : "예측 범위 안"}</span>
+                        </div>
+                        <div className="deposit-benchmark-values">
+                          <div><span>입력 보증금</span><strong>{money(analysis.facts.deposit)}</strong></div>
+                          <div><span>예상 중앙값</span><strong>{money(analysis.deposit_market.expected_deposit)}</strong></div>
+                          <div><span>상위 95% 경계</span><strong>{money(analysis.deposit_market.upper_deposit)}</strong></div>
+                        </div>
+                        <p>{analysis.deposit_market.message} <small>서울 연립·다세대 전월세 신고자료 · 학습기준 {analysis.deposit_market.training_period_end ?? "확인 불가"}</small></p>
+                      </div>
+                    ) : (
+                      <div className="deposit-benchmark unavailable">
+                        <div className="deposit-benchmark-head"><div><Info size={17} /><strong>유사 계약 보증금 범위</strong></div><span>판단 보류</span></div>
+                        <p>{analysis.deposit_market.message}</p>
+                      </div>
                     )}
                   </article>
 
@@ -792,7 +838,7 @@ export default function HomePage() {
 
                   <article className="source-card">
                     <ShieldCheck size={22} />
-                    <div><strong>{hasMarketData ? "공식 데이터로 확인했어요" : "업로드 문서와 공식 주소를 확인했어요"}</strong><p>{hasMarketData ? `등기부등본 · 건축HUB · 국토교통부 실거래가${analysis.mode === "contract_review" ? " · 임대차계약서" : ""}` : `등기부등본 · 건축물대장${analysis.mode === "contract_review" ? " · 임대차계약서" : ""} · ${analysis.market_data.status === "unavailable" ? "비교 거래 부족" : "실거래가 미연동"}`}</p></div>
+                    <div><strong>{hasMarketData ? "공식 데이터로 확인했어요" : "업로드 문서와 공식 주소를 확인했어요"}</strong><p>{hasMarketData ? `등기부등본 · 건축HUB · 국토교통부 실거래가${analysis.deposit_market.status === "available" ? " · 전월세 ML 기준" : ""}${analysis.mode === "contract_review" ? " · 임대차계약서" : ""}` : `등기부등본 · 건축물대장${analysis.mode === "contract_review" ? " · 임대차계약서" : ""} · ${analysis.market_data.status === "unavailable" ? "비교 거래 부족" : "실거래가 미연동"}`}</p></div>
                   </article>
                 </aside>
               </div>

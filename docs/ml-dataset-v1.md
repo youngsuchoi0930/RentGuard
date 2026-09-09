@@ -1,0 +1,66 @@
+# RentGuard ML 데이터셋 v1
+
+## 목표
+
+ML은 법적 안전 여부를 판정하지 않는다. 기존 규칙 엔진과 별도로, 같은 지역·주택유형의 계약 조건과 비교해 **통계적으로 이례적인 계약**을 찾는 보조 신호를 만든다.
+
+## 데이터 흐름
+
+```text
+분석 결과 → 개인정보 제거 → ML 특성 변환 → 품질 검사 → 사람 라벨 → 학습/검증/테스트 분리
+```
+
+`POST /api/v1/ml/dataset-rows/preview`는 분석 결과를 받아 비식별 학습 행을 반환한다. 이 API는 원본 분석이나 학습 행을 저장하지 않는다.
+
+시장 기준 데이터는 `scripts/collect_rent_market.py`로 국토교통부 연립·다세대 전월세 API에서 수집한다. 출력에는 시군구·법정동, 면적, 건축연식, 보증금·월세와 계약 구분만 남기며 지번과 건물명은 저장하지 않는다.
+
+```powershell
+apps\api\.venv\Scripts\python scripts\collect_rent_market.py --months 24
+apps\api\.venv\Scripts\python scripts\inspect_rent_dataset.py data\ml\seoul-rh-rent-market-v1.jsonl
+apps\api\.venv\Scripts\python scripts\generate_synthetic_rent_data.py --count 20000
+apps\api\.venv\Scripts\python -m pip install -r apps\api\requirements-ml.txt
+apps\api\.venv\Scripts\python scripts\train_market_anomaly.py
+```
+
+합성 데이터는 실제 행의 분포를 출발점으로 보증금 급등, 월세 급등, 갱신 보증금 급등 시나리오를 만든다. `source_kind=synthetic`과 `label_source=synthetic`이 항상 붙으며 실제 성능 평가 세트에는 포함하지 않는다.
+
+첫 모델은 최근 3개월을 시간순 홀드아웃으로 남기고 이전 기간의 실제 거래 최대 10만 건으로 전세와 보증부 월세 Isolation Forest를 각각 학습한다. 같은 동·10㎡ 면적 구간·전세/월세 유형을 우선 비교하고 표본이 부족하면 구·면적, 구, 서울 전체 유형 순으로 기준을 확장한다. 공공 홀드아웃의 이상치 비율과 합성 조건 탐지율을 기록하지만, 둘 다 실제 보증사고 정확도로 해석하지 않는다.
+
+학습 행에는 정확한 주소, 소유자·임대인 이름, OCR 원문, 분석 ID, 규칙 점수·등급·위험 신호를 넣지 않는다. 규칙 엔진 결과를 정답처럼 학습하는 누수를 막기 위해서다.
+
+## 주요 특성
+
+| 묶음 | 특성 |
+|---|---|
+| 계약 금액 | 보증금, 월세, 근저당액(백만원 단위) |
+| 시세 비율 | 보증금/시세, 근저당/시세, 총부담/시세, 연 월세/시세 |
+| 부동산 | 주택 유형, 건물 연식, 위반건축물 상태 |
+| 시장 | 비교 거래 수, 가격 변동성, 예상가 범위 폭 |
+| 데이터 품질 | 문서 신뢰도, 수정 필드 수, 미확인 항목 수 |
+
+금액은 모델 입력 단계에서 다시 표준화한다. 예상 주택가액이 없거나 비교 거래가 5건 미만인 행은 생성하되 `eligible_for_training=false`로 표시한다.
+
+## 라벨 기준
+
+| 라벨 | 의미 | 허용 근거 |
+|---|---|---|
+| `unlabeled` | 아직 사람이 판단하지 않은 수집 데이터 | `none` |
+| `normal` | 원문과 공식자료를 검토한 결과 비교군에 포함할 정상 사례 | `reviewer`, `confirmed_outcome` |
+| `anomalous` | 계약조건이 이례적이지만 피해가 확인된 것은 아닌 사례 | `reviewer` |
+| `confirmed_risk` | 실제 사고·공식 확인 등으로 중대한 문제가 확인된 사례 | `confirmed_outcome` |
+
+합성 데이터는 `source_kind=synthetic`, `label_source=synthetic`으로 구분한다. 합성 라벨은 실제 성능 보고에 사용하지 않고 파이프라인 테스트와 희귀 조건 보강에만 사용한다.
+
+## 데이터 분할 원칙
+
+1. 같은 부동산·계약의 여러 분석은 동일한 비식별 `case_group_id`를 사용한다.
+2. 동일 `case_group_id`는 학습/검증/테스트 중 하나에만 포함한다.
+3. 실제 성능은 라벨이 있는 실제 익명화 사례의 테스트 세트로만 보고한다.
+4. 원본 문서는 저장소 밖에 두고 학습 행만 별도 접근 통제 저장소에 보관한다.
+
+## 다음 단계
+
+1. 실제 익명화 사례를 최소 수십 건 수집해 스키마 누락을 점검한다.
+2. 라벨을 붙이지 않은 정상 중심 데이터로 Isolation Forest 기준 모델을 만든다.
+3. 사람 라벨이 있는 홀드아웃 세트에서 오탐률과 위험 사례 재현율을 측정한다.
+4. 규칙 점수와 섞지 않고 결과 화면에 `ML 이상치 신호`로 별도 표시한다.

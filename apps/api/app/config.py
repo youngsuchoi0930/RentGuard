@@ -25,9 +25,9 @@ class Settings(BaseSettings):
         validation_alias="GEMINI_MODEL",
     )
     gemini_timeout_seconds: float = Field(
-        default=20.0,
+        default=45.0,
         gt=0,
-        le=60,
+        le=90,
         validation_alias="GEMINI_TIMEOUT_SECONDS",
     )
     juso_confirm_key: SecretStr | None = Field(
@@ -49,6 +49,10 @@ class Settings(BaseSettings):
         ge=1,
         le=24,
         validation_alias="PUBLIC_MARKET_MONTHS",
+    )
+    deposit_model_path: Path = Field(
+        default=PROJECT_ROOT / "models" / "deposit-quantile-v1.joblib",
+        validation_alias="DEPOSIT_MODEL_PATH",
     )
 
 

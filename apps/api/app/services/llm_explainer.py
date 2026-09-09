@@ -87,12 +87,17 @@ def _is_safe_output(content: _GeneratedExplanation) -> bool:
     return not any(phrase in combined for phrase in _FORBIDDEN_CERTAINTY)
 
 
-def _unavailable(*, model: str, status: str = "unavailable") -> AIExplanation:
+def _unavailable(
+    *,
+    model: str,
+    status: str = "unavailable",
+    message: str = "AI 쉬운 설명을 불러오지 못해 규칙 기반 결과만 표시합니다.",
+) -> AIExplanation:
     return AIExplanation(
         status=status,  # type: ignore[arg-type]
         provider="gemini",
         model=model,
-        message="AI 쉬운 설명을 불러오지 못해 규칙 기반 결과만 표시합니다.",
+        message=message,
     )
 
 
@@ -168,8 +173,26 @@ async def generate_gemini_explanation(
             limitation=generated.limitation,
             privacy_note="원본 문서·주소·이름·금액을 Gemini에 전송하지 않았습니다.",
         )
-    except (httpx.HTTPError, KeyError, TypeError, ValueError, ValidationError):
-        return _unavailable(model=resolved.gemini_model)
+    except httpx.TimeoutException:
+        return _unavailable(
+            model=resolved.gemini_model,
+            message="Gemini 응답 시간이 초과되어 규칙 기반 결과만 표시합니다. 잠시 후 다시 분석해주세요.",
+        )
+    except httpx.HTTPStatusError as exc:
+        return _unavailable(
+            model=resolved.gemini_model,
+            message=f"Gemini API가 오류({exc.response.status_code})를 반환해 규칙 기반 결과만 표시합니다.",
+        )
+    except httpx.HTTPError:
+        return _unavailable(
+            model=resolved.gemini_model,
+            message="Gemini API에 연결하지 못해 규칙 기반 결과만 표시합니다.",
+        )
+    except (KeyError, TypeError, ValueError, ValidationError):
+        return _unavailable(
+            model=resolved.gemini_model,
+            message="Gemini 응답 형식을 확인하지 못해 규칙 기반 결과만 표시합니다.",
+        )
     finally:
         if owns_client:
             await request_client.aclose()

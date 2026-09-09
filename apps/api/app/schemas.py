@@ -31,6 +31,7 @@ class ExtractedFacts(BaseModel):
     contract_owner: str | None = None
     mortgage_amount: int = Field(ge=0)
     deposit: int = Field(ge=0)
+    monthly_rent: int = Field(default=0, ge=0)
     estimated_value: int | None = Field(default=None, gt=0)
     estimated_value_low: int | None = Field(default=None, gt=0)
     estimated_value_high: int | None = Field(default=None, gt=0)
@@ -64,6 +65,18 @@ class MarketDataState(BaseModel):
     source: str | None = None
     method: str | None = None
     as_of: str | None = None
+
+
+class DepositMarketState(BaseModel):
+    status: Literal["available", "unavailable", "out_of_scope"]
+    message: str
+    expected_deposit: int | None = Field(default=None, ge=0)
+    upper_deposit: int | None = Field(default=None, ge=0)
+    upper_ratio: float | None = Field(default=None, ge=0)
+    exceeds_upper: bool | None = None
+    source: str = "국토교통부 연립·다세대 전월세 신고자료"
+    model_version: str | None = None
+    training_period_end: str | None = None
 
 
 class AddressSuggestion(BaseModel):
@@ -101,6 +114,7 @@ class AnalysisResponse(BaseModel):
     checks: list[CheckItem]
     actions: list[str]
     market_data: MarketDataState
+    deposit_market: DepositMarketState
     ai_explanation: AIExplanation
     documents: DocumentBundleExtraction
     corrections: list[UserCorrection] = Field(default_factory=list)

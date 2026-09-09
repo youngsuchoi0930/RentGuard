@@ -82,6 +82,7 @@ apps\api\.venv\Scripts\python scripts\evaluate_registry.py --pdf output\pdf\rent
 | `POST /api/v1/document-bundles/extract` | 분석 모드에 필요한 문서 추출 및 1차 교차검증 |
 | `POST /api/v1/analyses` | 사전점검(2종) 또는 계약서 교차검증(3종) 후 위험 신호 생성 |
 | `POST /api/v1/analyses/from-extractions` | 사용자가 확인·수정한 추출값으로 공공데이터 대조 및 위험 분석 |
+| `POST /api/v1/ml/dataset-rows/preview` | 분석 결과를 저장 없이 비식별 ML 학습 행으로 변환 |
 
 `POST /api/v1/analyses`의 `analysis_mode`는 `precheck` 또는 `contract_review`입니다. `precheck`에는 등기부등본과 건축물대장만 필요하며, `contract_review`에는 임대차계약서도 필요합니다. 주소정보에서 법정동 코드와 지번을 확인하고, 건축HUB 표제부 및 최근 12개월 연립·다세대 매매 실거래가를 조회합니다. 같은 지번 또는 같은 법정동의 유사 전용면적 거래만 비교하고, 중간가격과 함께 비교 거래의 25~75백분위 예상 범위를 반환합니다. 근거가 부족하면 `estimated_value`를 `null`, `market_data.status`를 `unavailable`로 반환하며 시세 대비 보증금·근저당 비율을 계산하지 않습니다.
 
@@ -90,6 +91,22 @@ apps\api\.venv\Scripts\python scripts\evaluate_registry.py --pdf output\pdf\rent
 추출값 확인 화면에서 수정한 값은 자동 추출값을 덮어쓰되 수정 전·후 값을 `corrections`에 남깁니다. 결과의 위험 신호와 문서 검증 항목에는 `sources` 배열로 문서 종류, 페이지, 추출 원문, 추출 방식, 신뢰도와 사용자 수정 여부를 반환합니다. 사용자 수정은 원문 추출과 구분되어 표시됩니다.
 
 실제 샘플 확보와 익명화 방법은 `docs/sample-data-guide.md`를 참고합니다.
+ML 특성·라벨·데이터 분할 기준은 `docs/ml-dataset-v1.md`에 정리되어 있습니다. 생성되는 학습 행에는 주소·이름·OCR 원문·규칙 점수와 등급이 포함되지 않습니다.
+
+서울 연립·다세대 전월세 시장 기준 데이터는 아래 명령으로 수집합니다. 국토교통부 전월세 API 활용신청과 `DATA_GO_KR_SERVICE_KEY`가 필요하며, 지번·건물명은 출력 파일에 저장하지 않습니다.
+
+```bat
+apps\api\.venv\Scripts\python scripts\collect_rent_market.py --months 24
+apps\api\.venv\Scripts\python scripts\inspect_rent_dataset.py data\ml\seoul-rh-rent-market-v1.jsonl
+apps\api\.venv\Scripts\python scripts\generate_synthetic_rent_data.py --count 20000
+apps\api\.venv\Scripts\python -m pip install -r apps\api\requirements-ml.txt
+apps\api\.venv\Scripts\python scripts\train_market_anomaly.py
+apps\api\.venv\Scripts\python scripts\train_deposit_quantile.py
+```
+
+`train_deposit_quantile.py`는 현재 보증금을 입력 특성에서 제외하고 면적·층·연식·계약 시점·월세와 학습 구간의 유사 거래 통계로 보증금 중앙값(p50)과 상위 경계(p95)를 예측합니다. 최근 3개월은 학습에서 제외해 시간 순서대로 검증하며, p95를 넘는 보증금은 규칙 기반 위험 점수와 별도의 시장 이상 조건으로만 사용합니다.
+
+학습 결과 `models/deposit-quantile-v1.joblib`이 있으면 분석 API가 자동으로 모델을 불러옵니다. 서울 주소와 건축HUB 전용면적을 확인한 연립·다세대 계약에만 적용하며, 결과의 `deposit_market`에 예상 중앙값, 상위 95% 경계와 초과 여부를 반환합니다. 모델 파일·전용면적이 없거나 학습 범위 밖이면 기존 규칙 분석은 유지하고 `unavailable` 또는 `out_of_scope`로 판단을 보류합니다. 다른 위치의 모델을 사용할 때만 `.env`의 `DEPOSIT_MODEL_PATH`에 신뢰할 수 있는 로컬 모델의 절대경로를 설정합니다.
 
 ## 구조
 

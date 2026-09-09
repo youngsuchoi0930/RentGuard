@@ -103,3 +103,19 @@ def test_gemini_explainer_rejects_new_numbers():
     result = asyncio.run(run())
     assert result.status == "unavailable"
     assert result.overview is None
+
+
+def test_gemini_explainer_reports_timeout_reason():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("timed out", request=request)
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await generate_gemini_explanation(
+                **_inputs(), settings=_settings(), client=client
+            )
+
+    result = asyncio.run(run())
+    assert result.status == "unavailable"
+    assert result.message is not None
+    assert "시간이 초과" in result.message

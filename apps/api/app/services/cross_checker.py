@@ -6,6 +6,7 @@ from ..building_schemas import BuildingLedgerExtraction
 from ..cross_check_schemas import CrossCheckItem, DocumentBundleExtraction
 from ..lease_schemas import LeaseContractExtraction
 from ..registry_schemas import RegistryExtraction
+from .document_parser_utils import administrative_prefix, road_fragment
 
 
 def _normalized(value: str | None) -> str | None:
@@ -20,8 +21,11 @@ def _address_key(value: str | None) -> str | None:
     # Registry OCR can retain a document-type prefix such as "[집합건물]".
     # It is not part of the property address and must not cause a mismatch.
     without_heading = re.sub(r"^\s*\[[^\]]+\]\s*", "", value)
-    match = re.search(r"(.+?(?:대로|로|길)\s*\d+(?:-\d+)?)", without_heading)
-    return _normalized(match.group(1) if match else without_heading)
+    road = road_fragment(without_heading)
+    if road:
+        prefix = administrative_prefix(without_heading)
+        return _normalized(f"{prefix or ''}{road}")
+    return _normalized(without_heading)
 
 
 def _matches(left: str | None, right: str | None) -> bool | None:

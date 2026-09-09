@@ -9,6 +9,7 @@ from starlette.concurrency import run_in_threadpool
 from .building_schemas import BuildingLedgerExtraction
 from .cross_check_schemas import DocumentBundleExtraction
 from .lease_schemas import LeaseContractExtraction
+from .ml_schemas import MLDatasetRow, MLDatasetRowRequest
 from .registry_schemas import RegistryExtraction
 from .schemas import AddressSearchResponse, AnalysisFromExtractionsRequest, AnalysisResponse
 from .services.analysis_service import build_analysis
@@ -16,6 +17,7 @@ from .services.building_parser import extract_building_ledger
 from .services.cross_checker import cross_check_documents
 from .services.lease_parser import extract_lease_contract
 from .services.llm_explainer import generate_gemini_explanation
+from .services.ml_dataset import build_ml_dataset_row
 from .services.public_data import PublicAPIError, fetch_public_data, search_addresses
 from .services.registry_parser import extract_registry
 
@@ -38,6 +40,12 @@ app.add_middleware(
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "time": datetime.now(timezone.utc).isoformat()}
+
+
+@app.post("/api/v1/ml/dataset-rows/preview", response_model=MLDatasetRow)
+def preview_ml_dataset_row(payload: MLDatasetRowRequest) -> MLDatasetRow:
+    """Return a non-PII ML row without saving it or the source analysis."""
+    return build_ml_dataset_row(payload)
 
 
 @app.get("/api/v1/addresses/search", response_model=AddressSearchResponse)

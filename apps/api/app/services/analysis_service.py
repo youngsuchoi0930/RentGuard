@@ -14,9 +14,11 @@ from ..schemas import (
     EvidenceReference,
     ExtractedFacts,
     MarketDataState,
+    RiskSignal,
     UserCorrection,
 )
 from .cross_checker import _address_matches, cross_check_documents
+from .deposit_predictor import predict_deposit_market
 from .public_data import PublicDataResult
 
 
@@ -243,6 +245,22 @@ def _comparable_text(value: str | None) -> str:
     return "".join(character for character in (value or "") if character.isalnum()).lower()
 
 
+_COMMUNAL_HOUSING_USES = ("공동주택", "아파트", "연립주택", "다세대주택", "기숙사")
+
+
+def _building_use_matches(document_value: str | None, official_value: str | None) -> bool:
+    document_use = _comparable_text(document_value)
+    official_use = _comparable_text(official_value)
+    if not document_use or not official_use:
+        return True
+    if document_use in official_use or official_use in document_use:
+        return True
+    return (
+        any(value in document_use for value in _COMMUNAL_HOUSING_USES)
+        and any(value in official_use for value in _COMMUNAL_HOUSING_USES)
+    )
+
+
 def build_analysis(
     *,
     address: str,
@@ -292,6 +310,7 @@ def build_analysis(
         contract_owner=landlord,
         mortgage_amount=mortgage_amount,
         deposit=deposit,
+        monthly_rent=monthly_rent,
         estimated_value=market.estimated_value if market else None,
         estimated_value_low=market.estimated_value_low if market else None,
         estimated_value_high=market.estimated_value_high if market else None,
@@ -324,13 +343,9 @@ def build_analysis(
             )
             if value
         )
-        document_use = _comparable_text(building_ledger.property.main_use)
-        official_use = _comparable_text(official_building.main_use)
-        use_matches = (
-            not document_use
-            or not official_use
-            or document_use in official_use
-            or official_use in document_use
+        use_matches = _building_use_matches(
+            building_ledger.property.main_use,
+            official_building.main_use,
         )
         document_date = _comparable_text(building_ledger.property.approval_date)
         official_date = _comparable_text(official_building.approval_date)
@@ -342,7 +357,20 @@ def build_analysis(
             if document_illegal is not None and official_illegal is not None
             else True
         )
-        metadata_mismatch = not use_matches or not date_matches
+        metadata_differences = []
+        if not use_matches:
+            metadata_differences.append(
+                "주용도: "
+                f"문서 {building_ledger.property.main_use or '미확인'} / "
+                f"공식 {official_building.main_use or '미확인'}"
+            )
+        if not date_matches:
+            metadata_differences.append(
+                "사용승인일: "
+                f"문서 {building_ledger.property.approval_date or '미확인'} / "
+                f"공식 {official_building.approval_date or '미확인'}"
+            )
+        metadata_mismatch = bool(metadata_differences)
         has_official_mismatch = (
             metadata_mismatch
             or address_matches is False
@@ -370,7 +398,7 @@ def build_analysis(
                 label="공식 건축물대장",
                 status="warning" if metadata_mismatch else "verified",
                 detail=(
-                    "업로드 문서의 주용도 또는 사용승인일이 건축HUB와 다릅니다"
+                    " · ".join(metadata_differences)
                     if metadata_mismatch
                     else official_detail or "건축HUB 표제부와 주소를 확인했습니다"
                 ),
@@ -387,6 +415,14 @@ def build_analysis(
                 "건축HUB 공식 표제부에 위반건축물로 표시되어 있습니다"
                 if official_illegal
                 else "건축HUB 공식 표제부에서 위반건축물 표기가 확인되지 않았습니다"
+            )
+        elif illegal_check and any(
+            correction.field == "building_ledger.property.is_illegal_building"
+            for correction in applied_corrections
+        ):
+            illegal_check.status = "needs_review"
+            illegal_check.detail = (
+                "사용자가 위반건축물 아님으로 입력했지만 건축HUB API에서 확인되지 않아 원문 확인이 필요합니다"
             )
         elif illegal_check and illegal_check.status == "needs_review":
             illegal_check.detail = (
@@ -423,6 +459,41 @@ def build_analysis(
             message="공공 실거래가 연동 전이라 예상 주택가액과 시세 비율을 계산하지 않았습니다.",
         )
 
+    deposit_market = predict_deposit_market(
+        public_data=public_data,
+        deposit=deposit,
+        monthly_rent=monthly_rent,
+        exclusive_area_m2=building_ledger.property.exclusive_area,
+    )
+    if deposit_market.status == "available":
+        checks.append(
+            CheckItem(
+                label="보증금 시장 범위",
+                status="warning" if deposit_market.exceeds_upper else "verified",
+                detail=deposit_market.message,
+            )
+        )
+        if deposit_market.exceeds_upper:
+            status = "needs_review"
+            risk.signals.append(
+                RiskSignal(
+                    id="deposit-market-upper",
+                    severity="warning",
+                    title="보증금이 유사 계약의 상위 범위를 넘었어요",
+                    description=(
+                        "서울 연립·다세대 전월세 신고자료로 학습한 모델의 상위 95% "
+                        "예측값보다 입력 보증금이 높습니다. 시장 이상 신호일 뿐 사고를 "
+                        "확정하는 판단은 아니므로 시세와 선순위 권리를 함께 확인하세요."
+                    ),
+                    evidence=(
+                        f"입력 {deposit:,}원 · 예측 상위 경계 "
+                        f"{deposit_market.upper_deposit or 0:,}원"
+                    ),
+                    points=0,
+                )
+            )
+            risk.actions.insert(0, "보증금이 유사 계약 범위보다 높은 이유를 임대인에게 확인하세요.")
+
     return AnalysisResponse(
         analysis_id=str(uuid4()),
         mode=mode,
@@ -436,6 +507,7 @@ def build_analysis(
         checks=checks,
         actions=risk.actions,
         market_data=market_state,
+        deposit_market=deposit_market,
         ai_explanation=AIExplanation(
             status="disabled",
             provider="gemini",

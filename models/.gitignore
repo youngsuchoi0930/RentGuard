@@ -1,0 +1,5 @@
+*.joblib
+*.pkl
+*.onnx
+*.tmp
+!.gitignore

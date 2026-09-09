@@ -15,6 +15,9 @@ class BuildingProperty(BaseModel):
     lot_address: str | None = None
     road_address: str | None = None
     building_name: str | None = None
+    unit: str | None = None
+    floor: int | None = None
+    exclusive_area: float | None = Field(default=None, gt=0)
     main_use: str | None = None
     structure: str | None = None
     households: int | None = Field(default=None, ge=0)

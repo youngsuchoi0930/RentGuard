@@ -13,6 +13,7 @@ from ..registry_schemas import (
     SourceEvidence,
 )
 from .pdf_extractor import ExtractedDocument, ExtractedPage, extract_pdf
+from .document_parser_utils import administrative_prefix, road_fragment
 
 
 SPACE_RE = re.compile(r"[ \t]+")
@@ -75,6 +76,50 @@ def _address_candidates(text: str) -> tuple[str | None, str | None]:
     return road, lot
 
 
+def _title_addresses(document: ExtractedDocument) -> tuple[str | None, str | None]:
+    """Extract only the subject property's addresses from the registry title page.
+
+    Addresses in registry A/B sections belong to owners, debtors, or right holders
+    and must never be used as the property address.
+    """
+    if not document.pages:
+        return None, None
+    title_text = _clean(document.pages[0].text)
+    lines = [line.strip() for line in title_text.splitlines() if line.strip()]
+    lot = next(
+        (
+            line
+            for line in lines
+            if re.match(r"^\s*\[(?:집합건물|토지|건물)\]", line)
+            and re.search(r"(?:동|리|가)\s*\d+(?:-\d+)?", line)
+        ),
+        None,
+    )
+    if lot is None:
+        _, lot = _address_candidates(title_text)
+
+    prefix = administrative_prefix(lot or title_text)
+    road = None
+    for index, line in enumerate(lines):
+        if "도로명주소" not in _compact(line):
+            continue
+        # Government PDFs often split the label, road name and building number
+        # into separate text-layer rows. A small title-page-only window joins them.
+        window = " ".join(lines[index:index + 4])
+        fragment = road_fragment(window)
+        if fragment:
+            direct_prefix = administrative_prefix(window) or prefix
+            road = f"{direct_prefix} {fragment}".strip() if direct_prefix else fragment
+            unit = re.search(r",\s*(\d{1,5})\s*호", window)
+            if unit:
+                road = f"{road}, {unit.group(1)}호"
+            break
+    if road is None:
+        inferred_road, _ = _address_candidates(title_text)
+        road = inferred_road
+    return road, lot
+
+
 def _page_for(pages: list[ExtractedPage], token: str) -> ExtractedPage:
     compact_token = _compact(token)
     return next((page for page in pages if compact_token in _compact(page.text)), pages[0])
@@ -85,6 +130,17 @@ def _evidence(document: ExtractedDocument, token: str, section: str, snippet: st
     return SourceEvidence(
         page=page.number,
         section=section,
+        raw_text=snippet.strip(),
+        extraction_method=document.method,
+        confidence=page.confidence,
+    )
+
+
+def _title_evidence(document: ExtractedDocument, snippet: str) -> SourceEvidence:
+    page = document.pages[0]
+    return SourceEvidence(
+        page=page.number,
+        section="title",
         raw_text=snippet.strip(),
         extraction_method=document.method,
         confidence=page.confidence,
@@ -131,8 +187,8 @@ def _extract_owners(document: ExtractedDocument, text: str) -> list[OwnershipEnt
     seen: set[str] = set()
     non_names = {"지분", "주소", "등록번호", "주민등록번호", "소유자", "공유자"}
     patterns = [
-        re.compile(r"소유자\s*([가-힣]{2,10})"),
-        re.compile(r"공유자\s*([가-힣]{2,10})"),
+        re.compile(r"소유자[ \t]*([가-힣]{2,10})"),
+        re.compile(r"공유자[ \t]*([가-힣]{2,10})"),
     ]
     for pattern in patterns:
         for match in pattern.finditer(text):
@@ -144,6 +200,29 @@ def _extract_owners(document: ExtractedDocument, text: str) -> list[OwnershipEnt
             owners.append(OwnershipEntry(
                 owner_name=name,
                 evidence=_evidence(document, snippet, "registry_a", snippet),
+            ))
+    # Official registry tables often place "공유자", name and masked resident
+    # number in separate PDF text rows. In a current-valid certificate, remove a
+    # former co-owner whose entire share is explicitly transferred in a later row.
+    a_match = re.search(r"【\s*갑\s*구\s*】(?P<body>.*?)(?:【\s*을\s*구\s*】|$)", text, re.S)
+    if a_match:
+        section = a_match.group("body")
+        compact_section = _compact(section)
+        transferred_names = set(re.findall(
+            r"\d+번([가-힣]{2,10})지분전부",
+            compact_section,
+        ))
+        structured_names = re.findall(
+            r"(?:^|\n)\s*([가-힣]{2,10})\s+\d{6}-[0-9*]+",
+            section,
+        )
+        for name in structured_names:
+            if name in transferred_names or name in seen or name in non_names:
+                continue
+            seen.add(name)
+            owners.append(OwnershipEntry(
+                owner_name=name,
+                evidence=_evidence(document, name, "registry_a", name),
             ))
     return owners
 
@@ -201,9 +280,10 @@ def parse_registry(document: ExtractedDocument) -> RegistryExtraction:
     property_type = _property_type(text)
     ownership = _extract_owners(document, text)
     encumbrances = _extract_encumbrances(document, text)
-    inferred_road, inferred_lot = _address_candidates(text)
-    road_address = inferred_road or _line_after(text, ("도로명주소", "도로명 주소"))
-    lot_address = inferred_lot or _line_after(text, ("소재지번", "소재 지번"))
+    road_address, lot_address = _title_addresses(document)
+    title_text = _clean(document.pages[0].text) if document.pages else ""
+    road_address = road_address or _line_after(title_text, ("도로명주소", "도로명 주소"))
+    lot_address = lot_address or _line_after(title_text, ("소재지번", "소재 지번"))
     building_name = _line_after(text, ("건물명칭", "건물 명칭"))
     needs_review: list[ReviewItem] = []
     warnings: list[str] = []
@@ -252,11 +332,14 @@ def parse_registry(document: ExtractedDocument) -> RegistryExtraction:
         ("building_name", building_name),
     ):
         if raw:
-            evidence_map[field] = _evidence(document, raw, "title", raw)
+            evidence_map[field] = _title_evidence(document, raw)
 
     confidences = [page.confidence for page in document.pages]
     confidence = sum(confidences) / len(confidences) if confidences else 0.0
-    unit_match = re.search(r"(?:제)?(\d{2,5})호", road_address or building_name or "")
+    unit_match = re.search(
+        r"(?:제)?(\d{2,5})호",
+        lot_address or road_address or building_name or "",
+    )
     return RegistryExtraction(
         document=RegistryMetadata(
             certificate_type=certificate_type,

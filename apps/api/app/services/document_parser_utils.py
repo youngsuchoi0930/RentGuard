@@ -9,6 +9,14 @@ from .pdf_extractor import ExtractedDocument, ExtractedPage
 
 SPACE_RE = re.compile(r"[ \t]+")
 DATE_RE = re.compile(r"(20\d{2})\s*(?:년|[.\-/])\s*(\d{1,2})\s*(?:월|[.\-/])\s*(\d{1,2})\s*(?:일|[.]?)")
+ROAD_FRAGMENT_RE = re.compile(
+    r"([가-힣A-Za-z0-9·.\-]+(?:(?:대로|로)(?:\d+길)?|길)\s*\d+(?:-\d+)?)"
+)
+ADMIN_PREFIX_RE = re.compile(
+    r"((?:서울특별시|부산광역시|대구광역시|인천광역시|광주광역시|"
+    r"대전광역시|울산광역시|세종특별자치시|제주특별자치도|[가-힣]+도)"
+    r"\s*[가-힣]+(?:시|군|구)(?:\s*[가-힣]+구)?)"
+)
 
 
 def clean(text: str) -> str:
@@ -17,6 +25,27 @@ def clean(text: str) -> str:
 
 def compact(text: str) -> str:
     return re.sub(r"\s+", "", text)
+
+
+def road_fragment(value: str | None) -> str | None:
+    if not value:
+        return None
+    prefix_match = ADMIN_PREFIX_RE.search(value)
+    candidate = value[prefix_match.end():] if prefix_match else value
+    # Address search services sometimes render branch roads as
+    # "곰달래로 35길" while official documents use "곰달래로35길".
+    # The whitespace is typographical and must not change address identity.
+    candidate = re.sub(r"(?<=대로)\s+(?=\d+길)", "", candidate)
+    candidate = re.sub(r"(?<=로)\s+(?=\d+길)", "", candidate)
+    match = ROAD_FRAGMENT_RE.search(candidate)
+    return SPACE_RE.sub(" ", match.group(1)).strip() if match else None
+
+
+def administrative_prefix(value: str | None) -> str | None:
+    if not value:
+        return None
+    match = ADMIN_PREFIX_RE.search(value)
+    return SPACE_RE.sub(" ", match.group(1)).strip() if match else None
 
 
 def parse_date(value: str) -> str | None:
