@@ -38,6 +38,10 @@ def test_danger_signal_never_receives_low_grade():
     assert result.score == 20
     assert any(signal.severity == "danger" for signal in result.signals)
     assert result.grade == "주의"
+    mortgage = next(signal for signal in result.signals if signal.id == "mortgage")
+    assert "예상 집값" in mortgage.title
+    assert "채권최고액" in mortgage.evidence
+    assert "실제 남은 대출금과 다를 수" in mortgage.description
 
 
 def test_owner_mismatch_is_flagged():

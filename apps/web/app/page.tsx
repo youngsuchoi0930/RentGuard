@@ -16,6 +16,7 @@ import {
   LockKeyhole,
   MapPin,
   Menu,
+  PenLine,
   Plus,
   RefreshCw,
   Search,
@@ -29,6 +30,7 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 type Stage = "form" | "extracting" | "review" | "analyzing" | "result";
 type AnalysisMode = "precheck" | "contract_review";
 type DocKey = "registry" | "building_ledger" | "lease_contract";
+type RegistryRightType = "mortgage" | "seizure" | "provisional_seizure" | "trust" | "leasehold" | "tenant_registration" | "auction" | "other";
 
 type ScalarValue = string | number | boolean | null;
 
@@ -46,7 +48,7 @@ type RegistryExtraction = {
   property: { road_address: string | null; lot_address: string | null; building_name: string | null; unit: string | null };
   evidence: Record<string, SourceEvidence>;
   ownership: Array<{ owner_name: string; status: "active" | "cancelled" | "unknown"; evidence: SourceEvidence | null; rank?: string | null; share?: string | null; registered_at?: string | null }>;
-  encumbrances: Array<{ right_type: string; maximum_claim_amount: number | null; status: "active" | "cancelled" | "unknown"; evidence: SourceEvidence | null; rank?: string | null; holder?: string | null; debtor?: string | null; registered_at?: string | null }>;
+  encumbrances: Array<{ right_type: RegistryRightType; maximum_claim_amount: number | null; status: "active" | "cancelled" | "unknown"; evidence: SourceEvidence | null; rank?: string | null; holder?: string | null; debtor?: string | null; registered_at?: string | null }>;
   confidence: number;
   needs_review: ReviewItem[];
   [key: string]: unknown;
@@ -184,6 +186,17 @@ const DOCUMENTS: Array<{ key: DocKey; label: string; hint: string }> = [
   { key: "lease_contract", label: "임대차계약서", hint: "계약자·보증금 확인" },
 ];
 
+const RIGHT_LABELS: Record<RegistryRightType, string> = {
+  mortgage: "근저당권",
+  seizure: "압류",
+  provisional_seizure: "가압류",
+  trust: "신탁",
+  leasehold: "전세권",
+  tenant_registration: "임차권등기",
+  auction: "경매개시결정",
+  other: "기타 권리",
+};
+
 function money(value: number | null) {
   if (value === null) return "미연동";
   if (value >= 100000000) {
@@ -242,12 +255,21 @@ function EvidenceList({ sources }: { sources: EvidenceReference[] }) {
             <strong>{source.label}</strong>
             <span>{documentName(source.document)}{source.page ? ` · ${source.page}페이지` : ""}{source.confidence !== null ? ` · 신뢰도 ${Math.round(source.confidence * 100)}%` : ""}</span>
           </div>
-          {source.raw_text && <q>{source.raw_text}</q>}
+          {source.raw_text && <q>{conciseEvidence(source)}</q>}
           {source.corrected && <small>사용자 수정: {String(source.previous_value ?? "미추출")} → {String(source.corrected_value ?? "미입력")}</small>}
         </div>
       ))}
     </div>
   );
+}
+
+function conciseEvidence(source: EvidenceReference) {
+  const raw = source.raw_text?.replace(/\s+/g, " ").trim() ?? "";
+  if (source.field.includes("maximum_claim_amount")) {
+    const amount = raw.match(/채권\s*최고액\s*(?:금)?\s*[0-9OIl,. ]+\s*원/i)?.[0];
+    if (amount) return `등기부 기재: ${amount.replace(/\s+/g, " ").trim()}`;
+  }
+  return raw.length > 140 ? `${raw.slice(0, 137)}…` : raw;
 }
 
 function prepareForReview(bundle: DocumentBundle) {
@@ -644,6 +666,18 @@ export default function HomePage() {
                     return <ReviewField key={`mortgage-${index}`} label={`근저당 채권최고액${index > 0 ? ` ${index + 1}` : ""}`} value={entry.maximum_claim_amount} evidence={entry.evidence} moneyField onChange={(value) => updateExtractedValue(`registry.encumbrances.${index}.maximum_claim_amount`, "근저당 채권최고액", value)} />;
                   })}
                   {!documents.registry.encumbrances.some((entry) => entry.right_type === "mortgage" && entry.status === "active") && <div className="empty-extraction"><CheckCircle2 size={16} /> 추출된 활성 근저당권이 없습니다.</div>}
+                  {documents.registry.encumbrances.some((entry) => entry.right_type !== "mortgage") && (
+                    <div className="registry-right-list">
+                      <strong>기타 등기 권리</strong>
+                      {documents.registry.encumbrances.filter((entry) => entry.right_type !== "mortgage").map((entry, index) => (
+                        <div className={entry.status} key={`${entry.right_type}-${entry.rank ?? index}`}>
+                          <span>{RIGHT_LABELS[entry.right_type]}</span>
+                          <small>{entry.rank ? `순위 ${entry.rank}번` : "순위 미추출"}{entry.registered_at ? ` · ${entry.registered_at}` : ""}</small>
+                          <em>{entry.status === "cancelled" ? "말소" : entry.status === "active" ? "활성" : "확인 필요"}</em>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </article>
 
                 <article className="review-card">
@@ -805,7 +839,7 @@ export default function HomePage() {
                         return (
                           <button className={`signal-row ${signal.severity} ${open ? "open" : ""}`} key={signal.id} onClick={() => setExpandedSignal(open ? null : signal.id)}>
                             <span className="signal-icon">{signal.severity === "notice" ? <Info size={19} /> : <AlertTriangle size={19} />}</span>
-                            <div className="signal-copy"><strong>{signal.title}</strong><small>{signal.evidence}</small>{open && <><p>{signal.description}</p><EvidenceList sources={signal.sources} /></>}</div>
+                            <div className="signal-copy"><strong>{signal.title}</strong><small>{signal.evidence}</small>{open && <><p><b>쉽게 말하면</b>{signal.description}</p><EvidenceList sources={signal.sources} /></>}</div>
                             <span className="points">{signal.points > 0 ? `+${signal.points}점` : "확인"}</span>
                             <ChevronDown className="chevron" size={18} />
                           </button>
@@ -826,13 +860,28 @@ export default function HomePage() {
 
                   <article className="checks-card">
                     <div className="section-heading"><div><span>{analysis.mode === "precheck" ? "서류·공공데이터 확인" : "서류 교차검증"}</span><h2>{analysis.checks.length}개 항목 확인</h2></div></div>
+                    <div className="check-legend" aria-label="확인 상태 안내">
+                      <span className="verified"><Check size={11} />확인 완료</span>
+                      <span className="warning"><AlertTriangle size={11} />위험·불일치</span>
+                      <span className="needs_review"><CircleHelp size={11} />확인 불가</span>
+                      <span className="user_confirmed"><PenLine size={11} />사용자 입력</span>
+                    </div>
                     <div className="check-list">
-                      {analysis.checks.map((check) => (
-                        <div key={check.label}>
-                          <span className={check.status}>{check.status === "verified" ? <Check size={14} /> : <AlertTriangle size={14} />}</span>
-                          <div className="check-copy"><strong>{check.label}</strong><small>{check.detail}</small><EvidenceList sources={check.sources} /></div>
-                        </div>
-                      ))}
+                      {analysis.checks.map((check) => {
+                        const userConfirmed = check.sources.some((source) => source.corrected);
+                        const visualStatus = userConfirmed ? "user_confirmed" : check.status;
+                        const statusLabel = userConfirmed ? "사용자 입력" : check.status === "verified" ? "확인 완료" : check.status === "warning" ? "위험·불일치" : "확인 불가";
+                        return (
+                          <div key={check.label}>
+                            <span className={visualStatus}>{visualStatus === "verified" ? <Check size={14} /> : visualStatus === "user_confirmed" ? <PenLine size={14} /> : visualStatus === "needs_review" ? <CircleHelp size={14} /> : <AlertTriangle size={14} />}</span>
+                            <div className="check-copy">
+                              <div className="check-title"><strong>{check.label}</strong><em className={visualStatus}>{statusLabel}</em></div>
+                              <small>{check.detail}</small>
+                              <EvidenceList sources={check.sources} />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </article>
 

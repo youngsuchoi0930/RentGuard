@@ -71,6 +71,8 @@ class EncumbranceEntry(BaseModel):
         "provisional_seizure",
         "trust",
         "leasehold",
+        "tenant_registration",
+        "auction",
         "other",
     ]
     maximum_claim_amount: int | None = Field(default=None, ge=0)

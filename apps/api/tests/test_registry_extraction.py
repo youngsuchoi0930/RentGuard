@@ -85,6 +85,75 @@ def test_title_address_wins_over_owner_and_debtor_addresses_on_later_pages():
     assert [owner.owner_name for owner in result.ownership] == ["테스트현재"]
 
 
+def test_registry_rights_extract_active_and_cancelled_rows_with_order():
+    document = ExtractedDocument(
+        method="pdf_text",
+        pages=[
+            ExtractedPage(
+                number=1,
+                confidence=1.0,
+                text="""
+                등기사항전부증명서 말소사항포함 - 집합건물 -
+                [집합건물] 서울특별시 강서구 안전동 100-1 제2층 제201호
+                도로명주소 서울특별시 강서구 안심로35길 26
+                【 갑 구 】 소유권에 관한 사항
+                1
+                2020년 1월 2일
+                소유권보존 소유자 테스트소유
+                2
+                2021년 2월 3일
+                가압류
+                3
+                2022년 3월 4일
+                압류
+                4
+                2023년 4월 5일
+                신탁등기
+                5
+                2024년 5월 6일
+                임의경매개시결정
+                6
+                2025년 6월 7일
+                2번 가압류 등기말소
+                """,
+            ),
+            ExtractedPage(
+                number=2,
+                confidence=1.0,
+                text="""
+                【 을 구 】 소유권 이외의 권리에 관한 사항
+                1
+                2018년 1월 2일
+                전세권설정
+                2
+                2019년 2월 3일
+                주택임차권등기
+                3
+                2020년 3월 4일
+                근저당권설정
+                채권최고액 금90,000,000원
+                근저당권자 테스트은행
+                4
+                2021년 4월 5일
+                3번 근저당권설정등기말소
+                """,
+            ),
+        ],
+    )
+
+    result = parse_registry(document)
+    rights = {(entry.right_type, entry.rank): entry for entry in result.encumbrances}
+
+    assert rights[("provisional_seizure", "2")].status == "cancelled"
+    assert rights[("seizure", "3")].status == "active"
+    assert rights[("trust", "4")].registered_at == "2023-04-05"
+    assert rights[("auction", "5")].status == "active"
+    assert rights[("leasehold", "1")].status == "active"
+    assert rights[("tenant_registration", "2")].status == "active"
+    assert rights[("mortgage", "3")].status == "cancelled"
+    assert rights[("mortgage", "3")].maximum_claim_amount == 90_000_000
+
+
 def test_image_only_pdf_requires_ocr_when_disabled():
     with pytest.raises(OCRUnavailableError):
         extract_registry((FIXTURES / "registry_risky_scan_noisy.pdf").read_bytes(), allow_ocr=False)

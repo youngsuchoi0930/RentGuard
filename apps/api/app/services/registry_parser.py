@@ -228,13 +228,53 @@ def _extract_owners(document: ExtractedDocument, text: str) -> list[OwnershipEnt
 
 
 def _extract_encumbrances(document: ExtractedDocument, text: str) -> list[EncumbranceEntry]:
-    compact = _compact(text)
     entries: list[EncumbranceEntry] = []
+
+    def section_at(position: int) -> str:
+        before = _compact(text[:position])
+        a_index = before.rfind("【갑구】")
+        b_index = before.rfind("【을구】")
+        return "registry_b" if b_index > a_index else "registry_a"
+
+    cancelled_refs = {
+        (section_at(match.start()), match.group(1))
+        for match in re.finditer(
+            r"(\d{1,4}(?:-\d{1,3})?)\s*번[^\n]{0,60}?(?:등기\s*)?말소",
+            text,
+        )
+    }
+
+    def context(match: re.Match[str]) -> tuple[str, str | None, str | None]:
+        start = max(0, match.start() - 450)
+        end = min(len(text), match.end() + 650)
+        row = text[start:end]
+        before = text[max(0, match.start() - 260):match.start()]
+        rank_matches = list(re.finditer(
+            r"(?:^|\n)\s*(\d{1,4}(?:-\d{1,3})?)\s*(?=\n|20\d{2}\s*년)",
+            before,
+        ))
+        rank = rank_matches[-1].group(1) if rank_matches else None
+        preceding_dates = list(DATE_RE.finditer(before[-220:]))
+        following_dates = list(DATE_RE.finditer(text[match.end():match.end() + 120]))
+        date_match = preceding_dates[-1] if preceding_dates else (
+            following_dates[0] if following_dates else None
+        )
+        registered_at = _date(date_match.group(0)) if date_match else None
+        return row, rank, registered_at
+
+    def is_cancellation_row(match: re.Match[str]) -> bool:
+        line_end = text.find("\n", match.end())
+        if line_end == -1:
+            line_end = min(len(text), match.end() + 80)
+        return "말소" in _compact(text[match.end():line_end])
+
     # PDF table extraction and OCR often emit a row's cells in different orders.
     # Pair fields inside a window centred on each mortgage row anchor instead of
     # assuming that every field follows "근저당권설정" in reading order.
     mortgage_matches = list(re.finditer(r"근저당권\s*설정", text))
     for index, match in enumerate(mortgage_matches):
+        if is_cancellation_row(match):
+            continue
         start = max(0, match.start() - 500)
         end = min(len(text), match.end() + 700)
         if index:
@@ -244,31 +284,66 @@ def _extract_encumbrances(document: ExtractedDocument, text: str) -> list[Encumb
             following = mortgage_matches[index + 1].start()
             end = min(end, (match.start() + following) // 2)
         row = text[start:end]
+        _, rank, registered_at = context(match)
         amount_match = AMOUNT_RE.search(row)
         holder_match = re.search(r"근저당권자\s*([^\n]+)", row)
         debtor_match = re.search(r"채무자\s*([^\n]+)", row)
-        date_match = DATE_RE.search(row)
-        snippet = row[:300]
+        snippet_parts = [match.group(0)]
+        if rank:
+            snippet_parts.append(f"순위번호 {rank}번")
+        if registered_at:
+            snippet_parts.append(f"접수일 {registered_at}")
+        if amount_match:
+            snippet_parts.append(amount_match.group(0).strip())
+        snippet = " · ".join(snippet_parts)
         entries.append(EncumbranceEntry(
+            rank=rank,
             right_type="mortgage",
             maximum_claim_amount=_money(amount_match.group(1)) if amount_match else None,
             holder=holder_match.group(1) if holder_match else None,
             debtor=debtor_match.group(1) if debtor_match else None,
-            registered_at=_date(date_match.group(0)) if date_match else None,
+            status="cancelled" if rank and ("registry_b", rank) in cancelled_refs else "active",
+            registered_at=registered_at,
             evidence=_evidence(document, "근저당권설정", "registry_b", snippet),
         ))
 
-    keyword_types = [
-        (r"가압류", "가압류", "provisional_seizure"),
-        (r"(?<!가)압류", "압류", "seizure"),
-        (r"신탁", "신탁", "trust"),
-        (r"전세권", "전세권", "leasehold"),
+    keyword_types: list[tuple[str, str, str, str]] = [
+        (r"(?:강제|임의)?경매개시결정", "경매개시결정", "auction", "registry_a"),
+        (r"주택임차권\s*등기|임차권\s*(?:등기명령|설정)", "임차권", "tenant_registration", "registry_b"),
+        (r"전세권\s*설정", "전세권설정", "leasehold", "registry_b"),
+        (r"가압류(?:결정)?", "가압류", "provisional_seizure", "registry_a"),
+        (r"(?<!가)압류(?:결정)?", "압류", "seizure", "registry_a"),
+        (r"신탁(?:등기)?", "신탁", "trust", "registry_a"),
     ]
-    for pattern, keyword, right_type in keyword_types:
-        if re.search(pattern, compact):
+    for pattern, keyword, right_type, section in keyword_types:
+        for match in re.finditer(pattern, text):
+            if is_cancellation_row(match):
+                continue
+            row, rank, registered_at = context(match)
+            # A longer anchor can contain a shorter one (for example 가압류/압류).
+            # Keep one entry for the same type, rank and date.
+            if any(
+                entry.right_type == right_type
+                and entry.rank == rank
+                and entry.registered_at == registered_at
+                for entry in entries
+            ):
+                continue
             entries.append(EncumbranceEntry(
+                rank=rank,
                 right_type=right_type,
-                evidence=_evidence(document, keyword, "registry_a", keyword),
+                status="cancelled" if rank and (section, rank) in cancelled_refs else "active",
+                registered_at=registered_at,
+                evidence=_evidence(
+                    document,
+                    keyword,
+                    section,
+                    " · ".join(value for value in (
+                        match.group(0),
+                        f"순위번호 {rank}번" if rank else None,
+                        f"접수일 {registered_at}" if registered_at else None,
+                    ) if value),
+                ),
             ))
     return entries
 

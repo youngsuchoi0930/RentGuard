@@ -27,51 +27,92 @@ def analyze_risk(facts: ExtractedFacts) -> RiskResult:
 
     if burden_ratio is not None and burden_ratio >= 1:
         signals.append(RiskSignal(
-            id="senior-burden", severity="danger", title="선순위 부담 비율이 높아요",
-            description="근저당 채권최고액과 보증금의 합이 예상 주택가액을 넘습니다.",
-            evidence=f"예상 부담 비율 {burden_ratio * 100:.0f}%", points=35,
+            id="senior-burden", severity="danger", title="근저당과 보증금 합계가 예상 집값보다 커요",
+            description=(
+                "집을 팔아 회수할 수 있다고 추정한 금액보다 등기부의 근저당 채권최고액과 "
+                "내 보증금의 합계가 큽니다. 가격이 내려가거나 매각 비용이 발생하면 보증금 회수 여유가 더 줄 수 있습니다."
+            ),
+            evidence=(
+                f"예상 집값 {facts.estimated_value:,}원 · 근저당+보증금 "
+                f"{facts.mortgage_amount + facts.deposit:,}원 ({burden_ratio * 100:.0f}%)"
+            ),
+            points=35,
         ))
         actions.append("특약사항에 잔금 전 근저당 말소 조건을 명확히 추가하세요.")
     elif burden_ratio is not None and burden_ratio >= .8:
         signals.append(RiskSignal(
-            id="senior-burden", severity="warning", title="선순위 부담을 확인해야 해요",
-            description="근저당과 보증금을 합친 금액이 주택가액에 근접합니다.",
-            evidence=f"예상 부담 비율 {burden_ratio * 100:.0f}%", points=24,
+            id="senior-burden", severity="warning", title="근저당과 보증금 합계가 예상 집값에 가까워요",
+            description=(
+                "예상 집값에서 근저당 채권최고액과 내 보증금을 빼면 남는 여유가 크지 않습니다. "
+                "최신 시세와 실제 대출 잔액, 근저당 말소 조건을 함께 확인해야 합니다."
+            ),
+            evidence=(
+                f"예상 집값 {facts.estimated_value:,}원 · 근저당+보증금 "
+                f"{facts.mortgage_amount + facts.deposit:,}원 ({burden_ratio * 100:.0f}%)"
+            ),
+            points=24,
         ))
 
     if mortgage_ratio is not None and mortgage_ratio >= .5:
         signals.append(RiskSignal(
-            id="mortgage", severity="danger", title="근저당 설정액이 큽니다",
-            description="등기부상 채권최고액이 예상 주택가액의 절반 이상입니다.",
-            evidence=f"근저당 비율 {mortgage_ratio * 100:.0f}%", points=20,
+            id="mortgage", severity="danger",
+            title=f"예상 집값의 {mortgage_ratio * 100:.0f}%가 근저당 한도로 잡혀 있어요",
+            description=(
+                "등기부에 담보 한도로 적힌 채권최고액이 예상 집값의 절반을 넘습니다. "
+                "채권최고액은 실제 남은 대출금과 다를 수 있으므로 임대인에게 대출 잔액과 말소 계획을 확인해야 합니다."
+            ),
+            evidence=(
+                f"예상 집값 {facts.estimated_value:,}원 · 근저당 채권최고액 "
+                f"{facts.mortgage_amount:,}원 ({mortgage_ratio * 100:.0f}%)"
+            ),
+            points=20,
         ))
         actions.append("특약사항에 잔금 전 근저당 말소 조건을 명확히 추가하세요.")
     elif mortgage_ratio is not None and mortgage_ratio >= .3:
         signals.append(RiskSignal(
-            id="mortgage", severity="warning", title="근저당 설정을 확인하세요",
-            description="잔금 지급 직전 최신 등기부로 변동 여부를 확인해야 합니다.",
-            evidence=f"근저당 비율 {mortgage_ratio * 100:.0f}%", points=12,
+            id="mortgage", severity="warning",
+            title=f"예상 집값의 {mortgage_ratio * 100:.0f}%가 근저당 한도예요",
+            description=(
+                "등기부에 근저당 채권최고액이 설정되어 있습니다. 채권최고액은 실제 대출 잔액과 다를 수 있으므로 "
+                "잔금 지급 직전에 최신 등기부와 대출 잔액, 말소 조건을 확인해야 합니다."
+            ),
+            evidence=(
+                f"예상 집값 {facts.estimated_value:,}원 · 근저당 채권최고액 "
+                f"{facts.mortgage_amount:,}원 ({mortgage_ratio * 100:.0f}%)"
+            ),
+            points=12,
         ))
 
     elif facts.mortgage_amount > 0:
         signals.append(RiskSignal(
             id="mortgage-present", severity="warning", title="근저당권이 설정되어 있어요",
-            description="시세 데이터가 없어 부담 비율은 계산하지 않았습니다. 최신 등기부와 말소 조건을 확인하세요.",
-            evidence=f"채권최고액 {facts.mortgage_amount:,}원", points=12,
+            description=(
+                "등기부에서 근저당 채권최고액을 확인했지만 비교할 집값이 없어 비율은 계산하지 못했습니다. "
+                "채권최고액은 실제 대출 잔액과 다를 수 있으므로 최신 잔액과 말소 조건을 확인하세요."
+            ),
+            evidence=f"등기부 채권최고액 {facts.mortgage_amount:,}원 · 예상 집값 확인 필요", points=12,
         ))
         actions.append("특약사항에 잔금 전 근저당 말소 조건을 명확히 추가하세요.")
 
     if deposit_ratio is not None and deposit_ratio >= .8:
         signals.append(RiskSignal(
-            id="deposit-ratio", severity="danger", title="보증금 비율이 높아요",
-            description="보증금이 예상 주택가액의 80% 이상입니다.",
-            evidence=f"보증금 비율 {deposit_ratio * 100:.0f}%", points=18,
+            id="deposit-ratio", severity="danger",
+            title=f"보증금이 예상 집값의 {deposit_ratio * 100:.0f}%예요",
+            description="보증금이 예상 집값의 대부분을 차지합니다. 집값이 내려가면 보증금을 돌려받을 여유가 빠르게 줄 수 있습니다.",
+            evidence=(
+                f"예상 집값 {facts.estimated_value:,}원 · 보증금 {facts.deposit:,}원 "
+                f"({deposit_ratio * 100:.0f}%)"
+            ), points=18,
         ))
     elif deposit_ratio is not None and deposit_ratio >= .65:
         signals.append(RiskSignal(
-            id="deposit-ratio", severity="warning", title="보증금이 시세에 가까워요",
-            description="가격 하락 시 보증금 회수 여력이 줄어들 수 있습니다.",
-            evidence=f"보증금 비율 {deposit_ratio * 100:.0f}%", points=8,
+            id="deposit-ratio", severity="warning",
+            title=f"보증금이 예상 집값의 {deposit_ratio * 100:.0f}%예요",
+            description="보증금이 예상 집값에서 차지하는 비중이 큰 편입니다. 가격이 내려가면 보증금 회수 여력이 줄 수 있습니다.",
+            evidence=(
+                f"예상 집값 {facts.estimated_value:,}원 · 보증금 {facts.deposit:,}원 "
+                f"({deposit_ratio * 100:.0f}%)"
+            ), points=8,
         ))
 
     if facts.owner and facts.contract_owner and facts.owner != facts.contract_owner:

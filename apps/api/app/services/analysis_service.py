@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Literal
 from uuid import uuid4
 
@@ -107,6 +108,19 @@ def _source_map(
         for index, entry in enumerate(registry.encumbrances)
         if entry.right_type == "mortgage" and entry.status == "active"
     ))
+    registry_rights: dict[str, list[EvidenceReference]] = {}
+    for index, entry in enumerate(registry.encumbrances):
+        if entry.right_type == "mortgage" or entry.status != "active":
+            continue
+        reference = _reference(
+            document="registry",
+            field=f"registry.encumbrances.{index}.right_type",
+            label="등기 권리관계",
+            evidence=entry.evidence,
+            corrections=correction_map,
+        )
+        if reference:
+            registry_rights.setdefault(entry.right_type, []).append(reference)
     illegal = refs(_reference(
         document="building_ledger",
         field="building_ledger.property.is_illegal_building",
@@ -153,7 +167,7 @@ def _source_map(
         ))
 
     addresses = registry_addresses + building_addresses + lease_addresses
-    return {
+    result = {
         "registry-owner": owners,
         "owner-landlord": owners + landlords,
         "property-address": addresses,
@@ -166,6 +180,9 @@ def _source_map(
         "deposit-ratio": deposits,
         "owner-mismatch": owners + landlords,
     }
+    for right_type, right_sources in registry_rights.items():
+        result[f"registry-right-{right_type}"] = right_sources
+    return result
 
 
 def _active_reviews(
@@ -261,6 +278,117 @@ def _building_use_matches(document_value: str | None, official_value: str | None
     )
 
 
+_REGISTRY_RIGHT_RULES = {
+    "seizure": {
+        "label": "압류",
+        "severity": "danger",
+        "points": 25,
+        "description": "부동산에 활성 압류 등기가 있습니다. 압류 원인과 해제 여부를 확인하기 전에는 계약 진행에 주의해야 합니다.",
+        "action": "압류권자·관할 기관과 말소 여부를 확인하고 계약 전 전문가 검토를 받으세요.",
+    },
+    "provisional_seizure": {
+        "label": "가압류",
+        "severity": "danger",
+        "points": 22,
+        "description": "채권 보전을 위한 활성 가압류 등기가 있습니다. 본안 결과와 말소 여부를 확인해야 합니다.",
+        "action": "가압류의 청구금액과 말소 조건을 확인한 뒤 계약 여부를 판단하세요.",
+    },
+    "trust": {
+        "label": "신탁",
+        "severity": "danger",
+        "points": 30,
+        "description": "신탁 등기가 있으면 등기명의자만 보고 임대 권한을 판단할 수 없습니다. 신탁원부와 수탁자 동의 여부를 확인해야 합니다.",
+        "action": "신탁원부와 수탁자의 임대차 동의서를 확인하기 전에는 계약하지 마세요.",
+    },
+    "leasehold": {
+        "label": "전세권",
+        "severity": "warning",
+        "points": 15,
+        "description": "기존 전세권 등기가 있습니다. 순위번호와 존속 여부를 확인해 보증금보다 앞선 권리인지 검토해야 합니다.",
+        "action": "기존 전세권의 순위와 말소 조건을 최신 등기부에서 확인하세요.",
+    },
+    "tenant_registration": {
+        "label": "임차권등기",
+        "severity": "warning",
+        "points": 18,
+        "description": "기존 임차권등기가 있습니다. 이전 임차인의 보증금 반환 및 권리 존속 여부를 확인해야 합니다.",
+        "action": "임차권등기의 원인과 말소 여부를 소유자에게 확인하세요.",
+    },
+    "auction": {
+        "label": "경매개시결정",
+        "severity": "danger",
+        "points": 35,
+        "description": "활성 경매개시결정 등기가 있습니다. 소유권과 보증금 회수에 직접적인 영향을 줄 수 있어 즉시 확인이 필요합니다.",
+        "action": "경매 사건의 진행 상태를 확인하고 계약 전 법률 전문가에게 검토받으세요.",
+    },
+}
+
+
+def _registry_right_findings(
+    registry: RegistryExtraction,
+    sources: dict[str, list[EvidenceReference]],
+) -> tuple[list[RiskSignal], list[str], CheckItem]:
+    active = [
+        entry for entry in registry.encumbrances
+        if entry.status == "active" and entry.right_type in _REGISTRY_RIGHT_RULES
+    ]
+    cancelled_count = sum(
+        entry.status == "cancelled" and entry.right_type in _REGISTRY_RIGHT_RULES
+        for entry in registry.encumbrances
+    )
+    signals: list[RiskSignal] = []
+    actions: list[str] = []
+    labels: list[str] = []
+    for right_type, rule in _REGISTRY_RIGHT_RULES.items():
+        entries = [entry for entry in active if entry.right_type == right_type]
+        if not entries:
+            continue
+        labels.append(f"{rule['label']} {len(entries)}건")
+        order_details = [
+            " · ".join(
+                value for value in (
+                    f"순위 {entry.rank}번" if entry.rank else None,
+                    f"접수 {entry.registered_at}" if entry.registered_at else None,
+                ) if value
+            )
+            for entry in entries
+        ]
+        evidence = f"활성 {rule['label']} {len(entries)}건"
+        if any(order_details):
+            evidence += " · " + ", ".join(value for value in order_details if value)
+        signals.append(RiskSignal(
+            id=f"registry-right-{right_type}",
+            severity=rule["severity"],  # type: ignore[arg-type]
+            title=f"활성 {rule['label']} 등기가 있어요",
+            description=rule["description"],
+            evidence=evidence,
+            points=rule["points"],
+            sources=sources.get(f"registry-right-{right_type}", []),
+        ))
+        actions.append(rule["action"])
+
+    if active:
+        detail = "활성 권리: " + " · ".join(labels)
+        if cancelled_count:
+            detail += f" · 말소 {cancelled_count}건은 위험 계산에서 제외"
+        check = CheckItem(
+            label="등기 권리관계",
+            status="warning",
+            detail=detail,
+            sources=[
+                source
+                for right_type in _REGISTRY_RIGHT_RULES
+                for source in sources.get(f"registry-right-{right_type}", [])
+            ],
+        )
+    else:
+        detail = "분석 대상 권리 중 활성 압류·가압류·신탁·전세권·임차권·경매개시를 찾지 못했습니다"
+        if cancelled_count:
+            detail += f" · 말소 {cancelled_count}건 제외"
+        check = CheckItem(label="등기 권리관계", status="verified", detail=detail)
+    return signals, actions, check
+
+
 def build_analysis(
     *,
     address: str,
@@ -329,11 +457,33 @@ def build_analysis(
     risk = analyze_risk(facts)
     for signal in risk.signals:
         signal.sources = sources.get(signal.id, [])
+    right_signals, right_actions, right_check = _registry_right_findings(registry, sources)
+    if right_signals:
+        combined_score = min(100, risk.score + sum(signal.points for signal in right_signals))
+        if combined_score >= 65:
+            grade = "높음"
+            headline = "등기부 권리관계에 주의가 필요한 계약입니다"
+        else:
+            grade = "주의"
+            headline = "등기부의 선행 권리를 확인해야 합니다"
+        risk = replace(
+            risk,
+            score=combined_score,
+            grade=grade,
+            headline=headline,
+            summary=(
+                "등기부에서 계약 전에 확인해야 할 활성 권리를 발견했습니다. "
+                "순위번호와 접수일은 표시하지만 실제 임차보증금의 법적 우선순위는 전입·점유·확정일자 등을 함께 확인해야 합니다."
+            ),
+            signals=risk.signals + right_signals,
+            actions=list(dict.fromkeys(right_actions + risk.actions))[:3],
+        )
     document_reviews = _active_reviews(registry, building_ledger, lease_contract)
     has_blocking_review = any(item.severity == "blocking" for item in document_reviews)
     has_mismatch = any(item.status == "mismatch" for item in bundle.cross_checks)
     has_official_mismatch = False
     checks = _bundle_checks(bundle, sources)
+    checks.append(right_check)
     if official_building and official_building.status == "available":
         official_detail = " · ".join(
             value
