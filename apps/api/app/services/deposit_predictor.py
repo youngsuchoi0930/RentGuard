@@ -8,7 +8,11 @@ from typing import Any
 from ..config import Settings, get_settings
 from ..ml_schemas import PublicRentFeatureVector, PublicRentTrainingRow
 from ..schemas import DepositMarketState
-from .deposit_quantile_features import deposit_model_vector, predicted_deposit_million_won
+from .deposit_quantile_features import (
+    deposit_model_vector,
+    deposit_model_vector_v2,
+    predicted_deposit_million_won,
+)
 from .market_anomaly_features import rent_mode
 from .public_data import PublicDataResult
 
@@ -24,7 +28,10 @@ def _load_artifact(path: str, modified_ns: int) -> dict[str, Any]:
     import joblib
 
     artifact = joblib.load(path)
-    if artifact.get("schema_version") != "deposit-quantile-model-1.0":
+    if artifact.get("schema_version") not in {
+        "deposit-quantile-model-1.0",
+        "deposit-quantile-model-2.0",
+    }:
         raise ValueError("지원하지 않는 보증금 모델 형식입니다.")
     return artifact
 
@@ -106,10 +113,35 @@ def predict_deposit_market(
 
     try:
         artifact = _load_artifact(str(model_path), model_path.stat().st_mtime_ns)
-        mode_models = artifact["models"][rent_mode(row)]
-        vector = [deposit_model_vector(row, artifact["peer_reference"])]
-        p50_log = float(mode_models["p50"].predict(vector)[0])
-        p95_log = max(p50_log, float(mode_models["p95"].predict(vector)[0]))
+        mode = rent_mode(row)
+        mode_models = artifact["models"][mode]
+        if artifact["schema_version"] == "deposit-quantile-model-2.0":
+            feature_versions = artifact.get("quantile_feature_versions", {})
+            p50_builder = (
+                deposit_model_vector
+                if feature_versions.get("p50") == "v1"
+                else deposit_model_vector_v2
+            )
+            p95_builder = (
+                deposit_model_vector
+                if feature_versions.get("p95") == "v1"
+                else deposit_model_vector_v2
+            )
+            p50_vector = [p50_builder(row, artifact["peer_reference"])]
+            p95_vector = [p95_builder(row, artifact["peer_reference"])]
+            offsets = artifact.get("calibration_log_offsets", {}).get(mode, {})
+        else:
+            p50_vector = [deposit_model_vector(row, artifact["peer_reference"])]
+            p95_vector = p50_vector
+            offsets = {}
+        p50_log = float(mode_models["p50"].predict(p50_vector)[0]) + float(
+            offsets.get("p50", 0.0)
+        )
+        p95_log = max(
+            p50_log,
+            float(mode_models["p95"].predict(p95_vector)[0])
+            + float(offsets.get("p95", 0.0)),
+        )
         p50_won = int(round(predicted_deposit_million_won(row, p50_log) * 1_000_000 / 100_000) * 100_000)
         p95_won = int(round(predicted_deposit_million_won(row, p95_log) * 1_000_000 / 100_000) * 100_000)
         periods = artifact.get("training_periods") or []

@@ -20,11 +20,23 @@ apps\api\.venv\Scripts\python scripts\inspect_rent_dataset.py data\ml\seoul-rh-r
 apps\api\.venv\Scripts\python scripts\generate_synthetic_rent_data.py --count 20000
 apps\api\.venv\Scripts\python -m pip install -r apps\api\requirements-ml.txt
 apps\api\.venv\Scripts\python scripts\train_market_anomaly.py
+apps\api\.venv\Scripts\python scripts\train_deposit_quantile.py
 ```
 
 합성 데이터는 실제 행의 분포를 출발점으로 보증금 급등, 월세 급등, 갱신 보증금 급등 시나리오를 만든다. `source_kind=synthetic`과 `label_source=synthetic`이 항상 붙으며 실제 성능 평가 세트에는 포함하지 않는다.
 
 첫 모델은 최근 3개월을 시간순 홀드아웃으로 남기고 이전 기간의 실제 거래 최대 10만 건으로 전세와 보증부 월세 Isolation Forest를 각각 학습한다. 같은 동·10㎡ 면적 구간·전세/월세 유형을 우선 비교하고 표본이 부족하면 구·면적, 구, 서울 전체 유형 순으로 기준을 확장한다. 공공 홀드아웃의 이상치 비율과 합성 조건 탐지율을 기록하지만, 둘 다 실제 보증사고 정확도로 해석하지 않는다.
+
+보증금 분위수 모델 v2는 최근 3개월을 최종 홀드아웃으로 고정하고, 그 직전 2개월을 보정 구간으로 사용한다. 보정 전 모델로 p50 편향과 p95 상위 경계의 오차를 산출한 다음 보정값을 고정하고 홀드아웃 이전 전체 기간으로 최종 모델을 다시 학습한다. p50은 상세 특성을 사용하고 p95는 과적합을 줄인 안정 특성을 사용한다. 최종 홀드아웃은 모델 선택·학습·보정 어느 단계에도 넣지 않는다.
+
+| 보증금 모델 지표 | v1 | v2 |
+|---|---:|---:|
+| 홀드아웃 p50 평균 절대오차 | 2,997만원 | 2,947만원 |
+| 홀드아웃 p50 중앙 절대비율오차 | 14.36% | 13.93% |
+| 홀드아웃 p95 포함률 | 92.28% | 95.03% |
+| 합성 이상 조건 탐지율 | 78.83% | 75.90% |
+
+합성 탐지율 감소는 상위 경계를 실제 95% 포함률에 맞추면서 발생한 보수성의 변화다. 합성 지표는 실제 사기·보증사고 탐지 정확도가 아니며, 보증금 모델은 시장에서 이례적인 계약 조건을 알리는 보조 신호로만 사용한다.
 
 학습 행에는 정확한 주소, 소유자·임대인 이름, OCR 원문, 분석 ID, 규칙 점수·등급·위험 신호를 넣지 않는다. 규칙 엔진 결과를 정답처럼 학습하는 누수를 막기 위해서다.
 

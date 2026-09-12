@@ -2,7 +2,9 @@ import math
 
 from app.services.deposit_quantile_features import (
     DEPOSIT_MODEL_FEATURES,
+    DEPOSIT_MODEL_FEATURES_V2,
     deposit_model_vector,
+    deposit_model_vector_v2,
     deposit_target,
     predicted_deposit_million_won,
 )
@@ -27,6 +29,21 @@ def test_deposit_predictors_do_not_contain_current_deposit():
     )
     assert deposit_target(synthetic) > deposit_target(source)
     assert "deposit_million_won" not in DEPOSIT_MODEL_FEATURES
+
+
+def test_v2_predictors_do_not_contain_current_deposit():
+    source = _source_row()
+    reference = build_peer_reference([source] * 100)
+    synthetic = make_synthetic_anomaly(source, scenario="deposit_spike", seed=17)
+
+    assert deposit_model_vector_v2(source, reference) == deposit_model_vector_v2(
+        synthetic,
+        reference,
+    )
+    assert len(deposit_model_vector_v2(source, reference)) == len(
+        DEPOSIT_MODEL_FEATURES_V2
+    )
+    assert "deposit_million_won" not in DEPOSIT_MODEL_FEATURES_V2
 
 
 def test_log_density_prediction_converts_back_to_total_deposit():

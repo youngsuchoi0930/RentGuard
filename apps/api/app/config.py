@@ -51,7 +51,7 @@ class Settings(BaseSettings):
         validation_alias="PUBLIC_MARKET_MONTHS",
     )
     deposit_model_path: Path = Field(
-        default=PROJECT_ROOT / "models" / "deposit-quantile-v1.joblib",
+        default=PROJECT_ROOT / "models" / "deposit-quantile-v2.joblib",
         validation_alias="DEPOSIT_MODEL_PATH",
     )
 

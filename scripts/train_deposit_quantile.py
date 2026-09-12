@@ -25,7 +25,9 @@ from sklearn.pipeline import Pipeline  # noqa: E402
 from app.ml_schemas import PublicRentTrainingRow  # noqa: E402
 from app.services.deposit_quantile_features import (  # noqa: E402
     DEPOSIT_MODEL_FEATURES,
+    DEPOSIT_MODEL_FEATURES_V2,
     deposit_model_vector,
+    deposit_model_vector_v2,
     deposit_target,
     predicted_deposit_million_won,
 )
@@ -51,16 +53,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model-output",
         type=Path,
-        default=ROOT / "models" / "deposit-quantile-v1.joblib",
+        default=ROOT / "models" / "deposit-quantile-v2.joblib",
     )
     parser.add_argument(
         "--report-output",
         type=Path,
-        default=ROOT / "data" / "ml" / "deposit-quantile-v1-report.json",
+        default=ROOT / "data" / "ml" / "deposit-quantile-v2-report.json",
     )
     parser.add_argument("--max-train", type=int, default=120_000)
     parser.add_argument("--max-holdout", type=int, default=50_000)
     parser.add_argument("--holdout-months", type=int, default=3)
+    parser.add_argument("--calibration-months", type=int, default=2)
     parser.add_argument("--seed", type=int, default=20260910)
     parser.add_argument("--force", action="store_true")
     return parser.parse_args()
@@ -109,15 +112,27 @@ def _load_split(
     path: Path,
     *,
     holdout_periods: set[int],
+    calibration_periods: set[int],
     train_limit: int,
+    calibration_limit: int,
     holdout_limit: int,
     seed: int,
-) -> tuple[list[PublicRentTrainingRow], list[PublicRentTrainingRow], int, int, int]:
+) -> tuple[
+    list[PublicRentTrainingRow],
+    list[PublicRentTrainingRow],
+    list[PublicRentTrainingRow],
+    int,
+    int,
+    int,
+    int,
+]:
     train: list[PublicRentTrainingRow] = []
+    calibration: list[PublicRentTrainingRow] = []
     holdout: list[PublicRentTrainingRow] = []
-    train_seen = holdout_seen = excluded = 0
+    train_seen = calibration_seen = holdout_seen = excluded = 0
     train_rng = random.Random(seed)
-    holdout_rng = random.Random(seed + 1)
+    calibration_rng = random.Random(seed + 1)
+    holdout_rng = random.Random(seed + 2)
     with path.open(encoding="utf-8") as handle:
         for line in handle:
             row = PublicRentTrainingRow.model_validate_json(line)
@@ -133,6 +148,15 @@ def _load_split(
                     limit=holdout_limit,
                     rng=holdout_rng,
                 )
+            elif _period(row) in calibration_periods:
+                calibration_seen += 1
+                _reservoir_add(
+                    calibration,
+                    row,
+                    seen=calibration_seen,
+                    limit=calibration_limit,
+                    rng=calibration_rng,
+                )
             else:
                 train_seen += 1
                 _reservoir_add(
@@ -142,7 +166,15 @@ def _load_split(
                     limit=train_limit,
                     rng=train_rng,
                 )
-    return train, holdout, train_seen, holdout_seen, excluded
+    return (
+        train,
+        calibration,
+        holdout,
+        train_seen,
+        calibration_seen,
+        holdout_seen,
+        excluded,
+    )
 
 
 def _load_synthetic(path: Path) -> list[PublicRentTrainingRow]:
@@ -162,8 +194,16 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _matrix(rows: list[PublicRentTrainingRow], reference: PeerReference) -> np.ndarray:
-    return np.asarray([deposit_model_vector(row, reference) for row in rows], dtype=float)
+def _matrix(
+    rows: list[PublicRentTrainingRow],
+    reference: PeerReference,
+    *,
+    version: str,
+) -> np.ndarray:
+    vector_builder = (
+        deposit_model_vector_v2 if version == "v2" else deposit_model_vector
+    )
+    return np.asarray([vector_builder(row, reference) for row in rows], dtype=float)
 
 
 def _new_model(*, quantile: float, seed: int) -> Pipeline:
@@ -188,10 +228,43 @@ def _new_model(*, quantile: float, seed: int) -> Pipeline:
     ])
 
 
+def _fit_models(
+    rows: list[PublicRentTrainingRow],
+    p50_matrix: np.ndarray,
+    p95_matrix: np.ndarray,
+    *,
+    seed: int,
+    label: str,
+) -> tuple[dict[str, dict[str, Pipeline]], dict[str, int]]:
+    targets = np.asarray([deposit_target(row) for row in rows], dtype=float)
+    models: dict[str, dict[str, Pipeline]] = {}
+    rows_by_mode: dict[str, int] = {}
+    for mode_index, mode in enumerate(("jeonse", "monthly")):
+        indexes = np.asarray(
+            [index for index, row in enumerate(rows) if rent_mode(row) == mode],
+            dtype=int,
+        )
+        if indexes.size < 100:
+            raise SystemExit(f"{mode} 학습 데이터가 부족합니다: {indexes.size}건")
+        mode_models = {
+            "p50": _new_model(quantile=.5, seed=seed + mode_index * 10),
+            "p95": _new_model(quantile=.95, seed=seed + mode_index * 10 + 1),
+        }
+        for name, model in mode_models.items():
+            print(f"{label} {mode} {name} 학습 중 ({indexes.size:,}건)", flush=True)
+            matrix = p50_matrix if name == "p50" else p95_matrix
+            model.fit(matrix[indexes], targets[indexes])
+        models[mode] = mode_models
+        rows_by_mode[mode] = int(indexes.size)
+    return models, rows_by_mode
+
+
 def _predict(
     rows: list[PublicRentTrainingRow],
-    matrix: np.ndarray,
+    p50_matrix: np.ndarray,
+    p95_matrix: np.ndarray,
     models: dict[str, dict[str, Pipeline]],
+    calibration_offsets: dict[str, dict[str, float]] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     p50 = np.empty(len(rows), dtype=float)
     p95 = np.empty(len(rows), dtype=float)
@@ -202,9 +275,56 @@ def _predict(
         )
         if indexes.size == 0:
             continue
-        p50[indexes] = mode_models["p50"].predict(matrix[indexes])
-        p95[indexes] = mode_models["p95"].predict(matrix[indexes])
+        offsets = (calibration_offsets or {}).get(mode, {})
+        p50[indexes] = (
+            mode_models["p50"].predict(p50_matrix[indexes])
+            + offsets.get("p50", 0.0)
+        )
+        p95[indexes] = (
+            mode_models["p95"].predict(p95_matrix[indexes])
+            + offsets.get("p95", 0.0)
+        )
     return p50, np.maximum(p50, p95)
+
+
+def _calibrate(
+    rows: list[PublicRentTrainingRow],
+    p50_matrix: np.ndarray,
+    p95_matrix: np.ndarray,
+    models: dict[str, dict[str, Pipeline]],
+) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float | int]]]:
+    targets = np.asarray([deposit_target(row) for row in rows], dtype=float)
+    offsets: dict[str, dict[str, float]] = {}
+    diagnostics: dict[str, dict[str, float | int]] = {}
+    for mode, mode_models in models.items():
+        indexes = np.asarray(
+            [index for index, row in enumerate(rows) if rent_mode(row) == mode],
+            dtype=int,
+        )
+        if indexes.size < 100:
+            raise SystemExit(f"{mode} 보정 데이터가 부족합니다: {indexes.size}건")
+        p50_raw = mode_models["p50"].predict(p50_matrix[indexes])
+        p95_raw = np.maximum(
+            p50_raw,
+            mode_models["p95"].predict(p95_matrix[indexes]),
+        )
+        p50_offset = float(np.median(targets[indexes] - p50_raw))
+        # One-sided split-conformal adjustment. The finite-sample quantile makes
+        # the advertised upper boundary match roughly 95% coverage on unseen time.
+        residuals = targets[indexes] - p95_raw
+        quantile_level = min(1.0, math.ceil((indexes.size + 1) * .95) / indexes.size)
+        p95_offset = float(np.quantile(residuals, quantile_level, method="higher"))
+        calibrated_p50 = p50_raw + p50_offset
+        calibrated_p95 = np.maximum(calibrated_p50, p95_raw + p95_offset)
+        offsets[mode] = {"p50": p50_offset, "p95": p95_offset}
+        diagnostics[mode] = {
+            "rows": int(indexes.size),
+            "p50_log_offset": p50_offset,
+            "p95_log_offset": p95_offset,
+            "p95_coverage_before": float(np.mean(targets[indexes] <= p95_raw)),
+            "p95_coverage_after": float(np.mean(targets[indexes] <= calibrated_p95)),
+        }
+    return offsets, diagnostics
 
 
 def _actual_deposits(rows: list[PublicRentTrainingRow]) -> np.ndarray:
@@ -228,6 +348,8 @@ def main() -> int:
     args = parse_args()
     if args.holdout_months < 1:
         raise SystemExit("--holdout-months는 1 이상이어야 합니다.")
+    if args.calibration_months < 1:
+        raise SystemExit("--calibration-months는 1 이상이어야 합니다.")
     input_path = args.input.resolve()
     synthetic_path = args.synthetic.resolve()
     model_output = args.model_output.resolve()
@@ -240,19 +362,33 @@ def main() -> int:
             raise SystemExit(f"이미 출력이 있습니다: {path} (--force로 교체)")
 
     periods = _load_periods(input_path)
-    if len(periods) <= args.holdout_months:
+    if len(periods) <= args.holdout_months + args.calibration_months:
         raise SystemExit("시간 분할에 필요한 계약월이 부족합니다.")
     holdout_periods = set(periods[-args.holdout_months:])
-    train, holdout, train_seen, holdout_seen, excluded = _load_split(
+    calibration_end = len(periods) - args.holdout_months
+    calibration_periods = set(
+        periods[calibration_end - args.calibration_months:calibration_end]
+    )
+    (
+        train,
+        calibration,
+        holdout,
+        train_seen,
+        calibration_seen,
+        holdout_seen,
+        excluded,
+    ) = _load_split(
         input_path,
         holdout_periods=holdout_periods,
+        calibration_periods=calibration_periods,
         train_limit=args.max_train,
+        calibration_limit=args.max_holdout,
         holdout_limit=args.max_holdout,
         seed=args.seed,
     )
     synthetic = _load_synthetic(synthetic_path)
-    if not train or not holdout or not synthetic:
-        raise SystemExit("학습·홀드아웃·합성 데이터가 모두 필요합니다.")
+    if not train or not calibration or not holdout or not synthetic:
+        raise SystemExit("학습·보정·홀드아웃·합성 데이터가 모두 필요합니다.")
 
     # Trim only the training sample. Thresholds are learned without seeing holdout.
     trim_bounds: dict[str, tuple[float, float]] = {}
@@ -274,36 +410,84 @@ def main() -> int:
         <= trim_bounds[rent_mode(row)][1]
     ]
 
-    peer_reference = build_peer_reference(train)
-    train_matrix = _matrix(train, peer_reference)
-    holdout_matrix = _matrix(holdout, peer_reference)
-    synthetic_matrix = _matrix(synthetic, peer_reference)
-    train_targets = np.asarray([deposit_target(row) for row in train], dtype=float)
-    models: dict[str, dict[str, Pipeline]] = {}
-    training_rows_by_mode: dict[str, int] = {}
+    provisional_reference = build_peer_reference(train)
+    train_p50_matrix = _matrix(train, provisional_reference, version="v2")
+    train_p95_matrix = _matrix(train, provisional_reference, version="v1")
+    calibration_p50_matrix = _matrix(
+        calibration,
+        provisional_reference,
+        version="v2",
+    )
+    calibration_p95_matrix = _matrix(
+        calibration,
+        provisional_reference,
+        version="v1",
+    )
     print(
-        f"학습: 실제 {len(train):,}건 (후보 {train_seen:,}건, 극단값 {train_before_trim - len(train):,}건 제외)",
+        f"보정 전 학습: 실제 {len(train):,}건 (후보 {train_seen:,}건, 극단값 {train_before_trim - len(train):,}건 제외)",
         flush=True,
     )
-    for mode_index, mode in enumerate(("jeonse", "monthly")):
-        indexes = np.asarray(
-            [index for index, row in enumerate(train) if rent_mode(row) == mode],
-            dtype=int,
-        )
-        if indexes.size < 100:
-            raise SystemExit(f"{mode} 학습 데이터가 부족합니다: {indexes.size}건")
-        mode_models = {
-            "p50": _new_model(quantile=.5, seed=args.seed + mode_index * 10),
-            "p95": _new_model(quantile=.95, seed=args.seed + mode_index * 10 + 1),
-        }
-        for name, model in mode_models.items():
-            print(f"{mode} {name} 학습 중 ({indexes.size:,}건)", flush=True)
-            model.fit(train_matrix[indexes], train_targets[indexes])
-        models[mode] = mode_models
-        training_rows_by_mode[mode] = int(indexes.size)
+    provisional_models, _ = _fit_models(
+        train,
+        train_p50_matrix,
+        train_p95_matrix,
+        seed=args.seed,
+        label="보정 전",
+    )
+    calibration_offsets, calibration_diagnostics = _calibrate(
+        calibration,
+        calibration_p50_matrix,
+        calibration_p95_matrix,
+        provisional_models,
+    )
 
-    holdout_p50_log, holdout_p95_log = _predict(holdout, holdout_matrix, models)
-    synthetic_p50_log, synthetic_p95_log = _predict(synthetic, synthetic_matrix, models)
+    # Once offsets are frozen, refit on every pre-holdout month so the deployed
+    # model sees the freshest market. The final three months remain untouched.
+    final_candidates = train + calibration
+    final_train_before_trim = min(len(final_candidates), args.max_train)
+    if len(final_candidates) > args.max_train:
+        final_train = random.Random(args.seed + 3).sample(
+            final_candidates,
+            args.max_train,
+        )
+    else:
+        final_train = final_candidates
+    final_train = [
+        row
+        for row in final_train
+        if trim_bounds[rent_mode(row)][0]
+        <= deposit_target(row)
+        <= trim_bounds[rent_mode(row)][1]
+    ]
+    peer_reference = build_peer_reference(final_train)
+    final_p50_matrix = _matrix(final_train, peer_reference, version="v2")
+    final_p95_matrix = _matrix(final_train, peer_reference, version="v1")
+    holdout_p50_matrix = _matrix(holdout, peer_reference, version="v2")
+    holdout_p95_matrix = _matrix(holdout, peer_reference, version="v1")
+    synthetic_p50_matrix = _matrix(synthetic, peer_reference, version="v2")
+    synthetic_p95_matrix = _matrix(synthetic, peer_reference, version="v1")
+    print(f"최종 학습: 실제 {len(final_train):,}건", flush=True)
+    models, training_rows_by_mode = _fit_models(
+        final_train,
+        final_p50_matrix,
+        final_p95_matrix,
+        seed=args.seed + 100,
+        label="최종",
+    )
+    holdout_p50_log, holdout_p95_log = _predict(
+        holdout,
+        holdout_p50_matrix,
+        holdout_p95_matrix,
+        models,
+        calibration_offsets,
+    )
+    synthetic_p50_log, synthetic_p95_log = _predict(
+        synthetic,
+        synthetic_p50_matrix,
+        synthetic_p95_matrix,
+        models,
+        calibration_offsets,
+    )
     holdout_actual = _actual_deposits(holdout)
     synthetic_actual = _actual_deposits(synthetic)
     holdout_p50 = _total_predictions(holdout, holdout_p50_log)
@@ -322,29 +506,44 @@ def main() -> int:
 
     trained_at = datetime.now(timezone.utc).isoformat()
     artifact = {
-        "schema_version": "deposit-quantile-model-1.0",
+        "schema_version": "deposit-quantile-model-2.0",
         "trained_at": trained_at,
         "models": models,
         "peer_reference": peer_reference,
-        "features": DEPOSIT_MODEL_FEATURES,
+        "features": {
+            "p50": DEPOSIT_MODEL_FEATURES_V2,
+            "p95": DEPOSIT_MODEL_FEATURES,
+        },
+        "quantile_feature_versions": {"p50": "v2", "p95": "v1"},
         "target": "log1p(deposit_per_m2_million_won)",
-        "training_periods": [period for period in periods if period not in holdout_periods],
+        "training_periods": [
+            period
+            for period in periods
+            if period not in holdout_periods
+        ],
+        "calibration_periods": sorted(calibration_periods),
         "holdout_periods": sorted(holdout_periods),
         "training_trim_log_density_bounds": trim_bounds,
+        "calibration_log_offsets": calibration_offsets,
     }
     absolute_percentage_error = np.abs(holdout_actual - holdout_p50) / holdout_actual
     report = {
-        "schema_version": "deposit-quantile-report-1.0",
+        "schema_version": "deposit-quantile-report-2.0",
         "trained_at": trained_at,
         "library": {"scikit_learn": sklearn.__version__},
         "data": {
             "source_sha256": _sha256(input_path),
-            "eligible_rows": train_seen + holdout_seen,
+            "eligible_rows": train_seen + calibration_seen + holdout_seen,
             "excluded_ineligible_rows": excluded,
-            "train_candidates": train_seen,
-            "train_sampled_before_trim": train_before_trim,
-            "train_sampled": len(train),
+            "train_candidates": train_seen + calibration_seen,
+            "train_sampled_before_trim": final_train_before_trim,
+            "train_sampled": len(final_train),
             "train_sampled_by_rent_mode": training_rows_by_mode,
+            "provisional_train_candidates": train_seen,
+            "provisional_train_sampled": len(train),
+            "calibration_candidates": calibration_seen,
+            "calibration_sampled": len(calibration),
+            "calibration_periods": sorted(calibration_periods),
             "holdout_candidates": holdout_seen,
             "holdout_sampled": len(holdout),
             "holdout_periods": sorted(holdout_periods),
@@ -370,6 +569,7 @@ def main() -> int:
                 float(np.median(synthetic_actual / np.maximum(synthetic_p95, 1e-6))),
                 6,
             ),
+            "calibration": calibration_diagnostics,
         },
         "interpretation": {
             "p50": "유사 계약 조건에서 예상되는 보증금 중앙값",
@@ -380,6 +580,7 @@ def main() -> int:
             "공공 신고자료는 정상/사고 라벨이 아니므로 시장 범위를 학습하는 용도입니다.",
             "합성 탐지율은 모델 배관 시험 지표이며 실제 보증사고 탐지 정확도가 아닙니다.",
             "보증금 시장 이상 신호는 근저당과 시세 대비 총부담 규칙을 대체하지 않습니다.",
+            "2026년 4~5월로 보정값을 먼저 고정한 뒤 최종 모델에 재학습했으며, 6~8월 평가는 끝까지 격리했습니다.",
         ],
     }
 

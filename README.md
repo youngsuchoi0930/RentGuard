@@ -104,9 +104,9 @@ apps\api\.venv\Scripts\python scripts\train_market_anomaly.py
 apps\api\.venv\Scripts\python scripts\train_deposit_quantile.py
 ```
 
-`train_deposit_quantile.py`는 현재 보증금을 입력 특성에서 제외하고 면적·층·연식·계약 시점·월세와 학습 구간의 유사 거래 통계로 보증금 중앙값(p50)과 상위 경계(p95)를 예측합니다. 최근 3개월은 학습에서 제외해 시간 순서대로 검증하며, p95를 넘는 보증금은 규칙 기반 위험 점수와 별도의 시장 이상 조건으로만 사용합니다.
+`train_deposit_quantile.py`는 현재 보증금을 입력 특성에서 제외하고 면적·층·연식·계약 시점·월세와 학습 구간의 유사 거래 통계로 보증금 중앙값(p50)과 상위 경계(p95)를 예측합니다. v2는 홀드아웃 직전 2개월로 p50 편향과 p95 포함률을 보정한 뒤 해당 기간까지 다시 학습합니다. 최근 3개월은 끝까지 격리해 시간 순서대로 검증하며, p95를 넘는 보증금은 규칙 기반 위험 점수와 별도의 시장 이상 조건으로만 사용합니다.
 
-학습 결과 `models/deposit-quantile-v1.joblib`이 있으면 분석 API가 자동으로 모델을 불러옵니다. 서울 주소와 건축HUB 전용면적을 확인한 연립·다세대 계약에만 적용하며, 결과의 `deposit_market`에 예상 중앙값, 상위 95% 경계와 초과 여부를 반환합니다. 모델 파일·전용면적이 없거나 학습 범위 밖이면 기존 규칙 분석은 유지하고 `unavailable` 또는 `out_of_scope`로 판단을 보류합니다. 다른 위치의 모델을 사용할 때만 `.env`의 `DEPOSIT_MODEL_PATH`에 신뢰할 수 있는 로컬 모델의 절대경로를 설정합니다.
+학습 결과 `models/deposit-quantile-v2.joblib`이 있으면 분석 API가 자동으로 모델을 불러옵니다. 서울 주소와 건축HUB 전용면적을 확인한 연립·다세대 계약에만 적용하며, 결과의 `deposit_market`에 예상 중앙값, 상위 95% 경계와 초과 여부를 반환합니다. 모델 파일·전용면적이 없거나 학습 범위 밖이면 기존 규칙 분석은 유지하고 `unavailable` 또는 `out_of_scope`로 판단을 보류합니다. 다른 위치의 모델을 사용할 때만 `.env`의 `DEPOSIT_MODEL_PATH`에 신뢰할 수 있는 로컬 모델의 절대경로를 설정합니다.
 
 ## 구조
 
