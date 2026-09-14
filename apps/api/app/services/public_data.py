@@ -470,7 +470,11 @@ async def _get_market_data(
     )
 
 
-async def fetch_public_data(address: str) -> PublicDataResult:
+async def fetch_public_data(
+    address: str,
+    *,
+    document_area: float | None = None,
+) -> PublicDataResult:
     settings = get_settings()
     try:
         matches = await search_resolved_addresses(address, limit=1, settings=settings)
@@ -507,5 +511,9 @@ async def fetch_public_data(address: str) -> PublicDataResult:
 
     resolved = matches[0]
     building = await _get_building_data(resolved, address, settings)
-    market = await _get_market_data(resolved, building.exclusive_area, settings)
+    # A road-address search result often omits the unit number. In that case the
+    # Building HUB area endpoint cannot select a household even though the
+    # uploaded building ledger already supplied its exclusive area.
+    target_area = building.exclusive_area or document_area
+    market = await _get_market_data(resolved, target_area, settings)
     return PublicDataResult(address=resolved, building=building, market=market)

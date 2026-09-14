@@ -248,16 +248,38 @@ def _extract_encumbrances(document: ExtractedDocument, text: str) -> list[Encumb
         start = max(0, match.start() - 450)
         end = min(len(text), match.end() + 650)
         row = text[start:end]
+        line_start = text.rfind("\n", 0, match.start()) + 1
+        line_end = text.find("\n", match.end())
+        if line_end == -1:
+            line_end = len(text)
+        current_line = text[line_start:line_end]
+        match_start_in_line = match.start() - line_start
+        match_end_in_line = match.end() - line_start
+        inline_rank = re.fullmatch(
+            r"\s*(\d{1,4}(?:-\d{1,3})?)\s*",
+            current_line[:match_start_in_line],
+        )
         before = text[max(0, match.start() - 260):match.start()]
         rank_matches = list(re.finditer(
             r"(?:^|\n)\s*(\d{1,4}(?:-\d{1,3})?)\s*(?=\n|20\d{2}\s*년)",
             before,
         ))
-        rank = rank_matches[-1].group(1) if rank_matches else None
+        rank = inline_rank.group(1) if inline_rank else (
+            rank_matches[-1].group(1) if rank_matches else None
+        )
+        same_line_dates = list(DATE_RE.finditer(current_line[match_end_in_line:]))
+        same_line_prior_dates = list(DATE_RE.finditer(current_line[:match_start_in_line]))
         preceding_dates = list(DATE_RE.finditer(before[-220:]))
         following_dates = list(DATE_RE.finditer(text[match.end():match.end() + 120]))
-        date_match = preceding_dates[-1] if preceding_dates else (
-            following_dates[0] if following_dates else None
+        # Government text PDFs put rank, purpose and receipt date on one line.
+        # Prefer that row's first date so a preceding ownership row cannot leak
+        # its cause date into the encumbrance.
+        date_match = same_line_dates[0] if same_line_dates else (
+            same_line_prior_dates[0] if same_line_prior_dates else (
+                preceding_dates[-1] if preceding_dates else (
+                following_dates[0] if following_dates else None
+                )
+            )
         )
         registered_at = _date(date_match.group(0)) if date_match else None
         return row, rank, registered_at

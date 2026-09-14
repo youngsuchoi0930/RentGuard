@@ -105,9 +105,11 @@ def test_precheck_separates_official_address_from_document_ocr_review(monkeypatc
     registry = extract_registry((fixtures / "registry_risky_digital.pdf").read_bytes())
     ledger = extract_building_ledger((fixtures / "building_ledger_risky.pdf").read_bytes())
     ledger.property.is_illegal_building = False
-    monkeypatch.setattr(
-        "app.services.analysis_service.predict_deposit_market",
-        lambda **_kwargs: DepositMarketState(
+    prediction_inputs = {}
+
+    def fake_predict_deposit_market(**kwargs):
+        prediction_inputs.update(kwargs)
+        return DepositMarketState(
             status="available",
             message="입력 보증금이 유사 계약의 예측 상위 경계를 넘었습니다.",
             expected_deposit=20_000_000,
@@ -116,7 +118,11 @@ def test_precheck_separates_official_address_from_document_ocr_review(monkeypatc
             exceeds_upper=True,
             model_version="deposit-quantile-model-1.0",
             training_period_end="202605",
-        ),
+        )
+
+    monkeypatch.setattr(
+        "app.services.analysis_service.predict_deposit_market",
+        fake_predict_deposit_market,
     )
 
     analysis = build_analysis(
@@ -166,3 +172,5 @@ def test_precheck_separates_official_address_from_document_ocr_review(monkeypatc
     assert ml_signal.points == 0
     assert "25,000,000원" in ml_signal.evidence
     assert next(check for check in analysis.checks if check.label == "보증금 시장 범위").status == "warning"
+    assert prediction_inputs["exclusive_area_m2"] == ledger.property.exclusive_area
+    assert prediction_inputs["approval_date"] == ledger.property.approval_date

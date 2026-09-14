@@ -1,12 +1,17 @@
+import asyncio
 from datetime import date
 
+from app.services import public_data
 from app.services.public_data import (
+    MarketEstimate,
+    OfficialBuilding,
     ResolvedAddress,
     Trade,
     _base_address,
     _month_keys,
     _optional_yes_no,
     estimate_market_value,
+    fetch_public_data,
 )
 
 
@@ -65,3 +70,35 @@ def test_market_estimate_refuses_thin_neighborhood_data():
     assert result.estimated_value is None
     assert result.estimated_value_low is None
     assert result.estimated_value_high is None
+
+
+def test_public_data_uses_document_area_when_address_has_no_unit(monkeypatch):
+    captured_area = None
+
+    async def fake_search(*_args, **_kwargs):
+        return [_address()]
+
+    async def fake_building(*_args, **_kwargs):
+        return OfficialBuilding(status="available", exclusive_area=None)
+
+    async def fake_market(_address_value, target_area, _settings):
+        nonlocal captured_area
+        captured_area = target_area
+        return MarketEstimate(
+            status="available",
+            estimated_value=300_000_000,
+            estimated_value_low=280_000_000,
+            estimated_value_high=320_000_000,
+            transaction_count=10,
+            volatility=.05,
+            message="테스트",
+        )
+
+    monkeypatch.setattr(public_data, "search_resolved_addresses", fake_search)
+    monkeypatch.setattr(public_data, "_get_building_data", fake_building)
+    monkeypatch.setattr(public_data, "_get_market_data", fake_market)
+
+    result = asyncio.run(fetch_public_data("서울특별시 강남구 테스트로 10", document_area=84.59))
+
+    assert result.market.status == "available"
+    assert captured_area == 84.59

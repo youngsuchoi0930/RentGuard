@@ -29,7 +29,9 @@ class OCRUnavailableError(RuntimeError):
 
 
 _ocr_engine = None
+_ocr_initialization_error: OCRUnavailableError | None = None
 _ocr_lock = Lock()
+_ocr_predict_lock = Lock()
 
 
 def _has_meaningful_text(pages: list[ExtractedPage]) -> bool:
@@ -47,25 +49,30 @@ def _extract_pdf_text(data: bytes) -> list[ExtractedPage]:
 
 
 def _get_ocr_engine():
-    global _ocr_engine
+    global _ocr_engine, _ocr_initialization_error
     if _ocr_engine is not None:
         return _ocr_engine
+    if _ocr_initialization_error is not None:
+        raise _ocr_initialization_error
     with _ocr_lock:
         if _ocr_engine is None:
+            if _ocr_initialization_error is not None:
+                raise _ocr_initialization_error
             try:
                 from paddleocr import PaddleOCR
-            except ImportError as exc:
-                raise OCRUnavailableError(
-                    "OCR dependencies are unavailable. Install paddleocr and paddlepaddle."
-                ) from exc
-            _ocr_engine = PaddleOCR(
-                text_detection_model_name="PP-OCRv5_mobile_det",
-                text_recognition_model_name="korean_PP-OCRv5_mobile_rec",
-                use_doc_orientation_classify=False,
-                use_doc_unwarping=False,
-                use_textline_orientation=False,
-                enable_mkldnn=False,
-            )
+                _ocr_engine = PaddleOCR(
+                    text_detection_model_name="PP-OCRv5_mobile_det",
+                    text_recognition_model_name="korean_PP-OCRv5_mobile_rec",
+                    use_doc_orientation_classify=False,
+                    use_doc_unwarping=False,
+                    use_textline_orientation=False,
+                    enable_mkldnn=False,
+                )
+            except Exception as exc:
+                _ocr_initialization_error = OCRUnavailableError(
+                    "OCR 실행 환경을 초기화하지 못했습니다. API 서버의 OCR 의존성을 확인해주세요."
+                )
+                raise _ocr_initialization_error from exc
     return _ocr_engine
 
 
@@ -92,7 +99,10 @@ def _extract_ocr(data: bytes) -> list[ExtractedPage]:
     for number, page in enumerate(pdf, start=1):
         pixmap = page.get_pixmap(matrix=pymupdf.Matrix(2.2, 2.2), alpha=False)
         image = Image.frombytes("RGB", [pixmap.width, pixmap.height], pixmap.samples)
-        results = engine.predict(np.asarray(image))
+        # PaddleOCR/PaddleX keeps process-wide inference state and is not safe to
+        # execute concurrently from FastAPI's worker threads.
+        with _ocr_predict_lock:
+            results = engine.predict(np.asarray(image))
         texts: list[str] = []
         scores: list[float] = []
         for result in results:

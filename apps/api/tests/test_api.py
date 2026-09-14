@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.pdf_extractor import OCRUnavailableError
 
 
 client = TestClient(app)
@@ -14,6 +15,35 @@ def test_health_check():
     assert result["deposit_model"]["status"] == "ready"
     assert result["deposit_model"]["schema_version"] == "deposit-quantile-model-2.0"
     assert result["deposit_model"]["integrity"] == "verified"
+
+
+def test_document_extraction_returns_actionable_ocr_error(monkeypatch):
+    monkeypatch.setattr("app.main.extract_registry", lambda _data: object())
+
+    def fail_ocr(_data):
+        raise OCRUnavailableError("OCR 실행 환경을 초기화하지 못했습니다.")
+
+    monkeypatch.setattr("app.main.extract_building_ledger", fail_ocr)
+
+    response = client.post(
+        "/api/v1/document-bundles/extract",
+        data={
+            "analysis_mode": "precheck",
+            "address": "서울특별시 강서구 화곡로 123",
+            "deposit": "30000000",
+            "monthly_rent": "1300000",
+        },
+        files={
+            "registry": ("registry.pdf", b"%PDF-test", "application/pdf"),
+            "building_ledger": ("ledger.pdf", b"%PDF-test", "application/pdf"),
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "OCR 실행 환경을 초기화하지 못했습니다.",
+        "code": "ocr_unavailable",
+    }
 
 
 def test_analysis_endpoint_returns_explainable_result(monkeypatch):
@@ -32,7 +62,7 @@ def test_analysis_endpoint_returns_explainable_result(monkeypatch):
             privacy_note="개인정보를 전송하지 않았습니다.",
         )
 
-    async def fake_public_data(_address):
+    async def fake_public_data(_address, **_kwargs):
         return None
 
     monkeypatch.setattr("app.main.generate_gemini_explanation", fake_explanation)
@@ -111,7 +141,7 @@ def test_precheck_accepts_registry_and_building_ledger_without_contract(monkeypa
             message="테스트에서는 생성하지 않습니다.",
         )
 
-    async def fake_public_data(_address):
+    async def fake_public_data(_address, **_kwargs):
         return PublicDataResult(
             address=None,
             building=OfficialBuilding(status="unavailable", message="테스트"),
@@ -178,7 +208,7 @@ def test_reviewed_extractions_apply_corrections_and_keep_page_evidence(monkeypat
             message="테스트에서는 생성하지 않습니다.",
         )
 
-    async def fake_public_data(_address):
+    async def fake_public_data(_address, **_kwargs):
         return None
 
     monkeypatch.setattr("app.main.generate_gemini_explanation", fake_explanation)

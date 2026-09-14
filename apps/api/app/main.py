@@ -5,6 +5,7 @@ from typing import Annotated, Any, AsyncIterator, Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from .building_schemas import BuildingLedgerExtraction
@@ -21,6 +22,7 @@ from .services.deposit_predictor import deposit_model_health
 from .services.lease_parser import extract_lease_contract
 from .services.llm_explainer import generate_gemini_explanation
 from .services.ml_dataset import build_ml_dataset_row
+from .services.pdf_extractor import OCRUnavailableError
 from .services.public_data import PublicAPIError, fetch_public_data, search_addresses
 from .services.registry_parser import extract_registry
 
@@ -41,6 +43,17 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(OCRUnavailableError)
+async def handle_ocr_unavailable(_request: Any, exc: OCRUnavailableError):
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": str(exc),
+            "code": "ocr_unavailable",
+        },
+    )
 
 origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
@@ -179,7 +192,10 @@ async def create_analysis(
         building_ledger=ledger_result,
         lease_contract=contract_result,
         mode=analysis_mode,
-        public_data=await fetch_public_data(address),
+        public_data=await fetch_public_data(
+            address,
+            document_area=ledger_result.property.exclusive_area,
+        ),
     )
     analysis.ai_explanation = await generate_gemini_explanation(
         grade=analysis.grade,
@@ -210,7 +226,10 @@ async def create_analysis_from_extractions(
         building_ledger=payload.documents.building_ledger,
         lease_contract=lease_contract,
         mode=payload.mode,
-        public_data=await fetch_public_data(payload.address),
+        public_data=await fetch_public_data(
+            payload.address,
+            document_area=payload.documents.building_ledger.property.exclusive_area,
+        ),
         corrections=payload.corrections,
     )
     analysis.ai_explanation = await generate_gemini_explanation(

@@ -1,11 +1,14 @@
 import json
 import os
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from app.services.pdf_extractor import OCRUnavailableError
 from app.services.pdf_extractor import ExtractedDocument, ExtractedPage
+from app.services import pdf_extractor
 from app.services.registry_evaluator import evaluate_registry
 from app.services.registry_parser import extract_registry, parse_registry
 
@@ -157,6 +160,27 @@ def test_registry_rights_extract_active_and_cancelled_rows_with_order():
 def test_image_only_pdf_requires_ocr_when_disabled():
     with pytest.raises(OCRUnavailableError):
         extract_registry((FIXTURES / "registry_risky_scan_noisy.pdf").read_bytes(), allow_ocr=False)
+
+
+def test_failed_ocr_initialization_is_cached(monkeypatch):
+    attempts = 0
+
+    class FailingPaddleOCR:
+        def __init__(self, **_kwargs):
+            nonlocal attempts
+            attempts += 1
+            raise RuntimeError("native dependency is missing")
+
+    monkeypatch.setitem(sys.modules, "paddleocr", SimpleNamespace(PaddleOCR=FailingPaddleOCR))
+    monkeypatch.setattr(pdf_extractor, "_ocr_engine", None)
+    monkeypatch.setattr(pdf_extractor, "_ocr_initialization_error", None)
+
+    with pytest.raises(OCRUnavailableError, match="OCR 실행 환경"):
+        pdf_extractor._get_ocr_engine()
+    with pytest.raises(OCRUnavailableError, match="OCR 실행 환경"):
+        pdf_extractor._get_ocr_engine()
+
+    assert attempts == 1
 
 
 @pytest.mark.ocr

@@ -34,6 +34,18 @@ type RegistryRightType = "mortgage" | "seizure" | "provisional_seizure" | "trust
 
 type ScalarValue = string | number | boolean | null;
 
+const NETWORK_ERROR_PATTERN = /failed to fetch|fetch failed|networkerror|load failed/i;
+
+function requestFailureMessage(cause: unknown, fallback: string): string {
+  if (cause instanceof Error) {
+    if (cause instanceof TypeError && NETWORK_ERROR_PATTERN.test(cause.message)) {
+      return "분석 API에 연결할 수 없습니다. API 서버가 실행 중인지 확인해주세요.";
+    }
+    if (cause.message.trim()) return cause.message;
+  }
+  return fallback;
+}
+
 type SourceEvidence = {
   page: number;
   section: string;
@@ -352,6 +364,8 @@ export default function HomePage() {
     && parseMoney(deposit) > 0
     && requiredDocuments.every((document) => files[document.key]);
   const hasMarketData = analysis?.market_data.status === "available" && analysis.facts.estimated_value !== null;
+  const officialBuildingCheck = analysis?.checks.find((check) => check.label === "공식 건축물대장");
+  const hasOfficialBuildingData = officialBuildingCheck !== undefined && officialBuildingCheck.status !== "needs_review";
   const steps = useMemo(() => [
     { label: "계약 정보", done: stage !== "form", current: stage === "form" },
     { label: "추출값 확인", done: stage === "analyzing" || stage === "result", current: stage === "extracting" || stage === "review" },
@@ -450,10 +464,7 @@ export default function HomePage() {
       setProgress(100);
       setStage("review");
     } catch (cause) {
-      const message = cause instanceof Error && cause.message !== "Failed to fetch"
-        ? cause.message
-        : "분석 API에 연결할 수 없습니다. API 서버가 실행 중인지 확인해주세요.";
-      setError(message);
+      setError(requestFailureMessage(cause, "문서 추출 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."));
       setProgress(0);
       setStage("form");
     }
@@ -505,7 +516,7 @@ export default function HomePage() {
       setProgress(100);
       setStage("result");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "분석 요청에 실패했습니다.");
+      setError(requestFailureMessage(cause, "위험도 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."));
       setProgress(0);
       setStage("review");
     }
@@ -887,7 +898,7 @@ export default function HomePage() {
 
                   <article className="source-card">
                     <ShieldCheck size={22} />
-                    <div><strong>{hasMarketData ? "공식 데이터로 확인했어요" : "업로드 문서와 공식 주소를 확인했어요"}</strong><p>{hasMarketData ? `등기부등본 · 건축HUB · 국토교통부 실거래가${analysis.deposit_market.status === "available" ? " · 전월세 ML 기준" : ""}${analysis.mode === "contract_review" ? " · 임대차계약서" : ""}` : `등기부등본 · 건축물대장${analysis.mode === "contract_review" ? " · 임대차계약서" : ""} · ${analysis.market_data.status === "unavailable" ? "비교 거래 부족" : "실거래가 미연동"}`}</p></div>
+                    <div><strong>{hasMarketData ? (hasOfficialBuildingData ? "공식 데이터로 확인했어요" : "일부 공식 데이터만 확인했어요") : "업로드 문서와 공식 주소를 확인했어요"}</strong><p>{hasMarketData ? `등기부등본 · ${hasOfficialBuildingData ? "건축HUB" : "업로드 건축물대장"} · 국토교통부 실거래가${analysis.deposit_market.status === "available" ? " · 전월세 ML 기준" : ""}${analysis.mode === "contract_review" ? " · 임대차계약서" : ""}` : `등기부등본 · 건축물대장${analysis.mode === "contract_review" ? " · 임대차계약서" : ""} · ${analysis.market_data.status === "unavailable" ? "비교 거래 부족" : "실거래가 미연동"}`}</p></div>
                   </article>
                 </aside>
               </div>

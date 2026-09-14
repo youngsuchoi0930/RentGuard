@@ -135,15 +135,20 @@ def _model_row(
     monthly_rent: int,
     today: date,
     exclusive_area_m2: float | None = None,
+    approval_date: str | None = None,
 ) -> PublicRentTrainingRow | None:
     address = public_data.address
     building = public_data.building
-    area = building.exclusive_area or exclusive_area_m2
+    # Uploaded ledger values are the stable snapshot for this analysis. Public
+    # APIs enrich missing fields, but a transient Building HUB failure must not
+    # change the model input for the same uploaded documents.
+    area = exclusive_area_m2 or building.exclusive_area
     if address is None or area is None or area <= 0:
         return None
     approval_year = None
-    if building.approval_date and building.approval_date[:4].isdigit():
-        approval_year = max(0, today.year - int(building.approval_date[:4]))
+    effective_approval_date = approval_date or building.approval_date
+    if effective_approval_date and effective_approval_date[:4].isdigit():
+        approval_year = max(0, today.year - int(effective_approval_date[:4]))
     deposit_million = deposit / 1_000_000
     rent_million = monthly_rent / 1_000_000
     return PublicRentTrainingRow(
@@ -178,6 +183,7 @@ def predict_deposit_market(
     settings: Settings | None = None,
     today: date | None = None,
     exclusive_area_m2: float | None = None,
+    approval_date: str | None = None,
 ) -> DepositMarketState:
     if public_data is None or public_data.address is None:
         return _unavailable("공공 주소정보를 확인하지 못해 유사 보증금 범위를 계산하지 않았습니다.")
@@ -198,6 +204,7 @@ def predict_deposit_market(
         monthly_rent=monthly_rent,
         today=today or date.today(),
         exclusive_area_m2=exclusive_area_m2,
+        approval_date=approval_date,
     )
     if row is None:
         return _unavailable("보증금 예측에 필요한 주소 또는 전용면적이 부족합니다.")

@@ -170,6 +170,52 @@ def test_model_row_uses_uploaded_ledger_area_when_public_area_is_missing():
     assert row.features.exclusive_area_m2 == 84.59
 
 
+def test_model_row_prefers_uploaded_ledger_features_over_public_building():
+    row = _model_row(
+        public_data=_public_data(area=50.0),
+        deposit=30_000_000,
+        monthly_rent=1_300_000,
+        today=date(2026, 9, 10),
+        exclusive_area_m2=84.59,
+        approval_date="1998-01-15",
+    )
+
+    assert row is not None
+    assert row.features.exclusive_area_m2 == 84.59
+    assert row.features.building_age_years == 28
+
+
+def test_deposit_prediction_is_stable_when_building_hub_is_unavailable():
+    root = Path(__file__).resolve().parents[3]
+    model_path = root / "models" / "deposit-quantile-v2.joblib"
+    settings = Settings(DEPOSIT_MODEL_PATH=model_path, REQUIRE_DEPOSIT_MODEL=True)
+    available = _public_data(area=50.0)
+    unavailable = PublicDataResult(
+        address=available.address,
+        building=OfficialBuilding(
+            status="unavailable",
+            message="건축HUB 응답을 확인하지 못했습니다.",
+        ),
+        market=available.market,
+    )
+    common = {
+        "deposit": 30_000_000,
+        "monthly_rent": 1_300_000,
+        "settings": settings,
+        "today": date(2026, 9, 10),
+        "exclusive_area_m2": 84.59,
+        "approval_date": "1998-01-15",
+    }
+
+    with_hub = predict_deposit_market(public_data=available, **common)
+    without_hub = predict_deposit_market(public_data=unavailable, **common)
+
+    assert with_hub.status == "available"
+    assert without_hub.status == "available"
+    assert with_hub.expected_deposit == without_hub.expected_deposit
+    assert with_hub.upper_deposit == without_hub.upper_deposit
+
+
 def test_deployed_v2_model_passes_manifest_verification():
     root = Path(__file__).resolve().parents[3]
     model_path = root / "models" / "deposit-quantile-v2.joblib"
