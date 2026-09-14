@@ -1,12 +1,14 @@
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Annotated, Literal
+from typing import Annotated, Any, AsyncIterator, Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 
 from .building_schemas import BuildingLedgerExtraction
+from .config import get_settings
 from .cross_check_schemas import DocumentBundleExtraction
 from .lease_schemas import LeaseContractExtraction
 from .ml_schemas import MLDatasetRow, MLDatasetRowRequest
@@ -15,16 +17,29 @@ from .schemas import AddressSearchResponse, AnalysisFromExtractionsRequest, Anal
 from .services.analysis_service import build_analysis
 from .services.building_parser import extract_building_ledger
 from .services.cross_checker import cross_check_documents
+from .services.deposit_predictor import deposit_model_health
 from .services.lease_parser import extract_lease_contract
 from .services.llm_explainer import generate_gemini_explanation
 from .services.ml_dataset import build_ml_dataset_row
 from .services.public_data import PublicAPIError, fetch_public_data, search_addresses
 from .services.registry_parser import extract_registry
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    settings = get_settings()
+    model_health = deposit_model_health(settings)
+    if settings.require_deposit_model and model_health["status"] != "ready":
+        raise RuntimeError(
+            f"필수 보증금 모델을 준비하지 못했습니다: {model_health.get('message', 'unknown')}"
+        )
+    yield
+
+
 app = FastAPI(
     title="RentGuard AI API",
     description="전세계약 문서 교차검증 및 위험 분석 API",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
@@ -38,8 +53,12 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "time": datetime.now(timezone.utc).isoformat()}
+def health() -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "time": datetime.now(timezone.utc).isoformat(),
+        "deposit_model": deposit_model_health(),
+    }
 
 
 @app.post("/api/v1/ml/dataset-rows/preview", response_model=MLDatasetRow)

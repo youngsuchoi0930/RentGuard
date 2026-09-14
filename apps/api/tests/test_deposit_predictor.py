@@ -1,9 +1,14 @@
 from datetime import date
+from pathlib import Path
 
 import joblib
 
 from app.config import Settings
-from app.services.deposit_predictor import _model_row, predict_deposit_market
+from app.services.deposit_predictor import (
+    _model_row,
+    deposit_model_health,
+    predict_deposit_market,
+)
 from app.services.deposit_quantile_features import deposit_target
 from app.services.market_anomaly_features import build_peer_reference
 from app.services.public_data import (
@@ -163,3 +168,29 @@ def test_model_row_uses_uploaded_ledger_area_when_public_area_is_missing():
 
     assert row is not None
     assert row.features.exclusive_area_m2 == 84.59
+
+
+def test_deployed_v2_model_passes_manifest_verification():
+    root = Path(__file__).resolve().parents[3]
+    model_path = root / "models" / "deposit-quantile-v2.joblib"
+
+    result = deposit_model_health(
+        Settings(DEPOSIT_MODEL_PATH=model_path, REQUIRE_DEPOSIT_MODEL=True)
+    )
+
+    assert result["status"] == "ready"
+    assert result["schema_version"] == "deposit-quantile-model-2.0"
+    assert result["training_period_end"] == "202605"
+    assert result["integrity"] == "verified"
+
+
+def test_required_model_reports_unavailable_when_artifact_is_missing(tmp_path):
+    result = deposit_model_health(
+        Settings(
+            DEPOSIT_MODEL_PATH=tmp_path / "missing.joblib",
+            REQUIRE_DEPOSIT_MODEL=True,
+        )
+    )
+
+    assert result["status"] == "unavailable"
+    assert result["integrity"] == "failed"

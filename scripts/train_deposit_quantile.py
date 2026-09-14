@@ -60,6 +60,11 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=ROOT / "data" / "ml" / "deposit-quantile-v2-report.json",
     )
+    parser.add_argument(
+        "--manifest-output",
+        type=Path,
+        help="기본값은 모델 파일과 같은 이름의 .manifest.json입니다.",
+    )
     parser.add_argument("--max-train", type=int, default=120_000)
     parser.add_argument("--max-holdout", type=int, default=50_000)
     parser.add_argument("--holdout-months", type=int, default=3)
@@ -354,10 +359,15 @@ def main() -> int:
     synthetic_path = args.synthetic.resolve()
     model_output = args.model_output.resolve()
     report_output = args.report_output.resolve()
+    manifest_output = (
+        args.manifest_output.resolve()
+        if args.manifest_output
+        else model_output.with_suffix(".manifest.json")
+    )
     for path in (input_path, synthetic_path):
         if not path.exists():
             raise SystemExit(f"입력 파일이 없습니다: {path}")
-    for path in (model_output, report_output):
+    for path in (model_output, report_output, manifest_output):
         if path.exists() and not args.force:
             raise SystemExit(f"이미 출력이 있습니다: {path} (--force로 교체)")
 
@@ -586,15 +596,37 @@ def main() -> int:
 
     model_output.parent.mkdir(parents=True, exist_ok=True)
     report_output.parent.mkdir(parents=True, exist_ok=True)
+    manifest_output.parent.mkdir(parents=True, exist_ok=True)
     model_temp = model_output.with_suffix(model_output.suffix + ".tmp")
     report_temp = report_output.with_suffix(report_output.suffix + ".tmp")
+    manifest_temp = manifest_output.with_suffix(manifest_output.suffix + ".tmp")
     try:
         joblib.dump(artifact, model_temp)
         report_temp.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        manifest = {
+            "schema_version": "rentguard-model-manifest-1.0",
+            "artifact": model_output.name,
+            "artifact_schema_version": artifact["schema_version"],
+            "sha256": _sha256(model_temp),
+            "size_bytes": model_temp.stat().st_size,
+            "trained_at": trained_at,
+            "scikit_learn": sklearn.__version__,
+            "training_period_end": str(max(artifact["training_periods"])),
+            "holdout_periods": [str(period) for period in sorted(holdout_periods)],
+            "data_policy": (
+                "Public transaction features only; exact addresses and document "
+                "text excluded."
+            ),
+        }
+        manifest_temp.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
         os.replace(model_temp, model_output)
         os.replace(report_temp, report_output)
+        os.replace(manifest_temp, manifest_output)
     finally:
-        for path in (model_temp, report_temp):
+        for path in (model_temp, report_temp, manifest_temp):
             if path.exists():
                 path.unlink()
 
@@ -605,6 +637,7 @@ def main() -> int:
     for scenario, rate in evaluation["synthetic_detection_by_scenario"].items():
         print(f"  {scenario}: {rate:.2%}")
     print(f"모델: {model_output}")
+    print(f"Manifest: {manifest_output}")
     print(f"리포트: {report_output}")
     return 0
 

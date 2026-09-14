@@ -46,6 +46,16 @@ Windows 로컬 OCR 환경은 PaddlePaddle 휠과 맞는 Python 3.12를 사용합
 
 API 문서는 http://localhost:8000/docs 에서 확인할 수 있습니다.
 
+### Docker Compose
+
+저장소에 포함된 검증된 `models/deposit-quantile-v2.joblib`을 API 이미지에 복사하므로 새 환경에서 별도 학습 없이 보증금 모델을 사용할 수 있습니다. `.env.example`을 참고해 로컬 `.env`에 API 키를 설정한 뒤 실행합니다.
+
+```bat
+docker compose up --build
+```
+
+API 컨테이너는 모델 파일과 manifest의 SHA-256을 확인하고 `deposit-quantile-model-2.0`을 정상적으로 불러온 뒤에만 healthy 상태가 됩니다. `GET http://localhost:8000/health`의 `deposit_model`에서 모델 버전, 학습 기준월과 무결성 상태를 확인할 수 있습니다. 운영 컨테이너는 `REQUIRE_DEPOSIT_MODEL=true`이므로 모델이 누락되거나 손상되면 시작에 실패합니다.
+
 ## 등기부 PDF 추출·비교 테스트
 
 등기부 추출기는 먼저 PDF 텍스트 레이어를 사용하고, 텍스트가 없는 스캔 PDF만 PaddleOCR로 처리합니다. 표의 좌표나 고정된 셀 순서에 의존하지 않고 `소유자`, `근저당권설정`, `채권최고액` 같은 의미 표식을 중심으로 필드를 묶습니다. 반복될 수 있는 소유권과 권리사항은 배열이며, 각 항목에는 페이지·원문·추출 방식·신뢰도를 남깁니다.

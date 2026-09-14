@@ -9,7 +9,11 @@ client = TestClient(app)
 def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json()["status"] == "ok"
+    result = response.json()
+    assert result["status"] == "ok"
+    assert result["deposit_model"]["status"] == "ready"
+    assert result["deposit_model"]["schema_version"] == "deposit-quantile-model-2.0"
+    assert result["deposit_model"]["integrity"] == "verified"
 
 
 def test_analysis_endpoint_returns_explainable_result(monkeypatch):

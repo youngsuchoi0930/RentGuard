@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
@@ -34,6 +36,96 @@ def _load_artifact(path: str, modified_ns: int) -> dict[str, Any]:
     }:
         raise ValueError("지원하지 않는 보증금 모델 형식입니다.")
     return artifact
+
+
+@lru_cache(maxsize=4)
+def _sha256(path: str, modified_ns: int) -> str:
+    del modified_ns
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+@lru_cache(maxsize=4)
+def _load_manifest(path: str, modified_ns: int) -> dict[str, Any]:
+    del modified_ns
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if payload.get("schema_version") != "rentguard-model-manifest-1.0":
+        raise ValueError("지원하지 않는 모델 manifest 형식입니다.")
+    return payload
+
+
+def _load_configured_artifact(
+    config: Settings,
+) -> tuple[Path, dict[str, Any], str]:
+    model_path = Path(config.deposit_model_path).resolve()
+    if not model_path.is_file():
+        raise FileNotFoundError("학습된 보증금 모델 파일이 없습니다.")
+
+    manifest_path = model_path.with_suffix(".manifest.json")
+    integrity = "unverified"
+    manifest: dict[str, Any] | None = None
+    if manifest_path.is_file():
+        manifest = _load_manifest(
+            str(manifest_path),
+            manifest_path.stat().st_mtime_ns,
+        )
+        if manifest.get("artifact") != model_path.name:
+            raise ValueError("모델 manifest의 파일명이 일치하지 않습니다.")
+        if manifest.get("size_bytes") != model_path.stat().st_size:
+            raise ValueError("모델 파일 크기가 manifest와 일치하지 않습니다.")
+        expected_hash = str(manifest.get("sha256", "")).lower()
+        actual_hash = _sha256(str(model_path), model_path.stat().st_mtime_ns)
+        if expected_hash != actual_hash:
+            raise ValueError("모델 파일 해시가 manifest와 일치하지 않습니다.")
+        integrity = "verified"
+    elif config.require_deposit_model:
+        raise FileNotFoundError("필수 모델 manifest 파일이 없습니다.")
+
+    artifact = _load_artifact(str(model_path), model_path.stat().st_mtime_ns)
+    if manifest and manifest.get("artifact_schema_version") != artifact.get(
+        "schema_version"
+    ):
+        raise ValueError("모델 형식이 manifest와 일치하지 않습니다.")
+    return model_path, artifact, integrity
+
+
+def deposit_model_health(
+    settings: Settings | None = None,
+) -> dict[str, str | int | None]:
+    config = settings or get_settings()
+    try:
+        model_path, artifact, integrity = _load_configured_artifact(config)
+        periods = artifact.get("training_periods") or []
+        return {
+            "status": "ready",
+            "artifact": model_path.name,
+            "schema_version": str(artifact["schema_version"]),
+            "training_period_end": str(max(periods)) if periods else None,
+            "integrity": integrity,
+            "size_bytes": model_path.stat().st_size,
+        }
+    except (
+        ImportError,
+        KeyError,
+        TypeError,
+        ValueError,
+        OSError,
+        AttributeError,
+        EOFError,
+        IndexError,
+    ) as exc:
+        return {
+            "status": "unavailable",
+            "artifact": Path(config.deposit_model_path).name,
+            "schema_version": None,
+            "training_period_end": None,
+            "integrity": "failed",
+            "size_bytes": None,
+            "message": str(exc),
+        }
 
 
 def _model_row(
@@ -98,8 +190,7 @@ def predict_deposit_market(
         return _unavailable("건축물대장에서 전용면적을 확인하지 못해 보증금 모델을 적용하지 않았습니다.")
 
     config = settings or get_settings()
-    model_path = Path(config.deposit_model_path).resolve()
-    if not model_path.is_file():
+    if not Path(config.deposit_model_path).resolve().is_file():
         return _unavailable("학습된 보증금 모델 파일이 없어 시장 범위를 계산하지 않았습니다.")
     row = _model_row(
         public_data=public_data,
@@ -112,7 +203,7 @@ def predict_deposit_market(
         return _unavailable("보증금 예측에 필요한 주소 또는 전용면적이 부족합니다.")
 
     try:
-        artifact = _load_artifact(str(model_path), model_path.stat().st_mtime_ns)
+        _, artifact, _ = _load_configured_artifact(config)
         mode = rent_mode(row)
         mode_models = artifact["models"][mode]
         if artifact["schema_version"] == "deposit-quantile-model-2.0":

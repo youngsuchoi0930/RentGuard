@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+.env.*
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/node_modules
+**/.next
+data
+output
+tmp
+local-fixtures
+models/*
+!models/deposit-quantile-v2.joblib
+!models/deposit-quantile-v2.manifest.json

@@ -1,0 +1,12 @@
+{
+  "schema_version": "rentguard-model-manifest-1.0",
+  "artifact": "deposit-quantile-v2.joblib",
+  "artifact_schema_version": "deposit-quantile-model-2.0",
+  "sha256": "1e62a7c48bd59790b462cea3ca7448a09f57c3e77d144191203552b92b788531",
+  "size_bytes": 3872049,
+  "trained_at": "2026-09-12T05:20:29.380731+00:00",
+  "scikit_learn": "1.9.0",
+  "training_period_end": "202605",
+  "holdout_periods": ["202606", "202607", "202608"],
+  "data_policy": "Public transaction features only; exact addresses and document text excluded."
+}

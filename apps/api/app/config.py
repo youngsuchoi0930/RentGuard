@@ -5,8 +5,12 @@ from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 API_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = (
+    API_ROOT.parent.parent
+    if API_ROOT.parent.name == "apps"
+    else API_ROOT
+)
 
 
 class Settings(BaseSettings):
@@ -53,6 +57,10 @@ class Settings(BaseSettings):
     deposit_model_path: Path = Field(
         default=PROJECT_ROOT / "models" / "deposit-quantile-v2.joblib",
         validation_alias="DEPOSIT_MODEL_PATH",
+    )
+    require_deposit_model: bool = Field(
+        default=False,
+        validation_alias="REQUIRE_DEPOSIT_MODEL",
     )
 
 
