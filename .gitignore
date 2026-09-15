@@ -10,3 +10,6 @@ coverage/
 dist/
 tmp/
 local-fixtures/
+data/*.db
+data/*.db-shm
+data/*.db-wal

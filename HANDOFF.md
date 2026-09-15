@@ -41,7 +41,8 @@ RentGuard는 임대차 계약 전에 등기사항증명서·건축물대장·임
 | 반응형 화면 | 완료 | 데스크톱·모바일 대응 |
 | Docker | 완료 | 웹·API 이미지, API health check, 검증된 모델 포함 |
 | 자동 테스트 | 완료 | API, 추출기, 교차검증, 공공데이터, ML 회귀 테스트 |
-| DB·분석 기록 | 미구현 | 현재 결과를 영구 저장하지 않음 |
+| DB·분석 기록 | 완료 v1 | SQLite 목록·상세·삭제, Docker volume 영속화, 개인정보 제거 |
+| 사용자 피드백 | 완료 v1 | 전체·핵심 금액·위험 신호의 정확성/오탐/누락과 수정 금액 저장 |
 | 공식자료 RAG | 미구현 | HUG·국토부 공식 가이드 검색/인용 계층 필요 |
 | 실제 보증사고 모델 | 미구현 | 사고 결과가 라벨링된 데이터 없음 |
 | 클라우드 배포 | 미구현 | 현재 로컬 Docker 실행까지 완료 |
@@ -188,6 +189,11 @@ PDF 업로드 및 문서 분류
 | `POST /api/v1/analyses` | PDF 업로드부터 최종 분석까지 한 번에 실행 |
 | `POST /api/v1/analyses/from-extractions` | 사용자 확인·수정값으로 최종 분석 |
 | `POST /api/v1/ml/dataset-rows/preview` | 저장 없이 비식별 ML 행 미리보기 |
+| `GET /api/v1/analysis-history` | 비식별 분석 기록 목록 |
+| `GET /api/v1/analysis-history/{analysis_id}` | 분석 기록 상세 |
+| `DELETE /api/v1/analysis-history/{analysis_id}` | 분석 기록 삭제 |
+| `GET /api/v1/analysis-history/{analysis_id}/feedback` | 분석별 비식별 피드백 조회 |
+| `POST /api/v1/analysis-history/{analysis_id}/feedback` | 항목별 피드백 저장·갱신 |
 
 Swagger는 API 실행 후 `http://localhost:8000/docs`에서 확인한다.
 
@@ -205,6 +211,7 @@ Swagger는 API 실행 후 `http://localhost:8000/docs`에서 확인한다.
 | `PUBLIC_API_TIMEOUT_SECONDS` | 공공 API 제한 시간 |
 | `PUBLIC_MARKET_MONTHS` | 실거래 비교 기간 |
 | `REQUIRE_DEPOSIT_MODEL` | 보증금 모델 필수 여부 |
+| `ANALYSIS_DB_PATH` | 선택적 SQLite 경로, 미설정 시 `data/rentguard.db` |
 
 공공데이터포털 키 하나를 사용하더라도 건축HUB와 매매·전월세 서비스는 각각 활용신청 및 승인 상태를 확인해야 한다.
 
@@ -273,7 +280,7 @@ cd apps/api
 .venv\Scripts\python -m pytest -q
 ```
 
-마지막 로컬 검증 결과는 `72 passed, 1 skipped`였다. `skipped` 항목은 기본 실행에서 제외한 OCR 전용 테스트다.
+분석 기록과 사용자 피드백 기능 추가 후 로컬 검증 결과는 `79 passed, 1 skipped`였다. `skipped` 항목은 기본 실행에서 제외한 OCR 전용 테스트다.
 
 ### 핵심 회귀 테스트
 
@@ -317,6 +324,7 @@ npm run build
 | `apps/api/app/services/cross_checker.py` | 문서 간 주소·계약정보 교차검증 |
 | `apps/api/app/services/public_data.py` | 주소, 건축HUB, 매매 실거래가 연동 |
 | `apps/api/app/services/analysis_service.py` | 공공데이터와 추출값을 최종 분석 결과로 조립 |
+| `apps/api/app/services/analysis_history.py` | 비식별 분석 기록의 SQLite 저장·조회·삭제 |
 | `apps/api/app/services/deposit_predictor.py` | 보증금 p50·p95 모델 로딩과 예측 |
 | `apps/api/app/risk_engine.py` | 재현 가능한 규칙 기반 위험점수 |
 | `apps/api/app/services/gemini_explainer.py` | 개인정보 제외 Gemini 설명 |
@@ -335,6 +343,7 @@ npm run build
 - 공유 가능한 테스트는 합성 문서 또는 육안 검증을 마친 익명화 사본만 사용한다.
 - Gemini에는 PDF, 주소, 이름, 금액, 증거 원문을 전송하지 않는다.
 - 업로드 원본은 현재 분석 요청 동안만 사용하며 분석 기록 DB에 저장하지 않는다.
+- 사용자 피드백은 자유문장을 받지 않고 판정·수정 금액만 저장해 개인정보 유입을 제한한다.
 - 모델 파일은 업로드 파일을 받지 않고 저장소가 제공한 manifest 검증 모델만 로드한다.
 
 ## 13. 현재 남아 있는 한계
@@ -349,7 +358,6 @@ npm run build
 | 시세 모델 범위 제한 | 현재 연립·다세대 매매 실거래 중심, 표본 부족 시 계산 보류 |
 | 보증금 ML 지역·유형 제한 | 서울 연립·다세대 범위 밖은 `out_of_scope` |
 | 실제 사기·보증사고 예측 모델 없음 | 법적 안전 판정이 아닌 규칙·시장 이상 신호로만 제공 |
-| 분석 기록 없음 | 결과는 현재 화면에서만 확인 |
 | 클라우드 운영 관측 없음 | 로컬 health check와 Docker 로그만 사용 |
 
 ## 14. 다음 개발 계획
@@ -360,9 +368,9 @@ npm run build
 | P0 | 손글씨 계약서 OCR 평가 | 손글씨·도장·특약이 있는 문서의 보증금·월세·임대인 재현율 확인 |
 | P0 | 공공 API 장애 스냅샷 테스트 확대 | 건축HUB 성공·실패·타임아웃에도 같은 문서의 핵심 계산이 일관됨 |
 | P0 | 위험 엔진 기준 문서화 | 각 점수·상한·행동 지침의 정책 근거와 변경 이력 관리 |
-| P1 | DB 및 분석 기록 | 개인정보 최소화, 보관 동의·삭제 정책과 함께 기록 화면 동작 |
+| P1 | 기록 보관 정책·동의 UI | 보관 기간 선택, 전체 삭제, 저장 동의와 정책 표시 |
 | P1 | 공식자료 RAG | HUG·국토부 공식 출처를 붙인 설명 제공 |
-| P1 | 사용자 피드백 수집 | 오탐·누락·수정 데이터를 비식별 구조로 저장 |
+| P1 | 사용자 피드백 평가·내보내기 | 누적 피드백 통계와 검수된 학습용 데이터 내보내기 |
 | P1 | 실제 라벨 평가 세트 | 정상·이상·확인된 위험 사례를 사람 검수 후 분리 보관 |
 | P2 | 주택유형·지역 확장 | 아파트·오피스텔·다가구 및 서울 외 지역 모델 분리 |
 | P2 | 클라우드 배포·관측 | HTTPS 공개 URL, CI/CD, 오류 추적, 비밀 관리, 헬스 모니터링 |
@@ -373,7 +381,7 @@ npm run build
 1. `git pull` 후 이 문서의 기준 커밋보다 최신인지 확인한다.
 2. `.env`와 비공개 문서가 새 컴퓨터에 준비됐는지 확인한다.
 3. `docker compose up -d --build`를 실행한다.
-4. `/health`에서 API와 `deposit-quantile-model-2.0`이 `ready/verified`인지 확인한다.
+4. `/health`에서 API, 분석 기록 DB와 `deposit-quantile-model-2.0`이 `ready/verified`인지 확인한다.
 5. 합성 PDF로 빠른 분석을 수행한다.
 6. 비공개 `PRIVATE_CASE_001`을 실행해 6절의 기준값과 비교한다.
 7. 차이가 있으면 코드를 바로 수정하기 전에 OCR 추출값, 공공 API 응답 상태, ML 입력 피처를 각각 분리해 원인을 찾는다.

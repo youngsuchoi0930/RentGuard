@@ -1,6 +1,8 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from datetime import datetime
+
+from pydantic import BaseModel, Field, model_validator
 
 from .cross_check_schemas import DocumentBundleExtraction
 
@@ -128,3 +130,85 @@ class AnalysisFromExtractionsRequest(BaseModel):
     monthly_rent: int = Field(ge=0)
     documents: DocumentBundleExtraction
     corrections: list[UserCorrection] = Field(default_factory=list, max_length=50)
+
+
+class AnalysisHistorySummary(BaseModel):
+    analysis_id: str
+    created_at: datetime
+    masked_address: str
+    mode: Literal["precheck", "contract_review"]
+    status: Literal["complete", "partial", "needs_review"]
+    score: int = Field(ge=0, le=100)
+    grade: Literal["낮음", "주의", "높음"]
+    headline: str
+    deposit: int = Field(ge=0)
+    monthly_rent: int = Field(ge=0)
+    estimated_value: int | None = Field(default=None, gt=0)
+    mortgage_amount: int = Field(ge=0)
+
+
+class AnalysisHistoryDetail(AnalysisHistorySummary):
+    summary: str
+    facts: ExtractedFacts
+    signals: list[RiskSignal]
+    checks: list[CheckItem]
+    actions: list[str]
+    market_data: MarketDataState
+    deposit_market: DepositMarketState
+    ai_explanation: AIExplanation
+
+
+class AnalysisHistoryList(BaseModel):
+    items: list[AnalysisHistorySummary]
+    total: int = Field(ge=0)
+
+
+FeedbackTarget = Literal[
+    "overall",
+    "estimated_value",
+    "mortgage_amount",
+    "deposit",
+    "monthly_rent",
+    "risk_signals",
+]
+FeedbackVerdict = Literal["correct", "incorrect", "missing"]
+
+
+class AnalysisFeedbackCreate(BaseModel):
+    target: FeedbackTarget
+    verdict: FeedbackVerdict
+    corrected_value: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def require_corrected_value_for_wrong_amount(self):
+        amount_targets = {
+            "estimated_value",
+            "mortgage_amount",
+            "deposit",
+            "monthly_rent",
+        }
+        if (
+            self.target in amount_targets
+            and self.verdict == "incorrect"
+            and self.corrected_value is None
+        ):
+            raise ValueError("금액이 틀렸다면 실제 금액을 입력해주세요.")
+        if self.target not in amount_targets and self.corrected_value is not None:
+            raise ValueError("이 항목에는 수정 금액을 저장할 수 없습니다.")
+        return self
+
+
+class AnalysisFeedbackItem(BaseModel):
+    id: int
+    analysis_id: str
+    target: FeedbackTarget
+    verdict: FeedbackVerdict
+    original_value: int | None = Field(default=None, ge=0)
+    corrected_value: int | None = Field(default=None, ge=0)
+    created_at: datetime
+    updated_at: datetime
+
+
+class AnalysisFeedbackList(BaseModel):
+    items: list[AnalysisFeedbackItem]
+    total: int = Field(ge=0)

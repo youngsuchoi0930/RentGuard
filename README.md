@@ -11,6 +11,8 @@
 - 위험 신호별 출처 문서·페이지·OCR 원문·신뢰도
 - 개인정보를 제외한 구조화 결과의 Gemini 쉬운 설명
 - 계약 전에 해야 할 행동 추천
+- PDF·이름·상세주소·OCR 원문을 제외한 분석 기록 저장·조회·삭제
+- 분석 결과의 정확성·오탐·누락과 금액 수정값을 비식별 피드백으로 저장
 
 LLM은 최종 설명 계층에만 연결하도록 설계하며, 위험 판단은 재현 가능한 Rule/ML 계층에서 수행합니다.
 
@@ -56,6 +58,9 @@ docker compose up --build
 
 API 컨테이너는 모델 파일과 manifest의 SHA-256을 확인하고 `deposit-quantile-model-2.0`을 정상적으로 불러온 뒤에만 healthy 상태가 됩니다. `GET http://localhost:8000/health`의 `deposit_model`에서 모델 버전, 학습 기준월과 무결성 상태를 확인할 수 있습니다. 운영 컨테이너는 `REQUIRE_DEPOSIT_MODEL=true`이므로 모델이 누락되거나 손상되면 시작에 실패합니다.
 
+분석 기록은 Docker named volume `rentguard-data`의 SQLite DB에 저장되어 컨테이너를 다시 만들어도 유지됩니다. 전체 주소는 시·구까지만 남기고, 소유자·임대인 이름과 PDF·OCR 원문·문서 증거는 저장하지 않습니다.
+피드백 역시 분석 ID, 대상 항목, 판정, 숫자 수정값만 저장하며 자유 입력 문장과 원문은 받지 않습니다. 결과 화면과 분석 기록 상세 화면에서 같은 피드백을 확인하거나 수정할 수 있습니다.
+
 ## 등기부 PDF 추출·비교 테스트
 
 등기부 추출기는 먼저 PDF 텍스트 레이어를 사용하고, 텍스트가 없는 스캔 PDF만 PaddleOCR로 처리합니다. 표의 좌표나 고정된 셀 순서에 의존하지 않고 `소유자`, `근저당권설정`, `채권최고액` 같은 의미 표식을 중심으로 필드를 묶습니다. 반복될 수 있는 소유권과 권리사항은 배열이며, 각 항목에는 페이지·원문·추출 방식·신뢰도를 남깁니다.
@@ -93,6 +98,11 @@ apps\api\.venv\Scripts\python scripts\evaluate_registry.py --pdf output\pdf\rent
 | `POST /api/v1/analyses` | 사전점검(2종) 또는 계약서 교차검증(3종) 후 위험 신호 생성 |
 | `POST /api/v1/analyses/from-extractions` | 사용자가 확인·수정한 추출값으로 공공데이터 대조 및 위험 분석 |
 | `POST /api/v1/ml/dataset-rows/preview` | 분석 결과를 저장 없이 비식별 ML 학습 행으로 변환 |
+| `GET /api/v1/analysis-history` | 개인정보를 제거한 분석 기록 목록 |
+| `GET /api/v1/analysis-history/{analysis_id}` | 저장된 분석 결과 상세 조회 |
+| `DELETE /api/v1/analysis-history/{analysis_id}` | 분석 기록 삭제 |
+| `GET /api/v1/analysis-history/{analysis_id}/feedback` | 분석별 비식별 피드백 조회 |
+| `POST /api/v1/analysis-history/{analysis_id}/feedback` | 피드백 저장 또는 항목별 갱신 |
 
 `POST /api/v1/analyses`의 `analysis_mode`는 `precheck` 또는 `contract_review`입니다. `precheck`에는 등기부등본과 건축물대장만 필요하며, `contract_review`에는 임대차계약서도 필요합니다. 주소정보에서 법정동 코드와 지번을 확인하고, 건축HUB 표제부 및 최근 12개월 연립·다세대 매매 실거래가를 조회합니다. 같은 지번 또는 같은 법정동의 유사 전용면적 거래만 비교하고, 중간가격과 함께 비교 거래의 25~75백분위 예상 범위를 반환합니다. 근거가 부족하면 `estimated_value`를 `null`, `market_data.status`를 `unavailable`로 반환하며 시세 대비 보증금·근저당 비율을 계산하지 않습니다.
 
@@ -130,4 +140,4 @@ output/pdf      테스트용 합성 PDF와 정답 데이터
 
 ## 현재 데모의 경계
 
-세 문서의 텍스트 추출과 OCR, 주요 필드 추출, 교차검증, 주소 검색, 건축HUB 대조와 국토교통부 실거래가 기반 추정까지 실제로 동작합니다. CASE-001 익명화 문서는 가짜 주소이므로 공공데이터가 없는 것이 정상이며, 실제 주소로 전체 연동을 검증해야 합니다. 자동 추출 실패, 비교 거래 부족이나 일부증명서는 `needs_review` 또는 시세 `unavailable`로 보내며, 실제 계약 판단에는 원문과 공식 사이트 확인이 필요합니다.
+세 문서의 텍스트 추출과 OCR, 주요 필드 추출, 교차검증, 주소 검색, 건축HUB 대조, 국토교통부 실거래가 기반 추정과 비식별 분석 기록까지 실제로 동작합니다. CASE-001 익명화 문서는 가짜 주소이므로 공공데이터가 없는 것이 정상이며, 실제 주소로 전체 연동을 검증해야 합니다. 자동 추출 실패, 비교 거래 부족이나 일부증명서는 `needs_review` 또는 시세 `unavailable`로 보내며, 실제 계약 판단에는 원문과 공식 사이트 확인이 필요합니다.

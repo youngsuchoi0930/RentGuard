@@ -62,6 +62,10 @@ class Settings(BaseSettings):
         default=False,
         validation_alias="REQUIRE_DEPOSIT_MODEL",
     )
+    analysis_db_path: Path = Field(
+        default=PROJECT_ROOT / "data" / "rentguard.db",
+        validation_alias="ANALYSIS_DB_PATH",
+    )
 
 
 @lru_cache

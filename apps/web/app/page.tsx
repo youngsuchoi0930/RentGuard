@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Building2,
+  CalendarClock,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -16,18 +17,21 @@ import {
   LockKeyhole,
   MapPin,
   Menu,
+  MessageSquareText,
   PenLine,
   Plus,
   RefreshCw,
   Search,
   ShieldCheck,
   Sparkles,
+  Trash2,
+  ThumbsUp,
   UploadCloud,
   X,
 } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
-type Stage = "form" | "extracting" | "review" | "analyzing" | "result";
+type Stage = "form" | "extracting" | "review" | "analyzing" | "result" | "history";
 type AnalysisMode = "precheck" | "contract_review";
 type DocKey = "registry" | "building_ledger" | "lease_contract";
 type RegistryRightType = "mortgage" | "seizure" | "provisional_seizure" | "trust" | "leasehold" | "tenant_registration" | "auction" | "other";
@@ -192,6 +196,40 @@ type Analysis = {
   disclaimer: string;
 };
 
+type AnalysisHistorySummary = {
+  analysis_id: string;
+  created_at: string;
+  masked_address: string;
+  mode: AnalysisMode;
+  status: "complete" | "partial" | "needs_review";
+  score: number;
+  grade: "낮음" | "주의" | "높음";
+  headline: string;
+  deposit: number;
+  monthly_rent: number;
+  estimated_value: number | null;
+  mortgage_amount: number;
+};
+
+type AnalysisHistoryDetail = AnalysisHistorySummary & Pick<
+  Analysis,
+  "summary" | "facts" | "signals" | "checks" | "actions" | "market_data" | "deposit_market" | "ai_explanation"
+>;
+
+type FeedbackTarget = "overall" | "estimated_value" | "mortgage_amount" | "deposit" | "monthly_rent" | "risk_signals";
+type FeedbackVerdict = "correct" | "incorrect" | "missing";
+
+type AnalysisFeedback = {
+  id: number;
+  analysis_id: string;
+  target: FeedbackTarget;
+  verdict: FeedbackVerdict;
+  original_value: number | null;
+  corrected_value: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
 const DOCUMENTS: Array<{ key: DocKey; label: string; hint: string }> = [
   { key: "registry", label: "등기부등본", hint: "소유권·근저당 확인" },
   { key: "building_ledger", label: "건축물대장", hint: "용도·위반 여부 확인" },
@@ -225,6 +263,16 @@ function parseMoney(value: string) {
 function formatInput(value: string) {
   const digits = value.replace(/[^0-9]/g, "");
   return digits ? Number(digits).toLocaleString("ko-KR") : "";
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function addressUnit(value: string) {
@@ -339,6 +387,140 @@ function ReviewField({
   );
 }
 
+const FEEDBACK_AMOUNT_FIELDS: Array<{ target: Exclude<FeedbackTarget, "overall" | "risk_signals">; label: string }> = [
+  { target: "estimated_value", label: "예상 주택가액" },
+  { target: "mortgage_amount", label: "근저당 채권최고액" },
+  { target: "deposit", label: "보증금" },
+  { target: "monthly_rent", label: "월세" },
+];
+
+function FeedbackPanel({
+  analysisId,
+  values,
+  compact = false,
+}: {
+  analysisId: string;
+  values: Record<Exclude<FeedbackTarget, "overall" | "risk_signals">, number | null>;
+  compact?: boolean;
+}) {
+  const [feedback, setFeedback] = useState<Partial<Record<FeedbackTarget, AnalysisFeedback>>>({});
+  const [editing, setEditing] = useState<FeedbackTarget | null>(null);
+  const [draftValue, setDraftValue] = useState("");
+  const [saving, setSaving] = useState<FeedbackTarget | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setFeedback({});
+    setEditing(null);
+    setMessage(null);
+    const load = async () => {
+      try {
+        const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+        const response = await fetch(`${apiBase}/api/v1/analysis-history/${analysisId}/feedback`);
+        if (!response.ok) return;
+        const payload = await response.json() as { items: AnalysisFeedback[] };
+        if (!active) return;
+        setFeedback(Object.fromEntries(payload.items.map((item) => [item.target, item])));
+      } catch {
+        // 분석 자체는 정상적으로 사용할 수 있으므로 초기 조회 오류는 조용히 넘깁니다.
+      }
+    };
+    void load();
+    return () => { active = false; };
+  }, [analysisId]);
+
+  const submit = async (target: FeedbackTarget, verdict: FeedbackVerdict, correctedValue?: number) => {
+    setSaving(target);
+    setMessage(null);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const response = await fetch(`${apiBase}/api/v1/analysis-history/${analysisId}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target,
+          verdict,
+          corrected_value: correctedValue ?? null,
+        }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { detail?: unknown } | null;
+        throw new Error(typeof payload?.detail === "string" ? payload.detail : "피드백을 저장하지 못했습니다.");
+      }
+      const saved = await response.json() as AnalysisFeedback;
+      setFeedback((current) => ({ ...current, [target]: saved }));
+      setEditing(null);
+      setDraftValue("");
+      setMessage("피드백을 저장했어요. 다음 분석 개선에 활용할게요.");
+    } catch (cause) {
+      setMessage(requestFailureMessage(cause, "피드백을 저장하지 못했습니다."));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const beginCorrection = (target: FeedbackTarget, currentValue: number | null) => {
+    setEditing(target);
+    setDraftValue(currentValue === null ? "" : currentValue.toLocaleString("ko-KR"));
+    setMessage(null);
+  };
+
+  const statusText = (item: AnalysisFeedback | undefined) => {
+    if (!item) return null;
+    if (item.verdict === "correct") return "정확하다고 저장됨";
+    if (item.verdict === "missing") return "누락으로 저장됨";
+    return item.corrected_value === null ? "오탐으로 저장됨" : `${money(item.corrected_value)}으로 수정됨`;
+  };
+
+  return (
+    <article className={`feedback-card ${compact ? "compact" : ""}`}>
+      <div className="feedback-head">
+        <div><span><MessageSquareText size={16} /> 결과 개선 참여</span><h2>실제 서류와 결과가 맞나요?</h2><p>이름·주소·PDF 원문은 저장하지 않고 선택한 판정과 수정 금액만 저장합니다.</p></div>
+      </div>
+
+      <div className="feedback-overall">
+        <strong>전체 분석 결과</strong>
+        <div>
+          <button className={feedback.overall?.verdict === "correct" ? "selected correct" : ""} disabled={saving === "overall"} onClick={() => submit("overall", "correct")}><ThumbsUp size={14} /> 정확해요</button>
+          <button className={feedback.overall?.verdict === "incorrect" ? "selected incorrect" : ""} disabled={saving === "overall"} onClick={() => submit("overall", "incorrect")}><AlertTriangle size={14} /> 오탐이 있어요</button>
+          <button className={feedback.overall?.verdict === "missing" ? "selected missing" : ""} disabled={saving === "overall"} onClick={() => submit("overall", "missing")}><Plus size={14} /> 내용이 빠졌어요</button>
+        </div>
+        {statusText(feedback.overall) && <small>{statusText(feedback.overall)}</small>}
+      </div>
+
+      <div className="feedback-fields">
+        {FEEDBACK_AMOUNT_FIELDS.map(({ target, label }) => (
+          <div className="feedback-field" key={target}>
+            <div><span>{label}</span><strong>{money(values[target])}</strong>{statusText(feedback[target]) && <small>{statusText(feedback[target])}</small>}</div>
+            <div className="feedback-field-actions">
+              <button className={feedback[target]?.verdict === "correct" ? "selected correct" : ""} disabled={saving === target} onClick={() => submit(target, "correct")}><Check size={13} /> 맞아요</button>
+              <button className={feedback[target]?.verdict === "incorrect" ? "selected incorrect" : ""} disabled={saving === target} onClick={() => beginCorrection(target, feedback[target]?.corrected_value ?? values[target])}><PenLine size={13} /> 수정</button>
+            </div>
+            {editing === target && (
+              <div className="feedback-correction">
+                <label><span>실제 금액</span><input autoFocus inputMode="numeric" value={draftValue} placeholder="원 단위로 입력" onChange={(event) => setDraftValue(formatInput(event.target.value))} /></label>
+                <button disabled={parseMoney(draftValue) < 0 || saving === target || draftValue === ""} onClick={() => submit(target, "incorrect", parseMoney(draftValue))}>{saving === target ? <LoaderCircle className="spin" size={14} /> : <Check size={14} />} 저장</button>
+                <button className="cancel" onClick={() => { setEditing(null); setDraftValue(""); }}>취소</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="feedback-risk">
+        <div><strong>위험 신호</strong><span>표시된 경고가 적절한지 알려주세요.</span>{statusText(feedback.risk_signals) && <small>{statusText(feedback.risk_signals)}</small>}</div>
+        <div>
+          <button className={feedback.risk_signals?.verdict === "correct" ? "selected correct" : ""} disabled={saving === "risk_signals"} onClick={() => submit("risk_signals", "correct")}><Check size={13} /> 적절해요</button>
+          <button className={feedback.risk_signals?.verdict === "incorrect" ? "selected incorrect" : ""} disabled={saving === "risk_signals"} onClick={() => submit("risk_signals", "incorrect")}><AlertTriangle size={13} /> 오탐</button>
+          <button className={feedback.risk_signals?.verdict === "missing" ? "selected missing" : ""} disabled={saving === "risk_signals"} onClick={() => submit("risk_signals", "missing")}><Plus size={13} /> 누락</button>
+        </div>
+      </div>
+      {message && <div className="feedback-message" role="status">{saving ? <LoaderCircle className="spin" size={14} /> : <CheckCircle2 size={14} />}{message}</div>}
+    </article>
+  );
+}
+
 export default function HomePage() {
   const [stage, setStage] = useState<Stage>("form");
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("precheck");
@@ -357,6 +539,11 @@ export default function HomePage() {
   const [expandedSignal, setExpandedSignal] = useState<string | null>(null);
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const [historyItems, setHistoryItems] = useState<AnalysisHistorySummary[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [selectedHistory, setSelectedHistory] = useState<AnalysisHistoryDetail | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const requiredDocuments = analysisMode === "precheck" ? DOCUMENTS.slice(0, 2) : DOCUMENTS;
   const uploadedCount = requiredDocuments.filter((document) => files[document.key]).length;
@@ -522,6 +709,71 @@ export default function HomePage() {
     }
   };
 
+  const openHistoryDetail = async (analysisId: string) => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const response = await fetch(`${apiBase}/api/v1/analysis-history/${analysisId}`);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(payload?.detail || "분석 기록을 불러오지 못했습니다.");
+      }
+      setSelectedHistory(await response.json() as AnalysisHistoryDetail);
+    } catch (cause) {
+      setHistoryError(requestFailureMessage(cause, "분석 기록을 불러오지 못했습니다."));
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const loadHistory = async () => {
+    setStage("history");
+    setMobileMenu(false);
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const response = await fetch(`${apiBase}/api/v1/analysis-history?limit=50`);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(payload?.detail || "분석 기록을 불러오지 못했습니다.");
+      }
+      const payload = await response.json() as { items: AnalysisHistorySummary[]; total: number };
+      setHistoryItems(payload.items);
+      setHistoryTotal(payload.total);
+      if (payload.items.length === 0) {
+        setSelectedHistory(null);
+      } else {
+        const detailResponse = await fetch(`${apiBase}/api/v1/analysis-history/${payload.items[0].analysis_id}`);
+        if (!detailResponse.ok) throw new Error("최신 분석 기록을 불러오지 못했습니다.");
+        setSelectedHistory(await detailResponse.json() as AnalysisHistoryDetail);
+      }
+    } catch (cause) {
+      setHistoryError(requestFailureMessage(cause, "분석 기록을 불러오지 못했습니다."));
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const deleteHistory = async (item: AnalysisHistorySummary) => {
+    if (!window.confirm(`${item.masked_address} 분석 기록을 삭제할까요? 삭제 후 복구할 수 없습니다.`)) return;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const response = await fetch(`${apiBase}/api/v1/analysis-history/${item.analysis_id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(payload?.detail || "분석 기록을 삭제하지 못했습니다.");
+      }
+      await loadHistory();
+    } catch (cause) {
+      setHistoryError(requestFailureMessage(cause, "분석 기록을 삭제하지 못했습니다."));
+      setHistoryLoading(false);
+    }
+  };
+
   return (
     <div className="app-shell">
       <aside className={`sidebar ${mobileMenu ? "open" : ""}`}>
@@ -533,8 +785,8 @@ export default function HomePage() {
 
         <nav>
           <p className="nav-label">서비스</p>
-          <button className="nav-item active"><FileCheck2 size={19} />새 계약 분석</button>
-          <button className="nav-item"><Search size={19} />분석 기록</button>
+          <button className={`nav-item ${stage !== "history" ? "active" : ""}`} onClick={() => { setStage("form"); setMobileMenu(false); }}><FileCheck2 size={19} />새 계약 분석</button>
+          <button className={`nav-item ${stage === "history" ? "active" : ""}`} onClick={loadHistory}><Search size={19} />분석 기록</button>
           <button className="nav-item"><CircleHelp size={19} />계약 가이드</button>
         </nav>
 
@@ -563,15 +815,89 @@ export default function HomePage() {
         </header>
 
         <div className="page-wrap">
-          <div className="stepper" aria-label="분석 단계">
-            {steps.map((step, index) => (
-              <div className={`step ${step.current ? "current" : ""} ${step.done ? "done" : ""}`} key={step.label}>
-                <span>{step.done ? <Check size={14} /> : index + 1}</span>
-                <b>{step.label}</b>
-                {index < steps.length - 1 && <i />}
+          {stage !== "history" && (
+            <div className="stepper" aria-label="분석 단계">
+              {steps.map((step, index) => (
+                <div className={`step ${step.current ? "current" : ""} ${step.done ? "done" : ""}`} key={step.label}>
+                  <span>{step.done ? <Check size={14} /> : index + 1}</span>
+                  <b>{step.label}</b>
+                  {index < steps.length - 1 && <i />}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {stage === "history" && (
+            <section className="history-stage">
+              <div className="history-header">
+                <div>
+                  <span><CalendarClock size={16} /> 분석 기록</span>
+                  <h1>이전에 확인한 계약</h1>
+                  <p>PDF 원본과 이름은 저장하지 않고, 마스킹된 주소와 분석 결과만 보관합니다.</p>
+                </div>
+                <button className="outline-button" onClick={loadHistory} disabled={historyLoading}><RefreshCw className={historyLoading ? "spin" : ""} size={16} /> 새로고침</button>
               </div>
-            ))}
-          </div>
+
+              {historyError && <div className="error-banner" role="alert"><AlertTriangle size={18} />{historyError}</div>}
+
+              {historyLoading && historyItems.length === 0 ? (
+                <div className="history-empty"><LoaderCircle className="spin" size={28} /><strong>분석 기록을 불러오고 있어요</strong></div>
+              ) : historyItems.length === 0 ? (
+                <div className="history-empty"><CalendarClock size={32} /><strong>아직 저장된 분석이 없어요</strong><p>새 계약을 분석하면 개인정보를 제외한 결과가 여기에 표시됩니다.</p><button className="primary-button" onClick={() => setStage("form")}>첫 분석 시작하기 <ArrowRight size={16} /></button></div>
+              ) : (
+                <div className="history-layout">
+                  <div className="history-list-card">
+                    <div className="history-list-head"><strong>전체 {historyTotal}건</strong><span>최신순</span></div>
+                    <div className="history-list">
+                      {historyItems.map((item) => (
+                        <div className={`history-item ${selectedHistory?.analysis_id === item.analysis_id ? "active" : ""}`} key={item.analysis_id}>
+                          <button className="history-item-main" onClick={() => openHistoryDetail(item.analysis_id)}>
+                            <span className={`history-score grade-${item.grade}`}>{item.score}</span>
+                            <span className="history-item-copy"><strong>{item.masked_address}</strong><small>{item.mode === "precheck" ? "사전점검" : "계약서 교차검증"} · {formatDateTime(item.created_at)}</small><em>{item.headline}</em></span>
+                          </button>
+                          <button className="history-delete" onClick={() => deleteHistory(item)} aria-label={`${item.masked_address} 기록 삭제`}><Trash2 size={15} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="history-detail-card">
+                    {selectedHistory ? (
+                      <>
+                        <div className="history-detail-head">
+                          <div><span>{selectedHistory.mode === "precheck" ? "사전점검" : "계약서 교차검증"}</span><h2>{selectedHistory.masked_address}</h2><small>{formatDateTime(selectedHistory.created_at)}</small></div>
+                          <strong>{selectedHistory.score}<em>점</em></strong>
+                        </div>
+                        <h3>{selectedHistory.headline}</h3>
+                        <p className="history-summary">{selectedHistory.summary}</p>
+                        <div className="history-metrics">
+                          <div><span>예상 주택가액</span><strong>{money(selectedHistory.estimated_value)}</strong></div>
+                          <div><span>근저당</span><strong>{money(selectedHistory.mortgage_amount)}</strong></div>
+                          <div><span>보증금</span><strong>{money(selectedHistory.deposit)}</strong></div>
+                          <div><span>월세</span><strong>{money(selectedHistory.monthly_rent)}</strong></div>
+                        </div>
+                        <div className="history-detail-section"><strong>발견된 신호</strong>{selectedHistory.signals.length > 0 ? <ul>{selectedHistory.signals.map((signal) => <li key={signal.id}><span>{signal.title}</span><em>{signal.points > 0 ? `+${signal.points}점` : "확인"}</em></li>)}</ul> : <p>저장된 위험 신호가 없습니다.</p>}</div>
+                        <div className="history-detail-section"><strong>계약 전 행동</strong><ol>{selectedHistory.actions.map((action) => <li key={action}>{action}</li>)}</ol></div>
+                        <FeedbackPanel
+                          analysisId={selectedHistory.analysis_id}
+                          compact
+                          values={{
+                            estimated_value: selectedHistory.facts.estimated_value,
+                            mortgage_amount: selectedHistory.facts.mortgage_amount,
+                            deposit: selectedHistory.facts.deposit,
+                            monthly_rent: selectedHistory.facts.monthly_rent,
+                          }}
+                        />
+                        <small className="history-privacy"><LockKeyhole size={13} /> 이름·상세주소·PDF·OCR 원문은 이 기록에 저장하지 않았습니다.</small>
+                      </>
+                    ) : (
+                      <div className="history-empty"><Info size={28} /><strong>왼쪽에서 분석 기록을 선택해주세요</strong></div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
           {stage === "form" && (
             <section className="form-stage">
@@ -858,6 +1184,16 @@ export default function HomePage() {
                       })}
                     </div>
                   </article>
+
+                  <FeedbackPanel
+                    analysisId={analysis.analysis_id}
+                    values={{
+                      estimated_value: analysis.facts.estimated_value,
+                      mortgage_amount: analysis.facts.mortgage_amount,
+                      deposit: analysis.facts.deposit,
+                      monthly_rent: analysis.facts.monthly_rent,
+                    }}
+                  />
                 </div>
 
                 <aside className="report-side">

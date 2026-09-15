@@ -27,3 +27,9 @@ services:
       DATA_GO_KR_SERVICE_KEY: ${DATA_GO_KR_SERVICE_KEY:-}
       DEPOSIT_MODEL_PATH: /app/models/deposit-quantile-v2.joblib
       REQUIRE_DEPOSIT_MODEL: "true"
+      ANALYSIS_DB_PATH: /app/data/rentguard.db
+    volumes:
+      - rentguard-data:/app/data
+
+volumes:
+  rentguard-data:

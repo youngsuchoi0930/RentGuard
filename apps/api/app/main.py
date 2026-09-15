@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Annotated, Any, AsyncIterator, Literal
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
@@ -14,8 +14,18 @@ from .cross_check_schemas import DocumentBundleExtraction
 from .lease_schemas import LeaseContractExtraction
 from .ml_schemas import MLDatasetRow, MLDatasetRowRequest
 from .registry_schemas import RegistryExtraction
-from .schemas import AddressSearchResponse, AnalysisFromExtractionsRequest, AnalysisResponse
+from .schemas import (
+    AddressSearchResponse,
+    AnalysisFeedbackCreate,
+    AnalysisFeedbackItem,
+    AnalysisFeedbackList,
+    AnalysisFromExtractionsRequest,
+    AnalysisHistoryDetail,
+    AnalysisHistoryList,
+    AnalysisResponse,
+)
 from .services.analysis_service import build_analysis
+from .services.analysis_history import get_history_store
 from .services.building_parser import extract_building_ledger
 from .services.cross_checker import cross_check_documents
 from .services.deposit_predictor import deposit_model_health
@@ -34,6 +44,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         raise RuntimeError(
             f"필수 보증금 모델을 준비하지 못했습니다: {model_health.get('message', 'unknown')}"
         )
+    get_history_store(settings).initialize()
     yield
 
 
@@ -71,7 +82,59 @@ def health() -> dict[str, Any]:
         "status": "ok",
         "time": datetime.now(timezone.utc).isoformat(),
         "deposit_model": deposit_model_health(),
+        "analysis_history": get_history_store().health(),
     }
+
+
+@app.get("/api/v1/analysis-history", response_model=AnalysisHistoryList)
+def list_analysis_history(
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> AnalysisHistoryList:
+    return get_history_store().list(limit=limit, offset=offset)
+
+
+@app.get(
+    "/api/v1/analysis-history/{analysis_id}",
+    response_model=AnalysisHistoryDetail,
+)
+def get_analysis_history(analysis_id: str) -> AnalysisHistoryDetail:
+    result = get_history_store().get(analysis_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="분석 기록을 찾지 못했습니다.")
+    return result
+
+
+@app.delete("/api/v1/analysis-history/{analysis_id}", status_code=204)
+def delete_analysis_history(analysis_id: str) -> Response:
+    if not get_history_store().delete(analysis_id):
+        raise HTTPException(status_code=404, detail="분석 기록을 찾지 못했습니다.")
+    return Response(status_code=204)
+
+
+@app.get(
+    "/api/v1/analysis-history/{analysis_id}/feedback",
+    response_model=AnalysisFeedbackList,
+)
+def list_analysis_feedback(analysis_id: str) -> AnalysisFeedbackList:
+    result = get_history_store().list_feedback(analysis_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="분석 기록을 찾지 못했습니다.")
+    return result
+
+
+@app.post(
+    "/api/v1/analysis-history/{analysis_id}/feedback",
+    response_model=AnalysisFeedbackItem,
+)
+def save_analysis_feedback(
+    analysis_id: str,
+    payload: AnalysisFeedbackCreate,
+) -> AnalysisFeedbackItem:
+    result = get_history_store().save_feedback(analysis_id, payload)
+    if result is None:
+        raise HTTPException(status_code=404, detail="분석 기록을 찾지 못했습니다.")
+    return result
 
 
 @app.post("/api/v1/ml/dataset-rows/preview", response_model=MLDatasetRow)
@@ -203,6 +266,7 @@ async def create_analysis(
         checks=analysis.checks,
         market_data=analysis.market_data,
     )
+    await run_in_threadpool(get_history_store().save, address, analysis)
     return analysis
 
 
@@ -238,4 +302,5 @@ async def create_analysis_from_extractions(
         checks=analysis.checks,
         market_data=analysis.market_data,
     )
+    await run_in_threadpool(get_history_store().save, payload.address, analysis)
     return analysis
