@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  BarChart3,
   Building2,
   CalendarClock,
   Check,
@@ -31,7 +32,7 @@ import {
 } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
-type Stage = "form" | "extracting" | "review" | "analyzing" | "result" | "history";
+type Stage = "form" | "extracting" | "review" | "analyzing" | "result" | "history" | "feedback";
 type AnalysisMode = "precheck" | "contract_review";
 type DocKey = "registry" | "building_ledger" | "lease_contract";
 type RegistryRightType = "mortgage" | "seizure" | "provisional_seizure" | "trust" | "leasehold" | "tenant_registration" | "auction" | "other";
@@ -230,6 +231,27 @@ type AnalysisFeedback = {
   updated_at: string;
 };
 
+type AnalysisFeedbackOverviewItem = AnalysisFeedback & {
+  masked_address: string;
+  mode: AnalysisMode;
+  score: number;
+  grade: "낮음" | "주의" | "높음";
+  analysis_created_at: string;
+};
+
+type AnalysisFeedbackOverview = {
+  items: AnalysisFeedbackOverviewItem[];
+  total: number;
+  statistics: {
+    total: number;
+    correct: number;
+    incorrect: number;
+    missing: number;
+    analyses_with_feedback: number;
+    positive_rate: number;
+  };
+};
+
 const DOCUMENTS: Array<{ key: DocKey; label: string; hint: string }> = [
   { key: "registry", label: "등기부등본", hint: "소유권·근저당 확인" },
   { key: "building_ledger", label: "건축물대장", hint: "용도·위반 여부 확인" },
@@ -394,6 +416,21 @@ const FEEDBACK_AMOUNT_FIELDS: Array<{ target: Exclude<FeedbackTarget, "overall" 
   { target: "monthly_rent", label: "월세" },
 ];
 
+const FEEDBACK_TARGET_LABELS: Record<FeedbackTarget, string> = {
+  overall: "전체 분석",
+  estimated_value: "예상 주택가액",
+  mortgage_amount: "근저당 채권최고액",
+  deposit: "보증금",
+  monthly_rent: "월세",
+  risk_signals: "위험 신호",
+};
+
+const FEEDBACK_VERDICT_LABELS: Record<FeedbackVerdict, string> = {
+  correct: "정확",
+  incorrect: "오탐·수정",
+  missing: "누락",
+};
+
 function FeedbackPanel({
   analysisId,
   values,
@@ -544,6 +581,10 @@ export default function HomePage() {
   const [selectedHistory, setSelectedHistory] = useState<AnalysisHistoryDetail | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [feedbackOverview, setFeedbackOverview] = useState<AnalysisFeedbackOverview | null>(null);
+  const [feedbackFilter, setFeedbackFilter] = useState<FeedbackVerdict | "all">("all");
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   const requiredDocuments = analysisMode === "precheck" ? DOCUMENTS.slice(0, 2) : DOCUMENTS;
   const uploadedCount = requiredDocuments.filter((document) => files[document.key]).length;
@@ -774,6 +815,32 @@ export default function HomePage() {
     }
   };
 
+  const loadFeedbackOverview = async (filter: FeedbackVerdict | "all" = feedbackFilter) => {
+    setStage("feedback");
+    setMobileMenu(false);
+    setFeedbackLoading(true);
+    setFeedbackError(null);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const query = filter === "all" ? "" : `?verdict=${filter}`;
+      const response = await fetch(`${apiBase}/api/v1/feedback${query}`);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(payload?.detail || "피드백 현황을 불러오지 못했습니다.");
+      }
+      setFeedbackOverview(await response.json() as AnalysisFeedbackOverview);
+    } catch (cause) {
+      setFeedbackError(requestFailureMessage(cause, "피드백 현황을 불러오지 못했습니다."));
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  const changeFeedbackFilter = (filter: FeedbackVerdict | "all") => {
+    setFeedbackFilter(filter);
+    void loadFeedbackOverview(filter);
+  };
+
   return (
     <div className="app-shell">
       <aside className={`sidebar ${mobileMenu ? "open" : ""}`}>
@@ -785,8 +852,9 @@ export default function HomePage() {
 
         <nav>
           <p className="nav-label">서비스</p>
-          <button className={`nav-item ${stage !== "history" ? "active" : ""}`} onClick={() => { setStage("form"); setMobileMenu(false); }}><FileCheck2 size={19} />새 계약 분석</button>
+          <button className={`nav-item ${stage !== "history" && stage !== "feedback" ? "active" : ""}`} onClick={() => { setStage("form"); setMobileMenu(false); }}><FileCheck2 size={19} />새 계약 분석</button>
           <button className={`nav-item ${stage === "history" ? "active" : ""}`} onClick={loadHistory}><Search size={19} />분석 기록</button>
+          <button className={`nav-item ${stage === "feedback" ? "active" : ""}`} onClick={() => loadFeedbackOverview()}><BarChart3 size={19} />피드백 현황</button>
           <button className="nav-item"><CircleHelp size={19} />계약 가이드</button>
         </nav>
 
@@ -815,7 +883,7 @@ export default function HomePage() {
         </header>
 
         <div className="page-wrap">
-          {stage !== "history" && (
+          {stage !== "history" && stage !== "feedback" && (
             <div className="stepper" aria-label="분석 단계">
               {steps.map((step, index) => (
                 <div className={`step ${step.current ? "current" : ""} ${step.done ? "done" : ""}`} key={step.label}>
@@ -896,6 +964,61 @@ export default function HomePage() {
                   </div>
                 </div>
               )}
+            </section>
+          )}
+
+          {stage === "feedback" && (
+            <section className="feedback-dashboard">
+              <div className="history-header">
+                <div>
+                  <span><BarChart3 size={16} /> 피드백 현황</span>
+                  <h1>사용자가 확인한 분석 결과</h1>
+                  <p>개인정보 없이 정확·오탐·누락 판정과 수정된 금액만 모아봅니다.</p>
+                </div>
+                <button className="outline-button" onClick={() => loadFeedbackOverview()} disabled={feedbackLoading}><RefreshCw className={feedbackLoading ? "spin" : ""} size={16} /> 새로고침</button>
+              </div>
+
+              {feedbackError && <div className="error-banner" role="alert"><AlertTriangle size={18} />{feedbackError}</div>}
+
+              {feedbackOverview && (
+                <div className="feedback-stat-grid">
+                  <div><span>전체 피드백</span><strong>{feedbackOverview.statistics.total}<em>건</em></strong><small>{feedbackOverview.statistics.analyses_with_feedback}개 분석에서 수집</small></div>
+                  <div className="positive"><span>정확 응답 비율</span><strong>{feedbackOverview.statistics.positive_rate}<em>%</em></strong><small>사용자 확인 기준</small></div>
+                  <div className="incorrect"><span>오탐·수정</span><strong>{feedbackOverview.statistics.incorrect}<em>건</em></strong><small>우선 검수 대상</small></div>
+                  <div className="missing"><span>누락</span><strong>{feedbackOverview.statistics.missing}<em>건</em></strong><small>규칙·추출 보완 대상</small></div>
+                </div>
+              )}
+
+              <div className="feedback-dashboard-card">
+                <div className="feedback-toolbar">
+                  <div>
+                    {(["all", "correct", "incorrect", "missing"] as const).map((filter) => (
+                      <button className={feedbackFilter === filter ? "active" : ""} key={filter} onClick={() => changeFeedbackFilter(filter)}>{filter === "all" ? "전체" : FEEDBACK_VERDICT_LABELS[filter]}</button>
+                    ))}
+                  </div>
+                  <span>{feedbackOverview?.total ?? 0}건 표시</span>
+                </div>
+
+                {feedbackLoading && !feedbackOverview ? (
+                  <div className="history-empty"><LoaderCircle className="spin" size={28} /><strong>피드백을 불러오고 있어요</strong></div>
+                ) : !feedbackOverview || feedbackOverview.items.length === 0 ? (
+                  <div className="history-empty"><MessageSquareText size={30} /><strong>조건에 맞는 피드백이 없어요</strong><p>분석 결과에서 정확성 피드백을 남기면 여기에 표시됩니다.</p></div>
+                ) : (
+                  <div className="feedback-table">
+                    <div className="feedback-table-head"><span>판정</span><span>분석</span><span>확인 항목</span><span>결과값</span><span>남긴 시간</span></div>
+                    {feedbackOverview.items.map((item) => (
+                      <div className="feedback-table-row" key={item.id}>
+                        <div><span className={`feedback-verdict ${item.verdict}`}>{item.verdict === "correct" ? <Check size={12} /> : item.verdict === "missing" ? <Plus size={12} /> : <AlertTriangle size={12} />}{FEEDBACK_VERDICT_LABELS[item.verdict]}</span></div>
+                        <div><strong>{item.masked_address}</strong><small>{item.mode === "precheck" ? "사전점검" : "계약서 검토"} · 위험 {item.score}점</small></div>
+                        <div><strong>{FEEDBACK_TARGET_LABELS[item.target]}</strong><small>{item.target === "overall" || item.target === "risk_signals" ? "판정 피드백" : "금액 확인"}</small></div>
+                        <div>{item.original_value === null ? <span>금액 없음</span> : <strong>{money(item.original_value)}</strong>}{item.corrected_value !== null && <small>{money(item.corrected_value)}으로 수정</small>}</div>
+                        <div><span>{formatDateTime(item.updated_at)}</span></div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="feedback-dashboard-note"><LockKeyhole size={14} /> 이 화면에는 상세주소, 이름, PDF, OCR 원문이 포함되지 않습니다.</div>
             </section>
           )}
 

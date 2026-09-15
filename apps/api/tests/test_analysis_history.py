@@ -188,3 +188,42 @@ def test_feedback_api_rejects_unknown_analysis(isolated_history_store):
     )
 
     assert response.status_code == 404
+
+
+def test_feedback_overview_returns_statistics_and_masked_context(
+    isolated_history_store,
+):
+    first_analysis = _analysis()
+    isolated_history_store.save(
+        "서울특별시 강서구 화곡로 123, 301호",
+        first_analysis,
+    )
+    isolated_history_store.save_feedback(
+        first_analysis.analysis_id,
+        AnalysisFeedbackCreate(target="overall", verdict="correct"),
+    )
+    isolated_history_store.save_feedback(
+        first_analysis.analysis_id,
+        AnalysisFeedbackCreate(target="risk_signals", verdict="missing"),
+    )
+
+    response = client.get("/api/v1/feedback")
+    filtered = client.get("/api/v1/feedback?verdict=missing")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["statistics"] == {
+        "total": 2,
+        "correct": 1,
+        "incorrect": 0,
+        "missing": 1,
+        "analyses_with_feedback": 1,
+        "positive_rate": 50.0,
+    }
+    assert payload["items"][0]["masked_address"] == (
+        "서울특별시 강서구 · 상세주소 비공개"
+    )
+    assert "화곡로" not in response.text
+    assert filtered.status_code == 200
+    assert filtered.json()["total"] == 1
+    assert filtered.json()["items"][0]["verdict"] == "missing"

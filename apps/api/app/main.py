@@ -19,6 +19,7 @@ from .schemas import (
     AnalysisFeedbackCreate,
     AnalysisFeedbackItem,
     AnalysisFeedbackList,
+    AnalysisFeedbackOverview,
     AnalysisFromExtractionsRequest,
     AnalysisHistoryDetail,
     AnalysisHistoryList,
@@ -135,6 +136,22 @@ def save_analysis_feedback(
     if result is None:
         raise HTTPException(status_code=404, detail="분석 기록을 찾지 못했습니다.")
     return result
+
+
+@app.get("/api/v1/feedback", response_model=AnalysisFeedbackOverview)
+def get_feedback_overview(
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    verdict: Annotated[
+        Literal["correct", "incorrect", "missing"] | None,
+        Query(),
+    ] = None,
+) -> AnalysisFeedbackOverview:
+    return get_history_store().feedback_overview(
+        limit=limit,
+        offset=offset,
+        verdict=verdict,
+    )
 
 
 @app.post("/api/v1/ml/dataset-rows/preview", response_model=MLDatasetRow)

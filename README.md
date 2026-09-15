@@ -103,6 +103,7 @@ apps\api\.venv\Scripts\python scripts\evaluate_registry.py --pdf output\pdf\rent
 | `DELETE /api/v1/analysis-history/{analysis_id}` | 분석 기록 삭제 |
 | `GET /api/v1/analysis-history/{analysis_id}/feedback` | 분석별 비식별 피드백 조회 |
 | `POST /api/v1/analysis-history/{analysis_id}/feedback` | 피드백 저장 또는 항목별 갱신 |
+| `GET /api/v1/feedback` | 개인정보를 제외한 전체 피드백 통계·내역 조회 |
 
 `POST /api/v1/analyses`의 `analysis_mode`는 `precheck` 또는 `contract_review`입니다. `precheck`에는 등기부등본과 건축물대장만 필요하며, `contract_review`에는 임대차계약서도 필요합니다. 주소정보에서 법정동 코드와 지번을 확인하고, 건축HUB 표제부 및 최근 12개월 연립·다세대 매매 실거래가를 조회합니다. 같은 지번 또는 같은 법정동의 유사 전용면적 거래만 비교하고, 중간가격과 함께 비교 거래의 25~75백분위 예상 범위를 반환합니다. 근거가 부족하면 `estimated_value`를 `null`, `market_data.status`를 `unavailable`로 반환하며 시세 대비 보증금·근저당 비율을 계산하지 않습니다.
 

@@ -212,3 +212,26 @@ class AnalysisFeedbackItem(BaseModel):
 class AnalysisFeedbackList(BaseModel):
     items: list[AnalysisFeedbackItem]
     total: int = Field(ge=0)
+
+
+class AnalysisFeedbackOverviewItem(AnalysisFeedbackItem):
+    masked_address: str
+    mode: Literal["precheck", "contract_review"]
+    score: int = Field(ge=0, le=100)
+    grade: Literal["낮음", "주의", "높음"]
+    analysis_created_at: datetime
+
+
+class AnalysisFeedbackStatistics(BaseModel):
+    total: int = Field(ge=0)
+    correct: int = Field(ge=0)
+    incorrect: int = Field(ge=0)
+    missing: int = Field(ge=0)
+    analyses_with_feedback: int = Field(ge=0)
+    positive_rate: float = Field(ge=0, le=100)
+
+
+class AnalysisFeedbackOverview(BaseModel):
+    items: list[AnalysisFeedbackOverviewItem]
+    total: int = Field(ge=0)
+    statistics: AnalysisFeedbackStatistics

@@ -15,6 +15,9 @@ from ..schemas import (
     AnalysisFeedbackCreate,
     AnalysisFeedbackItem,
     AnalysisFeedbackList,
+    AnalysisFeedbackOverview,
+    AnalysisFeedbackOverviewItem,
+    AnalysisFeedbackStatistics,
     AnalysisHistoryDetail,
     AnalysisHistoryList,
     AnalysisHistorySummary,
@@ -308,6 +311,70 @@ class AnalysisHistoryStore:
         return AnalysisFeedbackList(
             items=[self._feedback_item(record) for record in records],
             total=len(records),
+        )
+
+    def feedback_overview(
+        self,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+        verdict: str | None = None,
+    ) -> AnalysisFeedbackOverview:
+        self.initialize()
+        with self.sessions() as session:
+            all_feedback = session.scalars(select(AnalysisFeedbackRecord)).all()
+            query = (
+                select(AnalysisFeedbackRecord, AnalysisRecord)
+                .join(
+                    AnalysisRecord,
+                    AnalysisRecord.analysis_id == AnalysisFeedbackRecord.analysis_id,
+                )
+                .order_by(AnalysisFeedbackRecord.updated_at.desc())
+            )
+            if verdict is not None:
+                query = query.where(AnalysisFeedbackRecord.verdict == verdict)
+            rows = session.execute(query.offset(offset).limit(limit)).all()
+            filtered_total_query = select(func.count()).select_from(
+                AnalysisFeedbackRecord
+            )
+            if verdict is not None:
+                filtered_total_query = filtered_total_query.where(
+                    AnalysisFeedbackRecord.verdict == verdict
+                )
+            filtered_total = session.scalar(filtered_total_query) or 0
+
+        counts = {
+            feedback_verdict: sum(
+                item.verdict == feedback_verdict for item in all_feedback
+            )
+            for feedback_verdict in ("correct", "incorrect", "missing")
+        }
+        total = len(all_feedback)
+        return AnalysisFeedbackOverview(
+            items=[
+                AnalysisFeedbackOverviewItem(
+                    **self._feedback_item(feedback).model_dump(),
+                    masked_address=analysis.masked_address,
+                    mode=analysis.mode,
+                    score=analysis.score,
+                    grade=analysis.grade,
+                    analysis_created_at=_utc(analysis.created_at),
+                )
+                for feedback, analysis in rows
+            ],
+            total=filtered_total,
+            statistics=AnalysisFeedbackStatistics(
+                total=total,
+                correct=counts["correct"],
+                incorrect=counts["incorrect"],
+                missing=counts["missing"],
+                analyses_with_feedback=len(
+                    {item.analysis_id for item in all_feedback}
+                ),
+                positive_rate=round(counts["correct"] / total * 100, 1)
+                if total
+                else 0,
+            ),
         )
 
     def delete(self, analysis_id: str) -> bool:
