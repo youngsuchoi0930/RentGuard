@@ -225,6 +225,44 @@ def test_registry_extracts_corporate_owner_when_ocr_places_name_on_next_line():
     assert "OWNER_NOT_FOUND" not in [item.code for item in result.needs_review]
 
 
+def test_registry_keeps_long_corporate_owner_and_ignores_trust_notice_as_separate_right():
+    owner = "테스트장기임대위탁관리부동산투자주식회사"
+    document = ExtractedDocument(
+        method="pdf_text",
+        pages=[
+            ExtractedPage(
+                number=1,
+                confidence=1.0,
+                text=f"""
+                등기사항전부증명서 말소사항 포함 - 집합건물 -
+                [집합건물] 서울특별시 테스트구 검증동 350 제2층 제202호
+                도로명주소 서울특별시 테스트구 신뢰로 59
+                【 갑 구 】 소유권에 관한 사항
+                1 소유권보존 2022년10월4일 소유자
+                제192619호 테스트장기임대위탁
+                관리부동산투자주식회사 110111-0******
+                2 소유권이전 2022년10월4일 2016년12월12일 수탁자 테스트수탁자
+                제192624호 신탁 110111-1******
+                신탁 신탁원부 제TEST-00002호
+                2-1 신탁주의사항
+                신탁재산의 관리 및 처분에 관한 확인이 필요함
+                신탁 조항 등을 확인할 필요가 있음
+                【 을 구 】 소유권 이외의 권리에 관한 사항
+                기록사항 없음
+                """,
+            )
+        ],
+    )
+
+    result = parse_registry(document)
+    trusts = [item for item in result.encumbrances if item.right_type == "trust"]
+
+    assert [item.owner_name for item in result.ownership] == [owner]
+    assert len(trusts) == 1
+    assert trusts[0].rank == "2"
+    assert trusts[0].registered_at == "2022-10-04"
+
+
 def test_image_only_pdf_requires_ocr_when_disabled():
     with pytest.raises(OCRUnavailableError):
         extract_registry((FIXTURES / "registry_risky_scan_noisy.pdf").read_bytes(), allow_ocr=False)

@@ -185,10 +185,13 @@ def _issued_at(text: str) -> str | None:
 def _extract_owners(document: ExtractedDocument, text: str) -> list[OwnershipEntry]:
     owners: list[OwnershipEntry] = []
     seen: set[str] = set()
-    non_names = {"지분", "주소", "등록번호", "주민등록번호", "소유자", "공유자"}
+    non_names = {
+        "지분", "주소", "등록번호", "주민등록번호", "소유자", "공유자",
+        "신탁", "압류", "가압류", "전세권", "임차권", "근저당권",
+    }
     patterns = [
-        re.compile(r"소유자[ \t]*([가-힣]{2,40})"),
-        re.compile(r"공유자[ \t]*([가-힣]{2,40})"),
+        re.compile(r"소유자[ \t]*([가-힣]{2,60})"),
+        re.compile(r"공유자[ \t]*([가-힣]{2,60})"),
     ]
     for pattern in patterns:
         for match in pattern.finditer(text):
@@ -209,7 +212,7 @@ def _extract_owners(document: ExtractedDocument, text: str) -> list[OwnershipEnt
         compact_value = _compact(value)
         if compact_value in non_names:
             return False
-        if not re.fullmatch(r"[가-힣A-Za-z0-9㈜()·]{2,40}", compact_value):
+        if not re.fullmatch(r"[가-힣A-Za-z0-9㈜()·]{2,60}", compact_value):
             return False
         if not re.search(r"[가-힣]{2,}", compact_value):
             return False
@@ -246,20 +249,49 @@ def _extract_owners(document: ExtractedDocument, text: str) -> list[OwnershipEnt
         section = a_match.group("body")
         compact_section = _compact(section)
         transferred_names = set(re.findall(
-            r"\d+번([가-힣]{2,10})지분전부",
+            r"\d+번([가-힣]{2,60})지분전부",
             compact_section,
         ))
-        structured_names = re.findall(
-            r"(?:^|\n)\s*([가-힣]{2,10})\s+\d{6}-[0-9*]+",
-            section,
+        section_lines = [line.strip() for line in section.splitlines() if line.strip()]
+        structured_names: list[tuple[str, str]] = []
+        registration_pattern = re.compile(r"([가-힣]{2,60})\s+\d{6}-[0-9*]+")
+        corporate_prefixes = (
+            "주식회사",
+            "유한회사",
+            "합자회사",
+            "합명회사",
+            "재단법인",
+            "사단법인",
+            "위탁",
         )
-        for name in structured_names:
+        for index, line in enumerate(section_lines):
+            registration_match = registration_pattern.search(line)
+            if not registration_match:
+                continue
+            name = registration_match.group(1)
+            # A trust transfer row may put the purpose immediately before the
+            # trustee's corporate number ("신탁 110111-..."). It is not an
+            # owner name and must not be joined with the preceding trustee row.
+            if name in non_names:
+                continue
+            evidence_lines = [line]
+            if index:
+                previous = re.sub(r"^제?\d+호\s*", "", section_lines[index - 1]).strip()
+                previous_fragment = re.search(r"([가-힣]{2,60})\s*$", previous)
+                if previous_fragment and any(
+                    marker in previous_fragment.group(1)
+                    for marker in corporate_prefixes
+                ):
+                    name = previous_fragment.group(1) + name
+                    evidence_lines.insert(0, section_lines[index - 1])
+            structured_names.append((name, "\n".join(evidence_lines)))
+        for name, snippet in structured_names:
             if name in transferred_names or name in seen or name in non_names:
                 continue
             seen.add(name)
             owners.append(OwnershipEntry(
                 owner_name=name,
-                evidence=_evidence(document, name, "registry_a", name),
+                evidence=_evidence(document, name, "registry_a", snippet),
             ))
     return owners
 
@@ -301,20 +333,30 @@ def _extract_encumbrances(document: ExtractedDocument, text: str) -> list[Encumb
             r"(?:^|\n)\s*(\d{1,4}(?:-\d{1,3})?)\s*(?=\n|20\d{2}\s*년)",
             before,
         ))
+        table_row_matches = list(re.finditer(
+            r"(?:^|\n)\s*(\d{1,4}(?:-\d{1,3})?)\s+(?P<body>[^\n]+)",
+            before,
+        ))
+        table_row = table_row_matches[-1] if table_row_matches else None
         rank = inline_rank.group(1) if inline_rank else (
-            rank_matches[-1].group(1) if rank_matches else None
+            rank_matches[-1].group(1) if rank_matches else (
+                table_row.group(1) if table_row else None
+            )
         )
         same_line_dates = list(DATE_RE.finditer(current_line[match_end_in_line:]))
         same_line_prior_dates = list(DATE_RE.finditer(current_line[:match_start_in_line]))
         preceding_dates = list(DATE_RE.finditer(before[-220:]))
         following_dates = list(DATE_RE.finditer(text[match.end():match.end() + 120]))
+        table_row_dates = list(DATE_RE.finditer(table_row.group("body"))) if table_row else []
         # Government text PDFs put rank, purpose and receipt date on one line.
         # Prefer that row's first date so a preceding ownership row cannot leak
         # its cause date into the encumbrance.
         date_match = same_line_dates[0] if same_line_dates else (
             same_line_prior_dates[0] if same_line_prior_dates else (
-                preceding_dates[-1] if preceding_dates else (
-                following_dates[0] if following_dates else None
+                table_row_dates[0] if table_row_dates else (
+                    preceding_dates[-1] if preceding_dates else (
+                        following_dates[0] if following_dates else None
+                    )
                 )
             )
         )
@@ -381,12 +423,21 @@ def _extract_encumbrances(document: ExtractedDocument, text: str) -> list[Encumb
         (r"전세권\s*설정", "전세권설정", "leasehold", "registry_b"),
         (r"가압류(?:결정)?", "가압류", "provisional_seizure", "registry_a"),
         (r"(?<!가)압류(?:결정)?", "압류", "seizure", "registry_a"),
-        (r"신탁(?:등기)?", "신탁", "trust", "registry_a"),
+        (r"(?<![가-힣])신탁(?:\s*등기)?(?![가-힣])", "신탁", "trust", "registry_a"),
     ]
     for pattern, keyword, right_type, section in keyword_types:
         for match in re.finditer(pattern, text):
             if is_cancellation_row(match):
                 continue
+            if right_type == "trust":
+                line_end = text.find("\n", match.end())
+                if line_end == -1:
+                    line_end = min(len(text), match.end() + 100)
+                trust_tail = _compact(text[match.end():line_end])
+                # "신탁원부" and "신탁 조항" are explanatory text printed
+                # below a trust row, not additional registered rights.
+                if trust_tail.startswith(("신탁원부", "조항")):
+                    continue
             row, rank, registered_at = context(match)
             # A longer anchor can contain a shorter one (for example 가압류/압류).
             # Keep one entry for the same type, rank and date.
