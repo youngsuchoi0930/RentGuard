@@ -61,6 +61,15 @@ API 문서는 http://localhost:8000/docs 에서 확인할 수 있습니다.
 
 OCR 회귀검증은 10건·30페이지의 이미지 전용 PDF를 사용하며 GitHub Actions의 `RentGuard OCR Regression`에서 수동 실행하거나 매주 자동 실행합니다. 실행 결과는 30일간 artifact로 보관합니다.
 
+실제 익명 문서는 Git에서 제외된 `local-fixtures/case-xxx`에 두고 아래 명령으로
+합성 문서와 분리해 평가합니다. 필드 정확도와 함께 오탐·누락·값 정밀도·재현율을
+`local-fixtures/holdout-evaluation.json`에 기록합니다. 폴더와 정답 작성법은
+`docs/private-holdout-guide.md`를 참고합니다.
+
+```bat
+apps\api\.venv\Scripts\python scripts\evaluate_private_holdout.py --case case-001 --strict
+```
+
 ### Docker Compose
 
 저장소에 포함된 검증된 `models/deposit-quantile-v2.joblib`을 API 이미지에 복사하므로 새 환경에서 별도 학습 없이 보증금 모델을 사용할 수 있습니다. `.env.example`을 참고해 로컬 `.env`에 API 키를 설정한 뒤 실행합니다.
