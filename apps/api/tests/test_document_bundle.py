@@ -6,7 +6,7 @@ from app.services.building_parser import parse_building_ledger
 from app.services.cross_checker import _address_matches, cross_check_documents
 from app.services.lease_parser import extract_lease_contract
 from app.services.pdf_extractor import ExtractedDocument, ExtractedPage
-from app.services.registry_parser import extract_registry
+from app.services.registry_parser import extract_registry, parse_registry
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -128,6 +128,47 @@ def test_three_documents_cross_check_against_user_input():
     assert checks["deposit"].status == "verified"
     assert checks["monthly-rent"].status == "verified"
     assert checks["illegal-building"].status == "verified"
+
+
+def test_trustee_is_used_as_current_registered_holder_in_contract_check():
+    registry = parse_registry(ExtractedDocument(
+        method="pdf_text",
+        pages=[ExtractedPage(
+            number=1,
+            confidence=1.0,
+            text="""
+            등기사항전부증명서 말소사항포함 - 집합건물 -
+            도로명주소 서울특별시 강서구 화곡로 123
+            【 갑 구 】 소유권에 관한 사항
+            1 소유권보존 2020년1월2일 소유자
+            제100호 테스트종전소유주식회사 110111-0******
+            2 소유권이전 2022년10월4일 2022년9월30일 수탁자 테스트수탁주식회사
+            제200호 신탁 110111-1******
+            신탁 신탁원부 제TEST-1호
+            【 을 구 】 소유권 이외의 권리에 관한 사항
+            기록사항 없음
+            """,
+        )],
+    ))
+    ledger = extract_building_ledger((FIXTURES / "building_ledger_risky.pdf").read_bytes(), allow_ocr=False)
+    contract = extract_lease_contract((FIXTURES / "lease_contract_risky.pdf").read_bytes(), allow_ocr=False)
+    user_input = GROUND_TRUTH["input"]
+
+    result = cross_check_documents(
+        registry,
+        ledger,
+        contract,
+        input_address=user_input["address"],
+        input_deposit=user_input["deposit"],
+        input_monthly_rent=user_input["monthly_rent"],
+    )
+
+    check = next(item for item in result.cross_checks if item.id == "owner-landlord")
+    assert registry.ownership[0].role == "trustee"
+    assert registry.ownership[0].owner_name == "테스트수탁주식회사"
+    assert check.label == "현재 수탁자와 계약서 임대인"
+    assert check.status == "mismatch"
+    assert "신탁원부상 임대 권한" in check.detail
 
 
 def test_cross_check_reports_mismatch_instead_of_guessing():

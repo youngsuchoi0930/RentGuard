@@ -57,6 +57,7 @@ class RegistryProperty(BaseModel):
 class OwnershipEntry(BaseModel):
     rank: str | None = None
     owner_name: str
+    role: Literal["owner", "trustee", "former_owner"] = "owner"
     share: str | None = None
     status: Literal["active", "cancelled", "unknown"] = "active"
     registered_at: str | None = None

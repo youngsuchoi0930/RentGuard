@@ -71,7 +71,12 @@ def cross_check_documents(
     input_deposit: int,
     input_monthly_rent: int,
 ) -> DocumentBundleExtraction:
-    owner = registry.ownership[0].owner_name if registry.ownership else None
+    current_owner = next(
+        (entry for entry in registry.ownership if entry.role in {"trustee", "owner"}),
+        None,
+    )
+    owner = current_owner.owner_name if current_owner else None
+    owner_role = current_owner.role if current_owner else None
     registry_address = registry.property.road_address or registry.property.lot_address
     ledger_address = building_ledger.property.road_address or building_ledger.property.lot_address
 
@@ -79,9 +84,13 @@ def cross_check_documents(
         checks = [
             _item(
                 id="registry-owner",
-                label="등기 소유자 확인",
+                label="현재 등기명의인 확인" if owner_role == "trustee" else "등기 소유자 확인",
                 result=True if owner else None,
-                success="등기부에서 현재 소유자를 확인했습니다.",
+                success=(
+                    "신탁등기상 현재 수탁자를 확인했습니다."
+                    if owner_role == "trustee"
+                    else "등기부에서 현재 소유자를 확인했습니다."
+                ),
                 failure="등기 소유자를 확인하지 못했습니다.",
                 review="등기 소유자를 추출하지 못해 원문 확인이 필요합니다.",
                 values={"registry_owner": owner},
@@ -128,10 +137,22 @@ def cross_check_documents(
     checks = [
         _item(
             id="owner-landlord",
-            label="등기 소유자와 계약서 임대인",
+            label=(
+                "현재 수탁자와 계약서 임대인"
+                if owner_role == "trustee"
+                else "등기 소유자와 계약서 임대인"
+            ),
             result=_matches(owner, landlord),
-            success="등기 소유자와 계약서 임대인이 일치합니다.",
-            failure="등기 소유자와 계약서 임대인이 다릅니다.",
+            success=(
+                "현재 수탁자와 계약서 임대인이 일치합니다."
+                if owner_role == "trustee"
+                else "등기 소유자와 계약서 임대인이 일치합니다."
+            ),
+            failure=(
+                "계약서 임대인이 현재 수탁자와 다릅니다. 신탁원부상 임대 권한과 수탁자 동의서를 확인하세요."
+                if owner_role == "trustee"
+                else "등기 소유자와 계약서 임대인이 다릅니다."
+            ),
             review="소유자 또는 임대인을 추출하지 못해 확인이 필요합니다.",
             values={"registry_owner": owner, "contract_landlord": landlord},
         ),

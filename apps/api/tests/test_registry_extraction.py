@@ -246,6 +246,9 @@ def test_registry_keeps_long_corporate_owner_and_ignores_trust_notice_as_separat
                 신탁 신탁원부 제TEST-00002호
                 2-1 신탁주의사항
                 신탁재산의 관리 및 처분에 관한 확인이 필요함
+                신탁
+                신탁
+                신탁주의사항
                 신탁 조항 등을 확인할 필요가 있음
                 【 을 구 】 소유권 이외의 권리에 관한 사항
                 기록사항 없음
@@ -257,8 +260,10 @@ def test_registry_keeps_long_corporate_owner_and_ignores_trust_notice_as_separat
     result = parse_registry(document)
     trusts = [item for item in result.encumbrances if item.right_type == "trust"]
 
-    assert [item.owner_name for item in result.ownership] == [owner]
+    assert [item.owner_name for item in result.ownership] == ["테스트수탁자", owner]
+    assert [item.role for item in result.ownership] == ["trustee", "former_owner"]
     assert len(trusts) == 1
+    assert trusts[0].holder == "테스트수탁자"
     assert trusts[0].rank == "2"
     assert trusts[0].registered_at == "2022-10-04"
 

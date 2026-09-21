@@ -91,7 +91,11 @@ def _source_map(
         _reference(
             document="registry",
             field=f"registry.ownership.{index}.owner_name",
-            label="등기 소유자",
+            label=(
+                "현재 등기명의인(수탁자)" if entry.role == "trustee"
+                else "신탁 전 소유자" if entry.role == "former_owner"
+                else "등기 소유자"
+            ),
             evidence=entry.evidence,
             corrections=correction_map,
         )
@@ -191,7 +195,14 @@ def _active_reviews(
     lease_contract: LeaseContractExtraction | None,
 ) -> list[ReviewItem]:
     resolved_registry = {
-        "OWNER_NOT_FOUND": any(entry.owner_name.strip() for entry in registry.ownership),
+        "OWNER_NOT_FOUND": any(
+            entry.owner_name.strip() and entry.role in {"owner", "trustee"}
+            for entry in registry.ownership
+        ),
+        "TRUSTEE_NOT_FOUND": any(
+            entry.owner_name.strip() and entry.role == "trustee"
+            for entry in registry.ownership
+        ),
         "ADDRESS_NOT_FOUND": bool(registry.property.road_address or registry.property.lot_address),
         "MORTGAGE_AMOUNT_NOT_FOUND": all(
             entry.maximum_claim_amount is not None
@@ -411,7 +422,11 @@ def build_analysis(
         input_monthly_rent=monthly_rent,
     )
     sources = _source_map(registry, building_ledger, lease_contract, applied_corrections)
-    owner = registry.ownership[0].owner_name if registry.ownership else None
+    current_owner = next(
+        (entry for entry in registry.ownership if entry.role in {"trustee", "owner"}),
+        None,
+    )
+    owner = current_owner.owner_name if current_owner else None
     landlord = (
         next((party.name for party in lease_contract.parties if party.role == "landlord"), None)
         if lease_contract

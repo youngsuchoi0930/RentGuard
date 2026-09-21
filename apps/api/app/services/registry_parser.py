@@ -430,15 +430,40 @@ def _extract_encumbrances(document: ExtractedDocument, text: str) -> list[Encumb
             if is_cancellation_row(match):
                 continue
             if right_type == "trust":
+                line_start = text.rfind("\n", 0, match.start()) + 1
                 line_end = text.find("\n", match.end())
                 if line_end == -1:
                     line_end = min(len(text), match.end() + 100)
+                trust_line = _compact(text[line_start:line_end])
                 trust_tail = _compact(text[match.end():line_end])
                 # "신탁원부" and "신탁 조항" are explanatory text printed
                 # below a trust row, not additional registered rights.
                 if trust_tail.startswith(("신탁원부", "조항")):
                     continue
+                next_lines = [
+                    _compact(line)
+                    for line in text[line_end + 1:line_end + 180].splitlines()
+                    if _compact(line)
+                ]
+                is_registration_row = any((
+                    "신탁등기" in trust_line,
+                    "소유권이전" in trust_line,
+                    bool(re.search(r"제?\d+호", trust_line)),
+                    bool(re.search(r"\d{6}-[0-9*]+", trust_line)),
+                    trust_line == "신탁" and bool(next_lines) and next_lines[0].startswith("신탁원부"),
+                ))
+                # OCR can scatter the explanatory notice into several isolated
+                # lines containing only "신탁". Count only a registration row
+                # or a standalone purpose immediately followed by 신탁원부.
+                if not is_registration_row:
+                    continue
             row, rank, registered_at = context(match)
+            holder_match = (
+                re.search(r"수탁자\s+([가-힣A-Za-z0-9㈜()·]{2,60})", row)
+                if right_type == "trust"
+                else None
+            )
+            holder = holder_match.group(1) if holder_match else None
             # A longer anchor can contain a shorter one (for example 가압류/압류).
             # Keep one entry for the same type, rank and date.
             if any(
@@ -451,6 +476,7 @@ def _extract_encumbrances(document: ExtractedDocument, text: str) -> list[Encumb
             entries.append(EncumbranceEntry(
                 rank=rank,
                 right_type=right_type,
+                holder=holder,
                 status="cancelled" if rank and (section, rank) in cancelled_refs else "active",
                 registered_at=registered_at,
                 evidence=_evidence(
@@ -459,6 +485,7 @@ def _extract_encumbrances(document: ExtractedDocument, text: str) -> list[Encumb
                     section,
                     " · ".join(value for value in (
                         match.group(0),
+                        f"수탁자 {holder}" if holder else None,
                         f"순위번호 {rank}번" if rank else None,
                         f"접수일 {registered_at}" if registered_at else None,
                     ) if value),
@@ -474,6 +501,31 @@ def parse_registry(document: ExtractedDocument) -> RegistryExtraction:
     property_type = _property_type(text)
     ownership = _extract_owners(document, text)
     encumbrances = _extract_encumbrances(document, text)
+    active_trusts = [
+        entry for entry in encumbrances
+        if entry.right_type == "trust" and entry.status == "active"
+    ]
+    if active_trusts:
+        prior_owners = [
+            entry.model_copy(update={"role": "former_owner"})
+            for entry in ownership
+        ]
+        trusts_with_holder = [entry for entry in active_trusts if entry.holder]
+        if trusts_with_holder:
+            current_trust = trusts_with_holder[-1]
+            trustee_name = current_trust.holder
+            ownership = [
+                OwnershipEntry(
+                    rank=current_trust.rank,
+                    owner_name=trustee_name,
+                    role="trustee",
+                    registered_at=current_trust.registered_at,
+                    evidence=current_trust.evidence,
+                ),
+                *(entry for entry in prior_owners if entry.owner_name != trustee_name),
+            ]
+        else:
+            ownership = prior_owners
     road_address, lot_address = _title_addresses(document)
     title_text = _clean(document.pages[0].text) if document.pages else ""
     road_address = road_address or _line_after(title_text, ("도로명주소", "도로명 주소"))
@@ -498,10 +550,15 @@ def parse_registry(document: ExtractedDocument) -> RegistryExtraction:
             code="PARTIAL_CERTIFICATE", severity="blocking",
             message="일부증명서는 전체 권리관계 분석에 충분하지 않을 수 있습니다.",
         ))
-    if not ownership:
+    if not any(entry.role in {"owner", "trustee"} for entry in ownership):
         needs_review.append(ReviewItem(
             code="OWNER_NOT_FOUND", severity="blocking",
             message="현재 소유자를 자동 추출하지 못했습니다.",
+        ))
+    if active_trusts and not any(entry.role == "trustee" for entry in ownership):
+        needs_review.append(ReviewItem(
+            code="TRUSTEE_NOT_FOUND", severity="blocking",
+            message="활성 신탁은 확인했지만 현재 수탁자를 자동 추출하지 못했습니다.",
         ))
     if not road_address and not lot_address:
         needs_review.append(ReviewItem(

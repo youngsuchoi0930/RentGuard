@@ -65,7 +65,7 @@ type ReviewItem = { code: string; severity: "info" | "warning" | "blocking"; mes
 type RegistryExtraction = {
   property: { road_address: string | null; lot_address: string | null; building_name: string | null; unit: string | null };
   evidence: Record<string, SourceEvidence>;
-  ownership: Array<{ owner_name: string; status: "active" | "cancelled" | "unknown"; evidence: SourceEvidence | null; rank?: string | null; share?: string | null; registered_at?: string | null }>;
+  ownership: Array<{ owner_name: string; role: "owner" | "trustee" | "former_owner"; status: "active" | "cancelled" | "unknown"; evidence: SourceEvidence | null; rank?: string | null; share?: string | null; registered_at?: string | null }>;
   encumbrances: Array<{ right_type: RegistryRightType; maximum_claim_amount: number | null; status: "active" | "cancelled" | "unknown"; evidence: SourceEvidence | null; rank?: string | null; holder?: string | null; debtor?: string | null; registered_at?: string | null }>;
   confidence: number;
   needs_review: ReviewItem[];
@@ -374,6 +374,7 @@ function prepareForReview(bundle: DocumentBundle) {
   if (prepared.registry.ownership.length === 0) {
     prepared.registry.ownership.push({
       owner_name: "",
+      role: "owner",
       status: "active",
       evidence: null,
     });
@@ -1218,7 +1219,15 @@ export default function HomePage() {
                 <article className="review-card">
                   <div className="review-card-head"><div className="doc-icon"><FileText size={20} /></div><div><strong>등기부등본</strong><span>소유자·주소·근저당</span></div><small>신뢰도 {Math.round(documents.registry.confidence * 100)}%</small></div>
                   <ReviewField label="도로명주소" value={documents.registry.property.road_address} evidence={documents.registry.evidence.road_address} onChange={(value) => updateExtractedValue("registry.property.road_address", "등기부 도로명주소", value)} />
-                  <ReviewField label="현재 소유자" value={documents.registry.ownership[0]?.owner_name ?? null} evidence={documents.registry.ownership[0]?.evidence} onChange={(value) => updateExtractedValue("registry.ownership.0.owner_name", "등기 소유자", value)} />
+                  {documents.registry.ownership.map((entry, index) => (
+                    <ReviewField
+                      key={`owner-${entry.role}-${index}`}
+                      label={entry.role === "trustee" ? "현재 등기명의인(수탁자)" : entry.role === "former_owner" ? "신탁 전 소유자" : index === 0 ? "현재 소유자" : `공동 소유자 ${index + 1}`}
+                      value={entry.owner_name}
+                      evidence={entry.evidence}
+                      onChange={(value) => updateExtractedValue(`registry.ownership.${index}.owner_name`, entry.role === "trustee" ? "현재 등기명의인(수탁자)" : entry.role === "former_owner" ? "신탁 전 소유자" : "등기 소유자", value)}
+                    />
+                  ))}
                   {documents.registry.encumbrances.filter((entry) => entry.right_type === "mortgage" && entry.status === "active").map((entry) => {
                     const index = documents.registry.encumbrances.indexOf(entry);
                     return <ReviewField key={`mortgage-${index}`} label={`근저당 채권최고액${index > 0 ? ` ${index + 1}` : ""}`} value={entry.maximum_claim_amount} evidence={entry.evidence} moneyField onChange={(value) => updateExtractedValue(`registry.encumbrances.${index}.maximum_claim_amount`, "근저당 채권최고액", value)} />;
