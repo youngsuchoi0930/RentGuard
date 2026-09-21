@@ -157,6 +157,44 @@ def test_registry_rights_extract_active_and_cancelled_rows_with_order():
     assert rights[("mortgage", "3")].maximum_claim_amount == 90_000_000
 
 
+def test_multiple_mortgages_keep_each_rows_amount():
+    document = ExtractedDocument(
+        method="pdf_text",
+        pages=[
+            ExtractedPage(
+                number=1,
+                confidence=1.0,
+                text="""
+                등기사항전부증명서 현재 유효사항 - 집합건물 -
+                [집합건물] 서울특별시 강서구 안전동 100-1 제2층 제201호
+                도로명주소 서울특별시 강서구 안심로35길 26
+                【 갑 구 】 소유권에 관한 사항
+                소유자 테스트소유
+                【 을 구 】 소유권 이외의 권리에 관한 사항
+                1
+                근저당권설정
+                2024년 3월 12일
+                채권최고액 금 87,000,000원
+                채무자 테스트소유
+                근저당권자 테스트은행1
+                2
+                근저당권설정
+                2025년 4월 15일
+                채권최고액 금 93,000,000원
+                채무자 테스트소유
+                근저당권자 테스트은행2
+                """,
+            )
+        ],
+    )
+
+    result = parse_registry(document)
+    mortgages = [entry for entry in result.encumbrances if entry.right_type == "mortgage"]
+
+    assert [entry.maximum_claim_amount for entry in mortgages] == [87_000_000, 93_000_000]
+    assert [entry.holder for entry in mortgages] == ["테스트은행1", "테스트은행2"]
+
+
 def test_image_only_pdf_requires_ocr_when_disabled():
     with pytest.raises(OCRUnavailableError):
         extract_registry((FIXTURES / "registry_risky_scan_noisy.pdf").read_bytes(), allow_ocr=False)

@@ -1,0 +1,1272 @@
+{
+  "corpus_version": "1.0.0",
+  "source_kind": "synthetic",
+  "notice": "All people, addresses, buildings, institutions, and contracts are fictional. This corpus is for regression testing only and must not be used as a real-world model evaluation set.",
+  "case_count": 30,
+  "documents_per_case": 3,
+  "page_count": 90,
+  "pdf": "rentguard-synthetic-corpus-30.pdf",
+  "cases": [
+    {
+      "case_id": "RG-SYN-001",
+      "source_kind": "synthetic",
+      "profile": "normal",
+      "pages": {
+        "registry": 1,
+        "building_ledger": 2,
+        "lease_contract": 3
+      },
+      "input": {
+        "address": "서울특별시 강서구 합성로 101, 201호",
+        "deposit": 30000000,
+        "monthly_rent": 400000
+      },
+      "expected": {
+        "registry": {
+          "owner": "김하늘",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 강서구 합성로 101, 201호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "김하늘",
+          "tenant": "한지우",
+          "address": "서울특별시 강서구 합성로 101, 201호",
+          "deposit": 30000000,
+          "monthly_rent": 400000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-002",
+      "source_kind": "synthetic",
+      "profile": "normal",
+      "pages": {
+        "registry": 4,
+        "building_ledger": 5,
+        "lease_contract": 6
+      },
+      "input": {
+        "address": "서울특별시 마포구 검증로 102, 202호",
+        "deposit": 40000000,
+        "monthly_rent": 500000
+      },
+      "expected": {
+        "registry": {
+          "owner": "이새봄",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 마포구 검증로 102, 202호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "이새봄",
+          "tenant": "오해솔",
+          "address": "서울특별시 마포구 검증로 102, 202호",
+          "deposit": 40000000,
+          "monthly_rent": 500000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-003",
+      "source_kind": "synthetic",
+      "profile": "normal",
+      "pages": {
+        "registry": 7,
+        "building_ledger": 8,
+        "lease_contract": 9
+      },
+      "input": {
+        "address": "서울특별시 관악구 안심길 103, 203호",
+        "deposit": 50000000,
+        "monthly_rent": 600000
+      },
+      "expected": {
+        "registry": {
+          "owner": "박윤슬",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 관악구 안심길 103, 203호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "박윤슬",
+          "tenant": "서라온",
+          "address": "서울특별시 관악구 안심길 103, 203호",
+          "deposit": 50000000,
+          "monthly_rent": 600000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-004",
+      "source_kind": "synthetic",
+      "profile": "normal",
+      "pages": {
+        "registry": 10,
+        "building_ledger": 11,
+        "lease_contract": 12
+      },
+      "input": {
+        "address": "서울특별시 광진구 샘플로 104, 204호",
+        "deposit": 60000000,
+        "monthly_rent": 700000
+      },
+      "expected": {
+        "registry": {
+          "owner": "최가을",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 광진구 샘플로 104, 204호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "최가을",
+          "tenant": "신바다",
+          "address": "서울특별시 광진구 샘플로 104, 204호",
+          "deposit": 60000000,
+          "monthly_rent": 700000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-005",
+      "source_kind": "synthetic",
+      "profile": "normal",
+      "pages": {
+        "registry": 13,
+        "building_ledger": 14,
+        "lease_contract": 15
+      },
+      "input": {
+        "address": "서울특별시 은평구 테스트로 105, 205호",
+        "deposit": 70000000,
+        "monthly_rent": 800000
+      },
+      "expected": {
+        "registry": {
+          "owner": "정겨울",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 은평구 테스트로 105, 205호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "정겨울",
+          "tenant": "권여울",
+          "address": "서울특별시 은평구 테스트로 105, 205호",
+          "deposit": 70000000,
+          "monthly_rent": 800000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-006",
+      "source_kind": "synthetic",
+      "profile": "low_mortgage",
+      "pages": {
+        "registry": 16,
+        "building_ledger": 17,
+        "lease_contract": 18
+      },
+      "input": {
+        "address": "서울특별시 송파구 안전로 106, 206호",
+        "deposit": 80000000,
+        "monthly_rent": 900000
+      },
+      "expected": {
+        "registry": {
+          "owner": "강한결",
+          "mortgage_amount": 40000000,
+          "active_right_types": [
+            "mortgage"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 송파구 안전로 106, 206호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "강한결",
+          "tenant": "황다정",
+          "address": "서울특별시 송파구 안전로 106, 206호",
+          "deposit": 80000000,
+          "monthly_rent": 900000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-007",
+      "source_kind": "synthetic",
+      "profile": "low_mortgage",
+      "pages": {
+        "registry": 19,
+        "building_ledger": 20,
+        "lease_contract": 21
+      },
+      "input": {
+        "address": "서울특별시 강서구 합성로 107, 207호",
+        "deposit": 90000000,
+        "monthly_rent": 400000
+      },
+      "expected": {
+        "registry": {
+          "owner": "조하람",
+          "mortgage_amount": 50000000,
+          "active_right_types": [
+            "mortgage"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 강서구 합성로 107, 207호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "조하람",
+          "tenant": "안아람",
+          "address": "서울특별시 강서구 합성로 107, 207호",
+          "deposit": 90000000,
+          "monthly_rent": 400000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-008",
+      "source_kind": "synthetic",
+      "profile": "low_mortgage",
+      "pages": {
+        "registry": 22,
+        "building_ledger": 23,
+        "lease_contract": 24
+      },
+      "input": {
+        "address": "서울특별시 마포구 검증로 108, 208호",
+        "deposit": 100000000,
+        "monthly_rent": 500000
+      },
+      "expected": {
+        "registry": {
+          "owner": "윤다온",
+          "mortgage_amount": 60000000,
+          "active_right_types": [
+            "mortgage"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 마포구 검증로 108, 208호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "윤다온",
+          "tenant": "송이든",
+          "address": "서울특별시 마포구 검증로 108, 208호",
+          "deposit": 100000000,
+          "monthly_rent": 500000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-009",
+      "source_kind": "synthetic",
+      "profile": "low_mortgage",
+      "pages": {
+        "registry": 25,
+        "building_ledger": 26,
+        "lease_contract": 27
+      },
+      "input": {
+        "address": "서울특별시 관악구 안심길 109, 209호",
+        "deposit": 30000000,
+        "monthly_rent": 600000
+      },
+      "expected": {
+        "registry": {
+          "owner": "장나래",
+          "mortgage_amount": 40000000,
+          "active_right_types": [
+            "mortgage"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 관악구 안심길 109, 209호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "장나래",
+          "tenant": "류은채",
+          "address": "서울특별시 관악구 안심길 109, 209호",
+          "deposit": 30000000,
+          "monthly_rent": 600000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-010",
+      "source_kind": "synthetic",
+      "profile": "high_mortgage",
+      "pages": {
+        "registry": 28,
+        "building_ledger": 29,
+        "lease_contract": 30
+      },
+      "input": {
+        "address": "서울특별시 광진구 샘플로 110, 210호",
+        "deposit": 40000000,
+        "monthly_rent": 700000
+      },
+      "expected": {
+        "registry": {
+          "owner": "임다운",
+          "mortgage_amount": 200000000,
+          "active_right_types": [
+            "mortgage"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 광진구 샘플로 110, 210호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "임다운",
+          "tenant": "문다솜",
+          "address": "서울특별시 광진구 샘플로 110, 210호",
+          "deposit": 40000000,
+          "monthly_rent": 700000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-011",
+      "source_kind": "synthetic",
+      "profile": "high_mortgage",
+      "pages": {
+        "registry": 31,
+        "building_ledger": 32,
+        "lease_contract": 33
+      },
+      "input": {
+        "address": "서울특별시 은평구 테스트로 111, 211호",
+        "deposit": 50000000,
+        "monthly_rent": 800000
+      },
+      "expected": {
+        "registry": {
+          "owner": "김하늘",
+          "mortgage_amount": 220000000,
+          "active_right_types": [
+            "mortgage"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 은평구 테스트로 111, 211호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "김하늘",
+          "tenant": "한지우",
+          "address": "서울특별시 은평구 테스트로 111, 211호",
+          "deposit": 50000000,
+          "monthly_rent": 800000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-012",
+      "source_kind": "synthetic",
+      "profile": "high_mortgage",
+      "pages": {
+        "registry": 34,
+        "building_ledger": 35,
+        "lease_contract": 36
+      },
+      "input": {
+        "address": "서울특별시 송파구 안전로 112, 212호",
+        "deposit": 60000000,
+        "monthly_rent": 900000
+      },
+      "expected": {
+        "registry": {
+          "owner": "이새봄",
+          "mortgage_amount": 180000000,
+          "active_right_types": [
+            "mortgage"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 송파구 안전로 112, 212호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "이새봄",
+          "tenant": "오해솔",
+          "address": "서울특별시 송파구 안전로 112, 212호",
+          "deposit": 60000000,
+          "monthly_rent": 900000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-013",
+      "source_kind": "synthetic",
+      "profile": "high_mortgage",
+      "pages": {
+        "registry": 37,
+        "building_ledger": 38,
+        "lease_contract": 39
+      },
+      "input": {
+        "address": "서울특별시 강서구 합성로 113, 213호",
+        "deposit": 70000000,
+        "monthly_rent": 400000
+      },
+      "expected": {
+        "registry": {
+          "owner": "박윤슬",
+          "mortgage_amount": 200000000,
+          "active_right_types": [
+            "mortgage"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 강서구 합성로 113, 213호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "박윤슬",
+          "tenant": "서라온",
+          "address": "서울특별시 강서구 합성로 113, 213호",
+          "deposit": 70000000,
+          "monthly_rent": 400000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-014",
+      "source_kind": "synthetic",
+      "profile": "multiple_mortgage",
+      "pages": {
+        "registry": 40,
+        "building_ledger": 41,
+        "lease_contract": 42
+      },
+      "input": {
+        "address": "서울특별시 마포구 검증로 114, 214호",
+        "deposit": 80000000,
+        "monthly_rent": 500000
+      },
+      "expected": {
+        "registry": {
+          "owner": "최가을",
+          "mortgage_amount": 160000000,
+          "active_right_types": [
+            "mortgage"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 마포구 검증로 114, 214호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "최가을",
+          "tenant": "신바다",
+          "address": "서울특별시 마포구 검증로 114, 214호",
+          "deposit": 80000000,
+          "monthly_rent": 500000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-015",
+      "source_kind": "synthetic",
+      "profile": "multiple_mortgage",
+      "pages": {
+        "registry": 43,
+        "building_ledger": 44,
+        "lease_contract": 45
+      },
+      "input": {
+        "address": "서울특별시 관악구 안심길 115, 215호",
+        "deposit": 90000000,
+        "monthly_rent": 600000
+      },
+      "expected": {
+        "registry": {
+          "owner": "정겨울",
+          "mortgage_amount": 160000000,
+          "active_right_types": [
+            "mortgage"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 관악구 안심길 115, 215호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "정겨울",
+          "tenant": "권여울",
+          "address": "서울특별시 관악구 안심길 115, 215호",
+          "deposit": 90000000,
+          "monthly_rent": 600000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-016",
+      "source_kind": "synthetic",
+      "profile": "owner_mismatch",
+      "pages": {
+        "registry": 46,
+        "building_ledger": 47,
+        "lease_contract": 48
+      },
+      "input": {
+        "address": "서울특별시 광진구 샘플로 116, 216호",
+        "deposit": 100000000,
+        "monthly_rent": 700000
+      },
+      "expected": {
+        "registry": {
+          "owner": "강한결",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 광진구 샘플로 116, 216호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "조하람",
+          "tenant": "황다정",
+          "address": "서울특별시 광진구 샘플로 116, 216호",
+          "deposit": 100000000,
+          "monthly_rent": 700000
+        },
+        "cross_checks": {
+          "owner-landlord": "mismatch",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-017",
+      "source_kind": "synthetic",
+      "profile": "owner_mismatch",
+      "pages": {
+        "registry": 49,
+        "building_ledger": 50,
+        "lease_contract": 51
+      },
+      "input": {
+        "address": "서울특별시 은평구 테스트로 117, 217호",
+        "deposit": 30000000,
+        "monthly_rent": 800000
+      },
+      "expected": {
+        "registry": {
+          "owner": "조하람",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 은평구 테스트로 117, 217호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "윤다온",
+          "tenant": "안아람",
+          "address": "서울특별시 은평구 테스트로 117, 217호",
+          "deposit": 30000000,
+          "monthly_rent": 800000
+        },
+        "cross_checks": {
+          "owner-landlord": "mismatch",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-018",
+      "source_kind": "synthetic",
+      "profile": "address_mismatch",
+      "pages": {
+        "registry": 52,
+        "building_ledger": 53,
+        "lease_contract": 54
+      },
+      "input": {
+        "address": "서울특별시 송파구 안전로 118, 218호",
+        "deposit": 40000000,
+        "monthly_rent": 900000
+      },
+      "expected": {
+        "registry": {
+          "owner": "윤다온",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 송파구 안전로 118, 218호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "윤다온",
+          "tenant": "송이든",
+          "address": "서울특별시 송파구 안전로 1018, 218호",
+          "deposit": 40000000,
+          "monthly_rent": 900000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "mismatch",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-019",
+      "source_kind": "synthetic",
+      "profile": "address_mismatch",
+      "pages": {
+        "registry": 55,
+        "building_ledger": 56,
+        "lease_contract": 57
+      },
+      "input": {
+        "address": "서울특별시 강서구 합성로 119, 219호",
+        "deposit": 50000000,
+        "monthly_rent": 400000
+      },
+      "expected": {
+        "registry": {
+          "owner": "장나래",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 강서구 합성로 119, 219호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "장나래",
+          "tenant": "류은채",
+          "address": "서울특별시 강서구 합성로 1019, 219호",
+          "deposit": 50000000,
+          "monthly_rent": 400000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "mismatch",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-020",
+      "source_kind": "synthetic",
+      "profile": "deposit_mismatch",
+      "pages": {
+        "registry": 58,
+        "building_ledger": 59,
+        "lease_contract": 60
+      },
+      "input": {
+        "address": "서울특별시 마포구 검증로 120, 220호",
+        "deposit": 60000000,
+        "monthly_rent": 500000
+      },
+      "expected": {
+        "registry": {
+          "owner": "임다운",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 마포구 검증로 120, 220호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "임다운",
+          "tenant": "문다솜",
+          "address": "서울특별시 마포구 검증로 120, 220호",
+          "deposit": 70000000,
+          "monthly_rent": 500000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "mismatch",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-021",
+      "source_kind": "synthetic",
+      "profile": "deposit_mismatch",
+      "pages": {
+        "registry": 61,
+        "building_ledger": 62,
+        "lease_contract": 63
+      },
+      "input": {
+        "address": "서울특별시 관악구 안심길 121, 221호",
+        "deposit": 70000000,
+        "monthly_rent": 600000
+      },
+      "expected": {
+        "registry": {
+          "owner": "김하늘",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 관악구 안심길 121, 221호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "김하늘",
+          "tenant": "한지우",
+          "address": "서울특별시 관악구 안심길 121, 221호",
+          "deposit": 80000000,
+          "monthly_rent": 600000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "mismatch",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-022",
+      "source_kind": "synthetic",
+      "profile": "rent_mismatch",
+      "pages": {
+        "registry": 64,
+        "building_ledger": 65,
+        "lease_contract": 66
+      },
+      "input": {
+        "address": "서울특별시 광진구 샘플로 122, 222호",
+        "deposit": 80000000,
+        "monthly_rent": 700000
+      },
+      "expected": {
+        "registry": {
+          "owner": "이새봄",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 광진구 샘플로 122, 222호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "이새봄",
+          "tenant": "오해솔",
+          "address": "서울특별시 광진구 샘플로 122, 222호",
+          "deposit": 80000000,
+          "monthly_rent": 800000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "mismatch",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-023",
+      "source_kind": "synthetic",
+      "profile": "illegal_building",
+      "pages": {
+        "registry": 67,
+        "building_ledger": 68,
+        "lease_contract": 69
+      },
+      "input": {
+        "address": "서울특별시 은평구 테스트로 123, 223호",
+        "deposit": 90000000,
+        "monthly_rent": 800000
+      },
+      "expected": {
+        "registry": {
+          "owner": "박윤슬",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 은평구 테스트로 123, 223호",
+          "main_use": "다세대주택",
+          "is_illegal_building": true
+        },
+        "lease_contract": {
+          "landlord": "박윤슬",
+          "tenant": "서라온",
+          "address": "서울특별시 은평구 테스트로 123, 223호",
+          "deposit": 90000000,
+          "monthly_rent": 800000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "mismatch"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-024",
+      "source_kind": "synthetic",
+      "profile": "illegal_building",
+      "pages": {
+        "registry": 70,
+        "building_ledger": 71,
+        "lease_contract": 72
+      },
+      "input": {
+        "address": "서울특별시 송파구 안전로 124, 224호",
+        "deposit": 100000000,
+        "monthly_rent": 900000
+      },
+      "expected": {
+        "registry": {
+          "owner": "최가을",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 송파구 안전로 124, 224호",
+          "main_use": "다세대주택",
+          "is_illegal_building": true
+        },
+        "lease_contract": {
+          "landlord": "최가을",
+          "tenant": "신바다",
+          "address": "서울특별시 송파구 안전로 124, 224호",
+          "deposit": 100000000,
+          "monthly_rent": 900000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "mismatch"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-025",
+      "source_kind": "synthetic",
+      "profile": "seizure",
+      "pages": {
+        "registry": 73,
+        "building_ledger": 74,
+        "lease_contract": 75
+      },
+      "input": {
+        "address": "서울특별시 강서구 합성로 125, 225호",
+        "deposit": 30000000,
+        "monthly_rent": 400000
+      },
+      "expected": {
+        "registry": {
+          "owner": "정겨울",
+          "mortgage_amount": 0,
+          "active_right_types": [
+            "seizure"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 강서구 합성로 125, 225호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "정겨울",
+          "tenant": "권여울",
+          "address": "서울특별시 강서구 합성로 125, 225호",
+          "deposit": 30000000,
+          "monthly_rent": 400000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-026",
+      "source_kind": "synthetic",
+      "profile": "provisional_seizure",
+      "pages": {
+        "registry": 76,
+        "building_ledger": 77,
+        "lease_contract": 78
+      },
+      "input": {
+        "address": "서울특별시 마포구 검증로 126, 226호",
+        "deposit": 40000000,
+        "monthly_rent": 500000
+      },
+      "expected": {
+        "registry": {
+          "owner": "강한결",
+          "mortgage_amount": 0,
+          "active_right_types": [
+            "provisional_seizure"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 마포구 검증로 126, 226호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "강한결",
+          "tenant": "황다정",
+          "address": "서울특별시 마포구 검증로 126, 226호",
+          "deposit": 40000000,
+          "monthly_rent": 500000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-027",
+      "source_kind": "synthetic",
+      "profile": "trust",
+      "pages": {
+        "registry": 79,
+        "building_ledger": 80,
+        "lease_contract": 81
+      },
+      "input": {
+        "address": "서울특별시 관악구 안심길 127, 227호",
+        "deposit": 50000000,
+        "monthly_rent": 600000
+      },
+      "expected": {
+        "registry": {
+          "owner": "조하람",
+          "mortgage_amount": 0,
+          "active_right_types": [
+            "trust"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 관악구 안심길 127, 227호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "조하람",
+          "tenant": "안아람",
+          "address": "서울특별시 관악구 안심길 127, 227호",
+          "deposit": 50000000,
+          "monthly_rent": 600000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-028",
+      "source_kind": "synthetic",
+      "profile": "auction",
+      "pages": {
+        "registry": 82,
+        "building_ledger": 83,
+        "lease_contract": 84
+      },
+      "input": {
+        "address": "서울특별시 광진구 샘플로 128, 228호",
+        "deposit": 60000000,
+        "monthly_rent": 700000
+      },
+      "expected": {
+        "registry": {
+          "owner": "윤다온",
+          "mortgage_amount": 0,
+          "active_right_types": [
+            "auction"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 광진구 샘플로 128, 228호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "윤다온",
+          "tenant": "송이든",
+          "address": "서울특별시 광진구 샘플로 128, 228호",
+          "deposit": 60000000,
+          "monthly_rent": 700000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-029",
+      "source_kind": "synthetic",
+      "profile": "cancelled_mortgage",
+      "pages": {
+        "registry": 85,
+        "building_ledger": 86,
+        "lease_contract": 87
+      },
+      "input": {
+        "address": "서울특별시 은평구 테스트로 129, 229호",
+        "deposit": 70000000,
+        "monthly_rent": 800000
+      },
+      "expected": {
+        "registry": {
+          "owner": "장나래",
+          "mortgage_amount": 0,
+          "active_right_types": []
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 은평구 테스트로 129, 229호",
+          "main_use": "다세대주택",
+          "is_illegal_building": false
+        },
+        "lease_contract": {
+          "landlord": "장나래",
+          "tenant": "류은채",
+          "address": "서울특별시 은평구 테스트로 129, 229호",
+          "deposit": 70000000,
+          "monthly_rent": 800000
+        },
+        "cross_checks": {
+          "owner-landlord": "verified",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "verified"
+        }
+      }
+    },
+    {
+      "case_id": "RG-SYN-030",
+      "source_kind": "synthetic",
+      "profile": "mixed_high",
+      "pages": {
+        "registry": 88,
+        "building_ledger": 89,
+        "lease_contract": 90
+      },
+      "input": {
+        "address": "서울특별시 송파구 안전로 130, 230호",
+        "deposit": 80000000,
+        "monthly_rent": 900000
+      },
+      "expected": {
+        "registry": {
+          "owner": "임다운",
+          "mortgage_amount": 220000000,
+          "active_right_types": [
+            "mortgage",
+            "seizure"
+          ]
+        },
+        "building_ledger": {
+          "road_address": "서울특별시 송파구 안전로 130, 230호",
+          "main_use": "다세대주택",
+          "is_illegal_building": true
+        },
+        "lease_contract": {
+          "landlord": "김하늘",
+          "tenant": "문다솜",
+          "address": "서울특별시 송파구 안전로 130, 230호",
+          "deposit": 80000000,
+          "monthly_rent": 900000
+        },
+        "cross_checks": {
+          "owner-landlord": "mismatch",
+          "property-address": "verified",
+          "deposit": "verified",
+          "monthly-rent": "verified",
+          "illegal-building": "mismatch"
+        }
+      }
+    }
+  ]
+}

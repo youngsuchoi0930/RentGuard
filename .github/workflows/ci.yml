@@ -1,0 +1,87 @@
+name: RentGuard CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rentguard-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-and-document-regression:
+    name: API and 30-case document regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/api/requirements-ci.txt
+
+      - name: Install test dependencies
+        run: python -m pip install --disable-pip-version-check -r apps/api/requirements-ci.txt
+
+      - name: Install Korean PDF font
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends fonts-nanum
+
+      - name: Run API tests
+        working-directory: apps/api
+        run: python -m pytest -q
+
+      - name: Regenerate the 30-case synthetic corpus
+        run: python scripts/generate_synthetic_document_corpus.py
+
+      - name: Verify all 480 document fields
+        run: python scripts/evaluate_synthetic_document_corpus.py --strict
+
+      - name: Upload document evaluation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-document-evaluation
+          path: output/pdf/rentguard-synthetic-corpus/evaluation.json
+          if-no-files-found: error
+          retention-days: 14
+
+  web:
+    name: Web lint and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint web app
+        run: pnpm lint:web
+
+      - name: Build web app
+        run: pnpm build:web

@@ -297,19 +297,28 @@ def _extract_encumbrances(document: ExtractedDocument, text: str) -> list[Encumb
     for index, match in enumerate(mortgage_matches):
         if is_cancellation_row(match):
             continue
-        start = max(0, match.start() - 500)
-        end = min(len(text), match.end() + 700)
-        if index:
-            previous = mortgage_matches[index - 1].start()
-            start = max(start, (previous + match.start()) // 2)
-        if index + 1 < len(mortgage_matches):
-            following = mortgage_matches[index + 1].start()
-            end = min(end, (match.start() + following) // 2)
-        row = text[start:end]
+        previous_end = mortgage_matches[index - 1].end() if index else max(0, match.start() - 500)
+        following_start = (
+            mortgage_matches[index + 1].start()
+            if index + 1 < len(mortgage_matches)
+            else min(len(text), match.end() + 700)
+        )
+        # Prefer fields following the current anchor before the next mortgage.
+        # Using a midpoint between anchors can cut off the first row's amount
+        # when PDF extraction emits one table cell per line. If a source PDF
+        # emits cells before the anchor, fall back to the preceding segment.
+        following_row = text[match.end():following_start]
+        preceding_row = text[previous_end:match.start()]
         _, rank, registered_at = context(match)
-        amount_match = AMOUNT_RE.search(row)
-        holder_match = re.search(r"근저당권자\s*([^\n]+)", row)
-        debtor_match = re.search(r"채무자\s*([^\n]+)", row)
+        amount_match = AMOUNT_RE.search(following_row) or AMOUNT_RE.search(preceding_row)
+        holder_match = (
+            re.search(r"근저당권자\s*([^\n]+)", following_row)
+            or re.search(r"근저당권자\s*([^\n]+)", preceding_row)
+        )
+        debtor_match = (
+            re.search(r"채무자\s*([^\n]+)", following_row)
+            or re.search(r"채무자\s*([^\n]+)", preceding_row)
+        )
         snippet_parts = [match.group(0)]
         if rank:
             snippet_parts.append(f"순위번호 {rank}번")

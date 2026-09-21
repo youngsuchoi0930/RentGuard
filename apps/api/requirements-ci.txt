@@ -1,0 +1,14 @@
+# CI dependencies intentionally exclude PaddleOCR/PaddlePaddle.
+# OCR integration tests are opt-in; parser and document regression tests use
+# deterministic text-layer PDFs in the default CI job.
+fastapi==0.116.1
+python-multipart==0.0.20
+pydantic-settings==2.10.1
+pytest==8.4.1
+httpx==0.28.1
+joblib==1.5.3
+scikit-learn==1.9.0
+SQLAlchemy==2.0.52
+pypdf==6.17.0
+pymupdf==1.28.2
+reportlab==4.4.9

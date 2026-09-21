@@ -1,0 +1,3404 @@
+{
+  "corpus_version": "1.0.0",
+  "source_kind": "synthetic",
+  "case_count": 30,
+  "passed_cases": 30,
+  "failed_cases": 0,
+  "matched_fields": 480,
+  "total_fields": 480,
+  "accuracy": 1.0,
+  "cases": [
+    {
+      "case_id": "RG-SYN-001",
+      "source_kind": "synthetic",
+      "profile": "normal",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "김하늘",
+          "actual": "김하늘",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 강서구 합성로 101, 201호",
+          "actual": "서울특별시 강서구 합성로 101, 201호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "김하늘",
+          "actual": "김하늘",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "한지우",
+          "actual": "한지우",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 강서구 합성로 101, 201호",
+          "actual": "서울특별시 강서구 합성로 101, 201호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 30000000,
+          "actual": 30000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 400000,
+          "actual": 400000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-002",
+      "source_kind": "synthetic",
+      "profile": "normal",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "이새봄",
+          "actual": "이새봄",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 마포구 검증로 102, 202호",
+          "actual": "서울특별시 마포구 검증로 102, 202호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "이새봄",
+          "actual": "이새봄",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "오해솔",
+          "actual": "오해솔",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 마포구 검증로 102, 202호",
+          "actual": "서울특별시 마포구 검증로 102, 202호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 40000000,
+          "actual": 40000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 500000,
+          "actual": 500000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-003",
+      "source_kind": "synthetic",
+      "profile": "normal",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "박윤슬",
+          "actual": "박윤슬",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 관악구 안심길 103, 203호",
+          "actual": "서울특별시 관악구 안심길 103, 203호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "박윤슬",
+          "actual": "박윤슬",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "서라온",
+          "actual": "서라온",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 관악구 안심길 103, 203호",
+          "actual": "서울특별시 관악구 안심길 103, 203호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 50000000,
+          "actual": 50000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 600000,
+          "actual": 600000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-004",
+      "source_kind": "synthetic",
+      "profile": "normal",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "최가을",
+          "actual": "최가을",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 광진구 샘플로 104, 204호",
+          "actual": "서울특별시 광진구 샘플로 104, 204호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "최가을",
+          "actual": "최가을",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "신바다",
+          "actual": "신바다",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 광진구 샘플로 104, 204호",
+          "actual": "서울특별시 광진구 샘플로 104, 204호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 60000000,
+          "actual": 60000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 700000,
+          "actual": 700000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-005",
+      "source_kind": "synthetic",
+      "profile": "normal",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "정겨울",
+          "actual": "정겨울",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 은평구 테스트로 105, 205호",
+          "actual": "서울특별시 은평구 테스트로 105, 205호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "정겨울",
+          "actual": "정겨울",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "권여울",
+          "actual": "권여울",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 은평구 테스트로 105, 205호",
+          "actual": "서울특별시 은평구 테스트로 105, 205호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 70000000,
+          "actual": 70000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 800000,
+          "actual": 800000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-006",
+      "source_kind": "synthetic",
+      "profile": "low_mortgage",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "강한결",
+          "actual": "강한결",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 40000000,
+          "actual": 40000000,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage"
+          ],
+          "actual": [
+            "mortgage"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 송파구 안전로 106, 206호",
+          "actual": "서울특별시 송파구 안전로 106, 206호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "강한결",
+          "actual": "강한결",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "황다정",
+          "actual": "황다정",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 송파구 안전로 106, 206호",
+          "actual": "서울특별시 송파구 안전로 106, 206호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 80000000,
+          "actual": 80000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 900000,
+          "actual": 900000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-007",
+      "source_kind": "synthetic",
+      "profile": "low_mortgage",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "조하람",
+          "actual": "조하람",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 50000000,
+          "actual": 50000000,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage"
+          ],
+          "actual": [
+            "mortgage"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 강서구 합성로 107, 207호",
+          "actual": "서울특별시 강서구 합성로 107, 207호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "조하람",
+          "actual": "조하람",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "안아람",
+          "actual": "안아람",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 강서구 합성로 107, 207호",
+          "actual": "서울특별시 강서구 합성로 107, 207호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 90000000,
+          "actual": 90000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 400000,
+          "actual": 400000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-008",
+      "source_kind": "synthetic",
+      "profile": "low_mortgage",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "윤다온",
+          "actual": "윤다온",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 60000000,
+          "actual": 60000000,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage"
+          ],
+          "actual": [
+            "mortgage"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 마포구 검증로 108, 208호",
+          "actual": "서울특별시 마포구 검증로 108, 208호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "윤다온",
+          "actual": "윤다온",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "송이든",
+          "actual": "송이든",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 마포구 검증로 108, 208호",
+          "actual": "서울특별시 마포구 검증로 108, 208호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 100000000,
+          "actual": 100000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 500000,
+          "actual": 500000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-009",
+      "source_kind": "synthetic",
+      "profile": "low_mortgage",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "장나래",
+          "actual": "장나래",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 40000000,
+          "actual": 40000000,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage"
+          ],
+          "actual": [
+            "mortgage"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 관악구 안심길 109, 209호",
+          "actual": "서울특별시 관악구 안심길 109, 209호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "장나래",
+          "actual": "장나래",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "류은채",
+          "actual": "류은채",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 관악구 안심길 109, 209호",
+          "actual": "서울특별시 관악구 안심길 109, 209호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 30000000,
+          "actual": 30000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 600000,
+          "actual": 600000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-010",
+      "source_kind": "synthetic",
+      "profile": "high_mortgage",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "임다운",
+          "actual": "임다운",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 200000000,
+          "actual": 200000000,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage"
+          ],
+          "actual": [
+            "mortgage"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 광진구 샘플로 110, 210호",
+          "actual": "서울특별시 광진구 샘플로 110, 210호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "임다운",
+          "actual": "임다운",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "문다솜",
+          "actual": "문다솜",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 광진구 샘플로 110, 210호",
+          "actual": "서울특별시 광진구 샘플로 110, 210호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 40000000,
+          "actual": 40000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 700000,
+          "actual": 700000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-011",
+      "source_kind": "synthetic",
+      "profile": "high_mortgage",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "김하늘",
+          "actual": "김하늘",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 220000000,
+          "actual": 220000000,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage"
+          ],
+          "actual": [
+            "mortgage"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 은평구 테스트로 111, 211호",
+          "actual": "서울특별시 은평구 테스트로 111, 211호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "김하늘",
+          "actual": "김하늘",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "한지우",
+          "actual": "한지우",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 은평구 테스트로 111, 211호",
+          "actual": "서울특별시 은평구 테스트로 111, 211호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 50000000,
+          "actual": 50000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 800000,
+          "actual": 800000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-012",
+      "source_kind": "synthetic",
+      "profile": "high_mortgage",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "이새봄",
+          "actual": "이새봄",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 180000000,
+          "actual": 180000000,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage"
+          ],
+          "actual": [
+            "mortgage"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 송파구 안전로 112, 212호",
+          "actual": "서울특별시 송파구 안전로 112, 212호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "이새봄",
+          "actual": "이새봄",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "오해솔",
+          "actual": "오해솔",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 송파구 안전로 112, 212호",
+          "actual": "서울특별시 송파구 안전로 112, 212호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 60000000,
+          "actual": 60000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 900000,
+          "actual": 900000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-013",
+      "source_kind": "synthetic",
+      "profile": "high_mortgage",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "박윤슬",
+          "actual": "박윤슬",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 200000000,
+          "actual": 200000000,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage"
+          ],
+          "actual": [
+            "mortgage"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 강서구 합성로 113, 213호",
+          "actual": "서울특별시 강서구 합성로 113, 213호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "박윤슬",
+          "actual": "박윤슬",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "서라온",
+          "actual": "서라온",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 강서구 합성로 113, 213호",
+          "actual": "서울특별시 강서구 합성로 113, 213호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 70000000,
+          "actual": 70000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 400000,
+          "actual": 400000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-014",
+      "source_kind": "synthetic",
+      "profile": "multiple_mortgage",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "최가을",
+          "actual": "최가을",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 160000000,
+          "actual": 160000000,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage"
+          ],
+          "actual": [
+            "mortgage"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 마포구 검증로 114, 214호",
+          "actual": "서울특별시 마포구 검증로 114, 214호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "최가을",
+          "actual": "최가을",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "신바다",
+          "actual": "신바다",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 마포구 검증로 114, 214호",
+          "actual": "서울특별시 마포구 검증로 114, 214호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 80000000,
+          "actual": 80000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 500000,
+          "actual": 500000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-015",
+      "source_kind": "synthetic",
+      "profile": "multiple_mortgage",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "정겨울",
+          "actual": "정겨울",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 160000000,
+          "actual": 160000000,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage"
+          ],
+          "actual": [
+            "mortgage"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 관악구 안심길 115, 215호",
+          "actual": "서울특별시 관악구 안심길 115, 215호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "정겨울",
+          "actual": "정겨울",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "권여울",
+          "actual": "권여울",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 관악구 안심길 115, 215호",
+          "actual": "서울특별시 관악구 안심길 115, 215호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 90000000,
+          "actual": 90000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 600000,
+          "actual": 600000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-016",
+      "source_kind": "synthetic",
+      "profile": "owner_mismatch",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "강한결",
+          "actual": "강한결",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 광진구 샘플로 116, 216호",
+          "actual": "서울특별시 광진구 샘플로 116, 216호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "조하람",
+          "actual": "조하람",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "황다정",
+          "actual": "황다정",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 광진구 샘플로 116, 216호",
+          "actual": "서울특별시 광진구 샘플로 116, 216호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 100000000,
+          "actual": 100000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 700000,
+          "actual": 700000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-017",
+      "source_kind": "synthetic",
+      "profile": "owner_mismatch",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "조하람",
+          "actual": "조하람",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 은평구 테스트로 117, 217호",
+          "actual": "서울특별시 은평구 테스트로 117, 217호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "윤다온",
+          "actual": "윤다온",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "안아람",
+          "actual": "안아람",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 은평구 테스트로 117, 217호",
+          "actual": "서울특별시 은평구 테스트로 117, 217호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 30000000,
+          "actual": 30000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 800000,
+          "actual": 800000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-018",
+      "source_kind": "synthetic",
+      "profile": "address_mismatch",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "윤다온",
+          "actual": "윤다온",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 송파구 안전로 118, 218호",
+          "actual": "서울특별시 송파구 안전로 118, 218호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "윤다온",
+          "actual": "윤다온",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "송이든",
+          "actual": "송이든",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 송파구 안전로 1018, 218호",
+          "actual": "서울특별시 송파구 안전로 1018, 218호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 40000000,
+          "actual": 40000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 900000,
+          "actual": 900000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-019",
+      "source_kind": "synthetic",
+      "profile": "address_mismatch",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "장나래",
+          "actual": "장나래",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 강서구 합성로 119, 219호",
+          "actual": "서울특별시 강서구 합성로 119, 219호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "장나래",
+          "actual": "장나래",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "류은채",
+          "actual": "류은채",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 강서구 합성로 1019, 219호",
+          "actual": "서울특별시 강서구 합성로 1019, 219호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 50000000,
+          "actual": 50000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 400000,
+          "actual": 400000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-020",
+      "source_kind": "synthetic",
+      "profile": "deposit_mismatch",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "임다운",
+          "actual": "임다운",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 마포구 검증로 120, 220호",
+          "actual": "서울특별시 마포구 검증로 120, 220호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "임다운",
+          "actual": "임다운",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "문다솜",
+          "actual": "문다솜",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 마포구 검증로 120, 220호",
+          "actual": "서울특별시 마포구 검증로 120, 220호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 70000000,
+          "actual": 70000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 500000,
+          "actual": 500000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-021",
+      "source_kind": "synthetic",
+      "profile": "deposit_mismatch",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "김하늘",
+          "actual": "김하늘",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 관악구 안심길 121, 221호",
+          "actual": "서울특별시 관악구 안심길 121, 221호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "김하늘",
+          "actual": "김하늘",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "한지우",
+          "actual": "한지우",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 관악구 안심길 121, 221호",
+          "actual": "서울특별시 관악구 안심길 121, 221호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 80000000,
+          "actual": 80000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 600000,
+          "actual": 600000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-022",
+      "source_kind": "synthetic",
+      "profile": "rent_mismatch",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "이새봄",
+          "actual": "이새봄",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 광진구 샘플로 122, 222호",
+          "actual": "서울특별시 광진구 샘플로 122, 222호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "이새봄",
+          "actual": "이새봄",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "오해솔",
+          "actual": "오해솔",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 광진구 샘플로 122, 222호",
+          "actual": "서울특별시 광진구 샘플로 122, 222호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 80000000,
+          "actual": 80000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 800000,
+          "actual": 800000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-023",
+      "source_kind": "synthetic",
+      "profile": "illegal_building",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "박윤슬",
+          "actual": "박윤슬",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 은평구 테스트로 123, 223호",
+          "actual": "서울특별시 은평구 테스트로 123, 223호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "박윤슬",
+          "actual": "박윤슬",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "서라온",
+          "actual": "서라온",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 은평구 테스트로 123, 223호",
+          "actual": "서울특별시 은평구 테스트로 123, 223호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 90000000,
+          "actual": 90000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 800000,
+          "actual": 800000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-024",
+      "source_kind": "synthetic",
+      "profile": "illegal_building",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "최가을",
+          "actual": "최가을",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 송파구 안전로 124, 224호",
+          "actual": "서울특별시 송파구 안전로 124, 224호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "최가을",
+          "actual": "최가을",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "신바다",
+          "actual": "신바다",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 송파구 안전로 124, 224호",
+          "actual": "서울특별시 송파구 안전로 124, 224호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 100000000,
+          "actual": 100000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 900000,
+          "actual": 900000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-025",
+      "source_kind": "synthetic",
+      "profile": "seizure",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "정겨울",
+          "actual": "정겨울",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "seizure"
+          ],
+          "actual": [
+            "seizure"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 강서구 합성로 125, 225호",
+          "actual": "서울특별시 강서구 합성로 125, 225호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "정겨울",
+          "actual": "정겨울",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "권여울",
+          "actual": "권여울",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 강서구 합성로 125, 225호",
+          "actual": "서울특별시 강서구 합성로 125, 225호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 30000000,
+          "actual": 30000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 400000,
+          "actual": 400000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-026",
+      "source_kind": "synthetic",
+      "profile": "provisional_seizure",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "강한결",
+          "actual": "강한결",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "provisional_seizure"
+          ],
+          "actual": [
+            "provisional_seizure"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 마포구 검증로 126, 226호",
+          "actual": "서울특별시 마포구 검증로 126, 226호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "강한결",
+          "actual": "강한결",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "황다정",
+          "actual": "황다정",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 마포구 검증로 126, 226호",
+          "actual": "서울특별시 마포구 검증로 126, 226호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 40000000,
+          "actual": 40000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 500000,
+          "actual": 500000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-027",
+      "source_kind": "synthetic",
+      "profile": "trust",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "조하람",
+          "actual": "조하람",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "trust"
+          ],
+          "actual": [
+            "trust"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 관악구 안심길 127, 227호",
+          "actual": "서울특별시 관악구 안심길 127, 227호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "조하람",
+          "actual": "조하람",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "안아람",
+          "actual": "안아람",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 관악구 안심길 127, 227호",
+          "actual": "서울특별시 관악구 안심길 127, 227호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 50000000,
+          "actual": 50000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 600000,
+          "actual": 600000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-028",
+      "source_kind": "synthetic",
+      "profile": "auction",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "윤다온",
+          "actual": "윤다온",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "auction"
+          ],
+          "actual": [
+            "auction"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 광진구 샘플로 128, 228호",
+          "actual": "서울특별시 광진구 샘플로 128, 228호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "윤다온",
+          "actual": "윤다온",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "송이든",
+          "actual": "송이든",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 광진구 샘플로 128, 228호",
+          "actual": "서울특별시 광진구 샘플로 128, 228호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 60000000,
+          "actual": 60000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 700000,
+          "actual": 700000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-029",
+      "source_kind": "synthetic",
+      "profile": "cancelled_mortgage",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "장나래",
+          "actual": "장나래",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 은평구 테스트로 129, 229호",
+          "actual": "서울특별시 은평구 테스트로 129, 229호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "장나래",
+          "actual": "장나래",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "류은채",
+          "actual": "류은채",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 은평구 테스트로 129, 229호",
+          "actual": "서울특별시 은평구 테스트로 129, 229호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 70000000,
+          "actual": 70000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 800000,
+          "actual": 800000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    },
+    {
+      "case_id": "RG-SYN-030",
+      "source_kind": "synthetic",
+      "profile": "mixed_high",
+      "passed": true,
+      "matched": 16,
+      "total": 16,
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "임다운",
+          "actual": "임다운",
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 220000000,
+          "actual": 220000000,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage",
+            "seizure"
+          ],
+          "actual": [
+            "mortgage",
+            "seizure"
+          ],
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 송파구 안전로 130, 230호",
+          "actual": "서울특별시 송파구 안전로 130, 230호",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "김하늘",
+          "actual": "김하늘",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "문다솜",
+          "actual": "문다솜",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 송파구 안전로 130, 230호",
+          "actual": "서울특별시 송파구 안전로 130, 230호",
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 80000000,
+          "actual": 80000000,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 900000,
+          "actual": 900000,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "passed": true
+        }
+      ],
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      }
+    }
+  ]
+}

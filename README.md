@@ -48,6 +48,17 @@ Windows 로컬 OCR 환경은 PaddlePaddle 휠과 맞는 Python 3.12를 사용합
 
 API 문서는 http://localhost:8000/docs 에서 확인할 수 있습니다.
 
+### 자동 검증
+
+`main` 브랜치 푸시와 Pull Request에서 GitHub Actions가 다음 항목을 자동 검사합니다.
+
+- FastAPI 전체 테스트
+- 30건·90페이지 합성 문서 재생성
+- 등기부·건축물대장·임대차계약서 480개 필드 엄격 회귀검증
+- Next.js lint와 production build
+
+합성 문서 검증 결과는 CI 실행별 artifact로 14일간 보관합니다. OCR 모델은 용량과 실행 시간 때문에 기본 CI에서 제외하며, `RUN_OCR_TESTS=1`로 별도 실행합니다.
+
 ### Docker Compose
 
 저장소에 포함된 검증된 `models/deposit-quantile-v2.joblib`을 API 이미지에 복사하므로 새 환경에서 별도 학습 없이 보증금 모델을 사용할 수 있습니다. `.env.example`을 참고해 로컬 `.env`에 API 키를 설정한 뒤 실행합니다.
