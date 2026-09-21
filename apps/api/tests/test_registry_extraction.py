@@ -195,6 +195,36 @@ def test_multiple_mortgages_keep_each_rows_amount():
     assert [entry.holder for entry in mortgages] == ["테스트은행1", "테스트은행2"]
 
 
+def test_registry_extracts_corporate_owner_when_ocr_places_name_on_next_line():
+    document = ExtractedDocument(
+        method="ocr",
+        pages=[
+            ExtractedPage(
+                number=1,
+                confidence=0.93,
+                text="""
+                등기사항전부증명서 말소사항 포함 - 집합건물 -
+                [집합건물] 서울특별시 테스트구 검증동 350 제2층 제202호
+                도로명주소 서울특별시 테스트구 신뢰로 59
+                【 갑 구 】 소유권에 관한 사항
+                소유자
+                제192619호
+                테스트주택신탁주식회사
+                110111-0******
+                서울특별시 테스트구 신뢰로 59
+                【 을 구 】 소유권 이외의 권리에 관한 사항
+                기록사항 없음
+                """,
+            )
+        ],
+    )
+
+    result = parse_registry(document)
+
+    assert [item.owner_name for item in result.ownership] == ["테스트주택신탁주식회사"]
+    assert "OWNER_NOT_FOUND" not in [item.code for item in result.needs_review]
+
+
 def test_image_only_pdf_requires_ocr_when_disabled():
     with pytest.raises(OCRUnavailableError):
         extract_registry((FIXTURES / "registry_risky_scan_noisy.pdf").read_bytes(), allow_ocr=False)

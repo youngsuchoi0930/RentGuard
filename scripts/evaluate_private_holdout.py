@@ -175,12 +175,16 @@ def _actual_values(registry: Any, ledger: Any, contract: Any, bundle: Any) -> di
         for item in registry.encumbrances
         if item.status == "active" and item.right_type == "mortgage"
     ]
+    active_right_types = sorted({
+        item.right_type for item in registry.encumbrances if item.status == "active"
+    })
     checks = {item.id: item.status for item in bundle.cross_checks}
     actual: dict[str, Any] = {
         "registry": {
             "owners": active_owners,
             "road_address": registry.property.road_address,
             "mortgages": active_mortgages,
+            "active_right_types": active_right_types,
         },
         "building_ledger": {
             "road_address": ledger.property.road_address,
@@ -190,6 +194,8 @@ def _actual_values(registry: Any, ledger: Any, contract: Any, bundle: Any) -> di
         },
         "cross_checks": {
             "property_address_match": _check_result(checks, "property-address"),
+            "registry_owner_found": _check_result(checks, "registry-owner"),
+            "illegal_building_clear": _check_result(checks, "illegal-building"),
             "owner_landlord_match": _check_result(checks, "owner-landlord"),
             "deposit_match": _check_result(checks, "deposit"),
             "monthly_rent_match": _check_result(checks, "monthly-rent"),

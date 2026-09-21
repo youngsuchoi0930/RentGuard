@@ -187,8 +187,8 @@ def _extract_owners(document: ExtractedDocument, text: str) -> list[OwnershipEnt
     seen: set[str] = set()
     non_names = {"지분", "주소", "등록번호", "주민등록번호", "소유자", "공유자"}
     patterns = [
-        re.compile(r"소유자[ \t]*([가-힣]{2,10})"),
-        re.compile(r"공유자[ \t]*([가-힣]{2,10})"),
+        re.compile(r"소유자[ \t]*([가-힣]{2,40})"),
+        re.compile(r"공유자[ \t]*([가-힣]{2,40})"),
     ]
     for pattern in patterns:
         for match in pattern.finditer(text):
@@ -201,6 +201,43 @@ def _extract_owners(document: ExtractedDocument, text: str) -> list[OwnershipEnt
                 owner_name=name,
                 evidence=_evidence(document, snippet, "registry_a", snippet),
             ))
+    # OCR preserves table rows but often emits the role and a corporate owner on
+    # consecutive lines. Do not require the resident/corporate number to share a
+    # line with the name because image-only certificates rarely keep that order.
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    def plausible_owner_name(value: str) -> bool:
+        compact_value = _compact(value)
+        if compact_value in non_names:
+            return False
+        if not re.fullmatch(r"[가-힣A-Za-z0-9㈜()·]{2,40}", compact_value):
+            return False
+        if not re.search(r"[가-힣]{2,}", compact_value):
+            return False
+        if re.fullmatch(r"제?\d+호", compact_value) or DATE_RE.search(value):
+            return False
+        if re.search(r"(?:특별시|광역시|특별자치|[가-힣]+(?:도|시|군|구|읍|면|동|리|로|길))\d", compact_value):
+            return False
+        return True
+
+    for index, line in enumerate(lines[:-1]):
+        if _compact(line) not in {"소유자", "공유자"}:
+            continue
+        name = next(
+            (
+                candidate.strip()
+                for candidate in lines[index + 1:index + 5]
+                if plausible_owner_name(candidate)
+            ),
+            None,
+        )
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        snippet = f"{line}\n{name}"
+        owners.append(OwnershipEntry(
+            owner_name=name,
+            evidence=_evidence(document, name, "registry_a", snippet),
+        ))
     # Official registry tables often place "공유자", name and masked resident
     # number in separate PDF text rows. In a current-valid certificate, remove a
     # former co-owner whose entire share is explicitly transferred in a later row.
