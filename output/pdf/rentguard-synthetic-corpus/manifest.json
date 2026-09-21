@@ -1113,7 +1113,7 @@
       },
       "expected": {
         "registry": {
-          "owner": "조하람",
+          "owner": "렌트가드수탁주식회사",
           "mortgage_amount": 0,
           "active_right_types": [
             "trust"
@@ -1132,7 +1132,7 @@
           "monthly_rent": 600000
         },
         "cross_checks": {
-          "owner-landlord": "verified",
+          "owner-landlord": "mismatch",
           "property-address": "verified",
           "deposit": "verified",
           "monthly-rent": "verified",

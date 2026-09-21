@@ -2952,8 +2952,8 @@
       "comparisons": [
         {
           "field": "registry.owner",
-          "expected": "조하람",
-          "actual": "조하람",
+          "expected": "렌트가드수탁주식회사",
+          "actual": "렌트가드수탁주식회사",
           "passed": true
         },
         {
@@ -3022,8 +3022,8 @@
         },
         {
           "field": "cross_checks.owner-landlord",
-          "expected": "verified",
-          "actual": "verified",
+          "expected": "mismatch",
+          "actual": "mismatch",
           "passed": true
         },
         {

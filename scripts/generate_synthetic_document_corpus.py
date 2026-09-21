@@ -94,6 +94,12 @@ class SyntheticCase:
     def contract_address(self) -> str:
         return self.contract_address_override or self.road_address
 
+    @property
+    def current_registered_holder(self) -> str:
+        if "trust" in self.active_rights:
+            return "렌트가드수탁주식회사"
+        return self.owner
+
 
 PROFILES = (
     ["normal"] * 5
@@ -276,8 +282,18 @@ def _registry_page(case: SyntheticCase) -> bytes:
     y = _line(pdf, y, f"소유자 {case.owner}", bold=True)
     for rank, right in enumerate(case.active_rights, start=2):
         y = _line(pdf, y, str(rank))
-        y = _line(pdf, y, RIGHT_LABELS[right], bold=True)
-        y = _line(pdf, y, f"2025년 {rank}월 10일 제{21000 + rank}호")
+        if right == "trust":
+            y = _line(
+                pdf,
+                y,
+                f"소유권이전 2025년 {rank}월 10일 수탁자 {case.current_registered_holder}",
+                bold=True,
+            )
+            y = _line(pdf, y, f"제{21000 + rank}호 신탁 110111-1******")
+            y = _line(pdf, y, f"신탁 신탁원부 제SYN-{rank:05d}호")
+        else:
+            y = _line(pdf, y, RIGHT_LABELS[right], bold=True)
+            y = _line(pdf, y, f"2025년 {rank}월 10일 제{21000 + rank}호")
     y = _section(pdf, y - 2 * mm, "【 을 구 】 소유권 이외의 권리에 관한 사항")
     if not case.mortgage_amounts:
         y = _line(pdf, y, "기록사항 없음")
@@ -377,7 +393,7 @@ def _expected(case: SyntheticCase, start_page: int) -> dict:
         },
         "expected": {
             "registry": {
-                "owner": case.owner,
+                "owner": case.current_registered_holder,
                 "mortgage_amount": active_mortgage,
                 "active_right_types": active_right_types,
             },
@@ -394,7 +410,11 @@ def _expected(case: SyntheticCase, start_page: int) -> dict:
                 "monthly_rent": case.contract_monthly_rent,
             },
             "cross_checks": {
-                "owner-landlord": "mismatch" if case.landlord != case.owner else "verified",
+                "owner-landlord": (
+                    "mismatch"
+                    if case.landlord != case.current_registered_holder
+                    else "verified"
+                ),
                 "property-address": address_status,
                 "deposit": "mismatch" if case.contract_deposit != case.input_deposit else "verified",
                 "monthly-rent": "mismatch" if case.contract_monthly_rent != case.input_monthly_rent else "verified",
