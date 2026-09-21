@@ -3,6 +3,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+import app.services.analysis_history as analysis_history_module
 from app.main import app
 from app.schemas import AIExplanation, AnalysisFeedbackCreate, RiskSignal
 from app.services.analysis_history import (
@@ -213,17 +214,15 @@ def test_feedback_overview_returns_statistics_and_masked_context(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["statistics"] == {
-        "total": 2,
-        "correct": 1,
-        "incorrect": 0,
-        "missing": 1,
-        "analyses_with_feedback": 1,
-        "positive_rate": 50.0,
-        "pending": 2,
-        "approved": 0,
-        "excluded": 0,
-    }
+    assert payload["statistics"]["total"] == 2
+    assert payload["statistics"]["correct"] == 1
+    assert payload["statistics"]["missing"] == 1
+    assert payload["statistics"]["positive_rate"] == 50.0
+    assert payload["statistics"]["pending"] == 2
+    assert payload["statistics"]["approved"] == 0
+    assert payload["statistics"]["export_eligible_rows"] == 0
+    assert payload["statistics"]["export_ready"] is False
+    assert len(payload["statistics"]["export_blockers"]) == 2
     assert payload["items"][0]["masked_address"] == (
         "서울특별시 강서구 · 상세주소 비공개"
     )
@@ -273,7 +272,12 @@ def test_initialize_migrates_existing_feedback_table(tmp_path):
     store.engine.dispose()
 
 
-def test_review_and_export_only_approved_feedback(isolated_history_store):
+def test_review_and_export_only_approved_feedback(
+    isolated_history_store,
+    monkeypatch,
+):
+    monkeypatch.setattr(analysis_history_module, "MIN_APPROVED_EXPORT_ROWS", 1)
+    monkeypatch.setattr(analysis_history_module, "MIN_APPROVED_EXPORT_ANALYSES", 1)
     analysis = _analysis()
     isolated_history_store.save(
         "서울특별시 강서구 화곡로 123, 301호",
@@ -336,3 +340,46 @@ def test_editing_feedback_resets_review_to_pending(isolated_history_store):
     assert changed.status_code == 200
     assert changed.json()["review_status"] == "pending"
     assert changed.json()["reviewed_at"] is None
+
+
+def test_approval_rejects_unchanged_correction(isolated_history_store):
+    analysis = _analysis()
+    isolated_history_store.save("서울특별시 강서구 화곡로 123", analysis)
+    feedback = isolated_history_store.save_feedback(
+        analysis.analysis_id,
+        AnalysisFeedbackCreate(
+            target="deposit",
+            verdict="incorrect",
+            corrected_value=analysis.facts.deposit,
+        ),
+    )
+    assert feedback is not None
+    assert feedback.approval_eligible is False
+
+    response = client.patch(
+        f"/api/v1/feedback/{feedback.id}/review",
+        json={"review_status": "approved"},
+    )
+
+    assert response.status_code == 422
+    assert "원래 분석값과 같아" in response.json()["detail"]
+
+
+def test_export_requires_minimum_approved_sample(isolated_history_store):
+    analysis = _analysis()
+    isolated_history_store.save("서울특별시 강서구 화곡로 123", analysis)
+    feedback = isolated_history_store.save_feedback(
+        analysis.analysis_id,
+        AnalysisFeedbackCreate(target="overall", verdict="correct"),
+    )
+    assert feedback is not None
+    reviewed = client.patch(
+        f"/api/v1/feedback/{feedback.id}/review",
+        json={"review_status": "approved"},
+    )
+    exported = client.get("/api/v1/feedback/export?format=json")
+
+    assert reviewed.status_code == 200
+    assert exported.status_code == 409
+    assert "20건 이상" in exported.json()["detail"]
+    assert "5건 이상" in exported.json()["detail"]

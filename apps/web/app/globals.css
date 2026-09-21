@@ -478,6 +478,13 @@ main { min-height: 100vh; margin-left: var(--sidebar); }
 .feedback-stat-grid .pending strong { color: #37658f; }
 .feedback-stat-grid .approved strong { color: #149071; }
 .feedback-stat-grid .excluded strong { color: #778396; }
+.export-readiness { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; margin: -5px 0 16px; padding: 13px 16px; border: 1px solid #ead5aa; border-radius: 11px; background: #fffaf1; color: #8b641e; }
+.export-readiness.ready { border-color: #bfe5d9; background: #f3fbf8; color: #187e65; }
+.export-readiness > div { display: flex; align-items: center; gap: 7px; }
+.export-readiness strong { font-size: 10px; }
+.export-readiness > span { color: #7e776a; font-size: 9px; }
+.export-readiness.ready > span { color: #66877e; }
+.export-readiness ul { width: 100%; margin: 0; padding-left: 20px; color: #8f7750; font-size: 8px; line-height: 1.6; }
 .feedback-header-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .feedback-header-actions .outline-button { justify-self: auto; }
 .feedback-header-actions .outline-button:disabled { cursor: not-allowed; opacity: .5; }
@@ -515,6 +522,7 @@ main { min-height: 100vh; margin-left: var(--sidebar); }
 .review-actions button.active.pending { border-color: #aac9df; color: #37658f; background: #edf5fb; }
 .review-actions button.active.excluded { border-color: #cbd2d9; color: #626e7c; background: #edf0f3; }
 .review-actions button:disabled { cursor: wait; opacity: .55; }
+.feedback-quality-warning { max-width: 150px; margin: 0 !important; color: #ba5a50 !important; font-size: 7px !important; line-height: 1.45; }
 .feedback-dashboard-note { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 14px; color: #8994a3; font-size: 8px; }
 .disclaimer { display: flex; align-items: center; justify-content: center; gap: 7px; color: #929aa8; font-size: 9px; line-height: 1.5; margin: 22px 0 0; text-align: center; }
 

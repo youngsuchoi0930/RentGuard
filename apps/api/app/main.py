@@ -30,7 +30,11 @@ from .schemas import (
     AnalysisResponse,
 )
 from .services.analysis_service import build_analysis
-from .services.analysis_history import get_history_store
+from .services.analysis_history import (
+    FeedbackExportNotReady,
+    FeedbackQualityError,
+    get_history_store,
+)
 from .services.building_parser import extract_building_ledger
 from .services.cross_checker import cross_check_documents
 from .services.deposit_predictor import deposit_model_health
@@ -171,7 +175,10 @@ def review_feedback(
     feedback_id: int,
     payload: AnalysisFeedbackReviewUpdate,
 ) -> AnalysisFeedbackItem:
-    result = get_history_store().review_feedback(feedback_id, payload)
+    try:
+        result = get_history_store().review_feedback(feedback_id, payload)
+    except FeedbackQualityError as exc:
+        raise HTTPException(status_code=422, detail=" ".join(exc.issues)) from exc
     if result is None:
         raise HTTPException(status_code=404, detail="피드백을 찾지 못했습니다.")
     return result
@@ -181,7 +188,10 @@ def review_feedback(
 def export_approved_feedback(
     format: Annotated[Literal["csv", "json"], Query()] = "csv",
 ) -> Response:
-    rows = get_history_store().approved_feedback_rows()
+    try:
+        rows = get_history_store().approved_feedback_rows()
+    except FeedbackExportNotReady as exc:
+        raise HTTPException(status_code=409, detail=" ".join(exc.blockers)) from exc
     date_stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
     if format == "json":
         return Response(

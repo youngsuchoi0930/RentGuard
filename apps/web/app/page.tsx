@@ -231,6 +231,8 @@ type AnalysisFeedback = {
   corrected_value: number | null;
   review_status: FeedbackReviewStatus;
   reviewed_at: string | null;
+  approval_eligible: boolean;
+  quality_issues: string[];
   created_at: string;
   updated_at: string;
 };
@@ -256,6 +258,12 @@ type AnalysisFeedbackOverview = {
     pending: number;
     approved: number;
     excluded: number;
+    export_eligible_rows: number;
+    approved_analyses: number;
+    export_min_rows: number;
+    export_min_analyses: number;
+    export_ready: boolean;
+    export_blockers: string[];
   };
 };
 
@@ -1040,8 +1048,8 @@ export default function HomePage() {
                   <p>개인정보 없이 정확·오탐·누락 판정과 수정된 금액만 모아봅니다.</p>
                 </div>
                 <div className="feedback-header-actions">
-                  <button className="outline-button" onClick={() => downloadApprovedFeedback("csv")} disabled={!feedbackOverview?.statistics.approved}><Download size={15} /> 승인 CSV</button>
-                  <button className="outline-button" onClick={() => downloadApprovedFeedback("json")} disabled={!feedbackOverview?.statistics.approved}><Download size={15} /> 승인 JSON</button>
+                  <button className="outline-button" title={feedbackOverview?.statistics.export_blockers.join(" ")} onClick={() => downloadApprovedFeedback("csv")} disabled={!feedbackOverview?.statistics.export_ready}><Download size={15} /> 승인 CSV</button>
+                  <button className="outline-button" title={feedbackOverview?.statistics.export_blockers.join(" ")} onClick={() => downloadApprovedFeedback("json")} disabled={!feedbackOverview?.statistics.export_ready}><Download size={15} /> 승인 JSON</button>
                   <button className="outline-button" onClick={() => loadFeedbackOverview()} disabled={feedbackLoading}><RefreshCw className={feedbackLoading ? "spin" : ""} size={16} /> 새로고침</button>
                 </div>
               </div>
@@ -1049,15 +1057,22 @@ export default function HomePage() {
               {feedbackError && <div className="error-banner" role="alert"><AlertTriangle size={18} />{feedbackError}</div>}
 
               {feedbackOverview && (
-                <div className="feedback-stat-grid">
-                  <div><span>전체 피드백</span><strong>{feedbackOverview.statistics.total}<em>건</em></strong><small>{feedbackOverview.statistics.analyses_with_feedback}개 분석에서 수집</small></div>
-                  <div className="positive"><span>정확 응답 비율</span><strong>{feedbackOverview.statistics.positive_rate}<em>%</em></strong><small>사용자 확인 기준</small></div>
-                  <div className="incorrect"><span>오탐·수정</span><strong>{feedbackOverview.statistics.incorrect}<em>건</em></strong><small>우선 검수 대상</small></div>
-                  <div className="missing"><span>누락</span><strong>{feedbackOverview.statistics.missing}<em>건</em></strong><small>규칙·추출 보완 대상</small></div>
-                  <div className="pending"><span>검수 대기</span><strong>{feedbackOverview.statistics.pending}<em>건</em></strong><small>아직 확인하지 않은 항목</small></div>
-                  <div className="approved"><span>학습 승인</span><strong>{feedbackOverview.statistics.approved}<em>건</em></strong><small>내보내기 포함</small></div>
-                  <div className="excluded"><span>학습 제외</span><strong>{feedbackOverview.statistics.excluded}<em>건</em></strong><small>내보내기 제외</small></div>
-                </div>
+                <>
+                  <div className="feedback-stat-grid">
+                    <div><span>전체 피드백</span><strong>{feedbackOverview.statistics.total}<em>건</em></strong><small>{feedbackOverview.statistics.analyses_with_feedback}개 분석에서 수집</small></div>
+                    <div className="positive"><span>정확 응답 비율</span><strong>{feedbackOverview.statistics.positive_rate}<em>%</em></strong><small>사용자 확인 기준</small></div>
+                    <div className="incorrect"><span>오탐·수정</span><strong>{feedbackOverview.statistics.incorrect}<em>건</em></strong><small>우선 검수 대상</small></div>
+                    <div className="missing"><span>누락</span><strong>{feedbackOverview.statistics.missing}<em>건</em></strong><small>규칙·추출 보완 대상</small></div>
+                    <div className="pending"><span>검수 대기</span><strong>{feedbackOverview.statistics.pending}<em>건</em></strong><small>아직 확인하지 않은 항목</small></div>
+                    <div className="approved"><span>학습 승인</span><strong>{feedbackOverview.statistics.approved}<em>건</em></strong><small>품질 적합 {feedbackOverview.statistics.export_eligible_rows}건</small></div>
+                    <div className="excluded"><span>학습 제외</span><strong>{feedbackOverview.statistics.excluded}<em>건</em></strong><small>내보내기 제외</small></div>
+                  </div>
+                  <div className={`export-readiness ${feedbackOverview.statistics.export_ready ? "ready" : "blocked"}`}>
+                    <div>{feedbackOverview.statistics.export_ready ? <CheckCircle2 size={18} /> : <CircleHelp size={18} />}<strong>{feedbackOverview.statistics.export_ready ? "학습 데이터 내보내기 준비 완료" : "학습 데이터가 더 필요해요"}</strong></div>
+                    <span>적합 승인 {feedbackOverview.statistics.export_eligible_rows}/{feedbackOverview.statistics.export_min_rows}건 · 서로 다른 분석 {feedbackOverview.statistics.approved_analyses}/{feedbackOverview.statistics.export_min_analyses}건</span>
+                    {!feedbackOverview.statistics.export_ready && <ul>{feedbackOverview.statistics.export_blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul>}
+                  </div>
+                </>
               )}
 
               <div className="feedback-dashboard-card">
@@ -1089,8 +1104,9 @@ export default function HomePage() {
                         <div><span>{formatDateTime(item.updated_at)}</span></div>
                         <div className="review-actions">
                           <span className={`review-status ${item.review_status}`}>{FEEDBACK_REVIEW_LABELS[item.review_status]}</span>
+                          {!item.approval_eligible && <small className="feedback-quality-warning">{item.quality_issues[0]}</small>}
                           <div>
-                            <button aria-label="피드백 승인" title="승인" disabled={reviewingFeedbackId === item.id} className={item.review_status === "approved" ? "active approved" : ""} onClick={() => reviewFeedback(item.id, "approved")}><Check size={13} /></button>
+                            <button aria-label="피드백 승인" title={item.approval_eligible ? "승인" : item.quality_issues.join(" ")} disabled={reviewingFeedbackId === item.id || !item.approval_eligible} className={item.review_status === "approved" ? "active approved" : ""} onClick={() => reviewFeedback(item.id, "approved")}><Check size={13} /></button>
                             <button aria-label="피드백 검수 대기" title="검수 대기" disabled={reviewingFeedbackId === item.id} className={item.review_status === "pending" ? "active pending" : ""} onClick={() => reviewFeedback(item.id, "pending")}><CircleHelp size={13} /></button>
                             <button aria-label="피드백 제외" title="제외" disabled={reviewingFeedbackId === item.id} className={item.review_status === "excluded" ? "active excluded" : ""} onClick={() => reviewFeedback(item.id, "excluded")}><X size={13} /></button>
                           </div>

@@ -31,6 +31,28 @@ class Base(DeclarativeBase):
     pass
 
 
+MIN_APPROVED_EXPORT_ROWS = 20
+MIN_APPROVED_EXPORT_ANALYSES = 5
+AMOUNT_FEEDBACK_TARGETS = {
+    "estimated_value",
+    "mortgage_amount",
+    "deposit",
+    "monthly_rent",
+}
+
+
+class FeedbackQualityError(ValueError):
+    def __init__(self, issues: list[str]):
+        super().__init__(" ".join(issues))
+        self.issues = issues
+
+
+class FeedbackExportNotReady(ValueError):
+    def __init__(self, blockers: list[str]):
+        super().__init__(" ".join(blockers))
+        self.blockers = blockers
+
+
 class AnalysisRecord(Base):
     __tablename__ = "analysis_history"
 
@@ -263,7 +285,23 @@ class AnalysisHistoryStore:
             return AnalysisHistoryDetail.model_validate_json(record.payload_json)
 
     @staticmethod
+    def _feedback_quality(record: AnalysisFeedbackRecord) -> list[str]:
+        issues: list[str] = []
+        if record.target in AMOUNT_FEEDBACK_TARGETS:
+            if record.verdict == "correct" and record.original_value is None:
+                issues.append("원래 분석 금액이 없어 정확함으로 승인할 수 없습니다.")
+            if record.verdict == "incorrect":
+                if record.corrected_value is None:
+                    issues.append("오탐 금액에는 사용자가 확인한 수정값이 필요합니다.")
+                elif record.corrected_value == record.original_value:
+                    issues.append("수정 금액이 원래 분석값과 같아 승인할 수 없습니다.")
+            if record.verdict == "missing":
+                issues.append("금액 누락은 실제 값을 입력한 수정 피드백으로 다시 등록해주세요.")
+        return issues
+
+    @staticmethod
     def _feedback_item(record: AnalysisFeedbackRecord) -> AnalysisFeedbackItem:
+        quality_issues = AnalysisHistoryStore._feedback_quality(record)
         return AnalysisFeedbackItem(
             id=record.id,
             analysis_id=record.analysis_id,
@@ -273,6 +311,8 @@ class AnalysisHistoryStore:
             corrected_value=record.corrected_value,
             review_status=record.review_status,
             reviewed_at=_utc(record.reviewed_at) if record.reviewed_at else None,
+            approval_eligible=not quality_issues,
+            quality_issues=quality_issues,
             created_at=_utc(record.created_at),
             updated_at=_utc(record.updated_at),
         )
@@ -387,6 +427,27 @@ class AnalysisHistoryStore:
             for feedback_verdict in ("correct", "incorrect", "missing")
         }
         total = len(all_feedback)
+        eligible_approved = [
+            item
+            for item in all_feedback
+            if item.review_status == "approved" and not self._feedback_quality(item)
+        ]
+        approved_analyses = len(
+            {item.analysis_id for item in eligible_approved}
+        )
+        export_blockers: list[str] = []
+        if len(eligible_approved) < MIN_APPROVED_EXPORT_ROWS:
+            export_blockers.append(
+                "승인된 적합 피드백이 "
+                f"{MIN_APPROVED_EXPORT_ROWS}건 이상 필요합니다. "
+                f"(현재 {len(eligible_approved)}건)"
+            )
+        if approved_analyses < MIN_APPROVED_EXPORT_ANALYSES:
+            export_blockers.append(
+                "서로 다른 분석이 "
+                f"{MIN_APPROVED_EXPORT_ANALYSES}건 이상 필요합니다. "
+                f"(현재 {approved_analyses}건)"
+            )
         return AnalysisFeedbackOverview(
             items=[
                 AnalysisFeedbackOverviewItem(
@@ -414,6 +475,12 @@ class AnalysisHistoryStore:
                 pending=sum(item.review_status == "pending" for item in all_feedback),
                 approved=sum(item.review_status == "approved" for item in all_feedback),
                 excluded=sum(item.review_status == "excluded" for item in all_feedback),
+                export_eligible_rows=len(eligible_approved),
+                approved_analyses=approved_analyses,
+                export_min_rows=MIN_APPROVED_EXPORT_ROWS,
+                export_min_analyses=MIN_APPROVED_EXPORT_ANALYSES,
+                export_ready=not export_blockers,
+                export_blockers=export_blockers,
             ),
         )
 
@@ -428,6 +495,10 @@ class AnalysisHistoryStore:
             feedback = session.get(AnalysisFeedbackRecord, feedback_id)
             if feedback is None:
                 return None
+            if payload.review_status == "approved":
+                quality_issues = self._feedback_quality(feedback)
+                if quality_issues:
+                    raise FeedbackQualityError(quality_issues)
             feedback.review_status = payload.review_status
             feedback.reviewed_at = now if payload.review_status != "pending" else None
             feedback.updated_at = now
@@ -437,6 +508,33 @@ class AnalysisHistoryStore:
     def approved_feedback_rows(self) -> list[dict[str, Any]]:
         self.initialize()
         with self.sessions() as session:
+            approved_records = session.scalars(
+                select(AnalysisFeedbackRecord).where(
+                    AnalysisFeedbackRecord.review_status == "approved"
+                )
+            ).all()
+            eligible_records = [
+                item for item in approved_records if not self._feedback_quality(item)
+            ]
+            approved_analyses = len(
+                {item.analysis_id for item in eligible_records}
+            )
+            blockers: list[str] = []
+            if len(eligible_records) < MIN_APPROVED_EXPORT_ROWS:
+                blockers.append(
+                    "승인된 적합 피드백이 "
+                    f"{MIN_APPROVED_EXPORT_ROWS}건 이상 필요합니다. "
+                    f"(현재 {len(eligible_records)}건)"
+                )
+            if approved_analyses < MIN_APPROVED_EXPORT_ANALYSES:
+                blockers.append(
+                    "서로 다른 분석이 "
+                    f"{MIN_APPROVED_EXPORT_ANALYSES}건 이상 필요합니다. "
+                    f"(현재 {approved_analyses}건)"
+                )
+            if blockers:
+                raise FeedbackExportNotReady(blockers)
+
             rows = session.execute(
                 select(AnalysisFeedbackRecord, AnalysisRecord)
                 .join(

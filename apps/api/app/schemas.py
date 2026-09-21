@@ -208,6 +208,8 @@ class AnalysisFeedbackItem(BaseModel):
     corrected_value: int | None = Field(default=None, ge=0)
     review_status: FeedbackReviewStatus
     reviewed_at: datetime | None = None
+    approval_eligible: bool = True
+    quality_issues: list[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -239,6 +241,12 @@ class AnalysisFeedbackStatistics(BaseModel):
     pending: int = Field(ge=0)
     approved: int = Field(ge=0)
     excluded: int = Field(ge=0)
+    export_eligible_rows: int = Field(ge=0)
+    approved_analyses: int = Field(ge=0)
+    export_min_rows: int = Field(ge=1)
+    export_min_analyses: int = Field(ge=1)
+    export_ready: bool
+    export_blockers: list[str] = Field(default_factory=list)
 
 
 class AnalysisFeedbackOverview(BaseModel):
