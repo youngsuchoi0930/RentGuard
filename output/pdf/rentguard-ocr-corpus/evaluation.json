@@ -1,0 +1,1626 @@
+{
+  "corpus_version": "1.0.0",
+  "source_kind": "synthetic_ocr",
+  "case_count": 10,
+  "passed_cases": 10,
+  "failed_cases": 0,
+  "matched_fields": 160,
+  "exact_matched_fields": 143,
+  "total_fields": 160,
+  "accuracy": 1.0,
+  "exact_accuracy": 0.89375,
+  "cases": [
+    {
+      "case_id": "RG-SYN-001",
+      "profile": "normal",
+      "ocr_profile": {
+        "name": "clean_gray",
+        "dpi": 190,
+        "rotation_degrees": 0.0,
+        "contrast": 1.0,
+        "blur_radius": 0.0,
+        "noise_ratio": 0.0,
+        "jpeg_quality": 92
+      },
+      "passed": true,
+      "matched": 16,
+      "exact_matched": 14,
+      "total": 16,
+      "accuracy": 1.0,
+      "exact_accuracy": 0.875,
+      "extraction_method": {
+        "registry": "ocr",
+        "building_ledger": "ocr",
+        "lease_contract": "ocr"
+      },
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      },
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "김하늘",
+          "actual": "김하늘",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 강서구 합성로 101, 201호",
+          "actual": "서울특별시 강서구 합성로 101,201호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "김하늘",
+          "actual": "김하늘",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "한지우",
+          "actual": "한지우",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 강서구 합성로 101, 201호",
+          "actual": "서울특별시 강서구 합성로 101,201호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 30000000,
+          "actual": 30000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 400000,
+          "actual": 400000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "case_id": "RG-SYN-006",
+      "profile": "low_mortgage",
+      "ocr_profile": {
+        "name": "slight_clockwise",
+        "dpi": 185,
+        "rotation_degrees": 0.35,
+        "contrast": 0.98,
+        "blur_radius": 0.1,
+        "noise_ratio": 0.0,
+        "jpeg_quality": 90
+      },
+      "passed": true,
+      "matched": 16,
+      "exact_matched": 14,
+      "total": 16,
+      "accuracy": 1.0,
+      "exact_accuracy": 0.875,
+      "extraction_method": {
+        "registry": "ocr",
+        "building_ledger": "ocr",
+        "lease_contract": "ocr"
+      },
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      },
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "강한결",
+          "actual": "강한결",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 40000000,
+          "actual": 40000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage"
+          ],
+          "actual": [
+            "mortgage"
+          ],
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 송파구 안전로 106, 206호",
+          "actual": "서울특별시 송파구 안전로106,206호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "강한결",
+          "actual": "강한결",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "황다정",
+          "actual": "황다정",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 송파구 안전로 106, 206호",
+          "actual": "서울특별시 송파구안전로106,206호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 80000000,
+          "actual": 80000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 900000,
+          "actual": 900000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "case_id": "RG-SYN-010",
+      "profile": "high_mortgage",
+      "ocr_profile": {
+        "name": "slight_counterclockwise",
+        "dpi": 185,
+        "rotation_degrees": -0.45,
+        "contrast": 1.0,
+        "blur_radius": 0.1,
+        "noise_ratio": 0.0,
+        "jpeg_quality": 90
+      },
+      "passed": true,
+      "matched": 16,
+      "exact_matched": 14,
+      "total": 16,
+      "accuracy": 1.0,
+      "exact_accuracy": 0.875,
+      "extraction_method": {
+        "registry": "ocr",
+        "building_ledger": "ocr",
+        "lease_contract": "ocr"
+      },
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      },
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "임다운",
+          "actual": "임다운",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 200000000,
+          "actual": 200000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage"
+          ],
+          "actual": [
+            "mortgage"
+          ],
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 광진구 샘플로 110, 210호",
+          "actual": "서울특별시 광진구 샘플로 110,210호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "임다운",
+          "actual": "임다운",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "문다솜",
+          "actual": "문다솜",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 광진구 샘플로 110, 210호",
+          "actual": "서울특별시 광진구 샘플로 110,210호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 40000000,
+          "actual": 40000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 700000,
+          "actual": 700000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "case_id": "RG-SYN-014",
+      "profile": "multiple_mortgage",
+      "ocr_profile": {
+        "name": "soft_scan",
+        "dpi": 180,
+        "rotation_degrees": 0.0,
+        "contrast": 0.94,
+        "blur_radius": 0.22,
+        "noise_ratio": 0.0,
+        "jpeg_quality": 88
+      },
+      "passed": true,
+      "matched": 16,
+      "exact_matched": 14,
+      "total": 16,
+      "accuracy": 1.0,
+      "exact_accuracy": 0.875,
+      "extraction_method": {
+        "registry": "ocr",
+        "building_ledger": "ocr",
+        "lease_contract": "ocr"
+      },
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      },
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "최가을",
+          "actual": "최가을",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 160000000,
+          "actual": 160000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage"
+          ],
+          "actual": [
+            "mortgage"
+          ],
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 마포구 검증로 114, 214호",
+          "actual": "서울특별시 마포구 검증로 114,214호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "최가을",
+          "actual": "최가을",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "신바다",
+          "actual": "신바다",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 마포구 검증로 114, 214호",
+          "actual": "서울특별시 마포구 검증로114,214호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 80000000,
+          "actual": 80000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 500000,
+          "actual": 500000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "case_id": "RG-SYN-016",
+      "profile": "owner_mismatch",
+      "ocr_profile": {
+        "name": "faint_copy",
+        "dpi": 185,
+        "rotation_degrees": 0.15,
+        "contrast": 0.82,
+        "blur_radius": 0.12,
+        "noise_ratio": 0.0,
+        "jpeg_quality": 90
+      },
+      "passed": true,
+      "matched": 16,
+      "exact_matched": 14,
+      "total": 16,
+      "accuracy": 1.0,
+      "exact_accuracy": 0.875,
+      "extraction_method": {
+        "registry": "ocr",
+        "building_ledger": "ocr",
+        "lease_contract": "ocr"
+      },
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      },
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "강한결",
+          "actual": "강한결",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 광진구 샘플로 116, 216호",
+          "actual": "서울특별시 광진구 샘플로 116,216호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "조하람",
+          "actual": "조하람",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "황다정",
+          "actual": "황다정",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 광진구 샘플로 116, 216호",
+          "actual": "서울특별시 광진구 샘플로 116,216호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 100000000,
+          "actual": 100000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 700000,
+          "actual": 700000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "case_id": "RG-SYN-018",
+      "profile": "address_mismatch",
+      "ocr_profile": {
+        "name": "dark_copy",
+        "dpi": 185,
+        "rotation_degrees": -0.2,
+        "contrast": 1.18,
+        "blur_radius": 0.1,
+        "noise_ratio": 0.0,
+        "jpeg_quality": 90
+      },
+      "passed": true,
+      "matched": 16,
+      "exact_matched": 16,
+      "total": 16,
+      "accuracy": 1.0,
+      "exact_accuracy": 1.0,
+      "extraction_method": {
+        "registry": "ocr",
+        "building_ledger": "ocr",
+        "lease_contract": "ocr"
+      },
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      },
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "윤다온",
+          "actual": "윤다온",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 송파구 안전로 118, 218호",
+          "actual": "서울특별시 송파구 안전로 118, 218호",
+          "match_mode": "address_normalized",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "윤다온",
+          "actual": "윤다온",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "송이든",
+          "actual": "송이든",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 송파구 안전로 1018, 218호",
+          "actual": "서울특별시 송파구 안전로 1018, 218호",
+          "match_mode": "address_normalized",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 40000000,
+          "actual": 40000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 900000,
+          "actual": 900000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "case_id": "RG-SYN-020",
+      "profile": "deposit_mismatch",
+      "ocr_profile": {
+        "name": "light_speckle",
+        "dpi": 185,
+        "rotation_degrees": 0.25,
+        "contrast": 0.96,
+        "blur_radius": 0.08,
+        "noise_ratio": 0.00035,
+        "jpeg_quality": 88
+      },
+      "passed": true,
+      "matched": 16,
+      "exact_matched": 14,
+      "total": 16,
+      "accuracy": 1.0,
+      "exact_accuracy": 0.875,
+      "extraction_method": {
+        "registry": "ocr",
+        "building_ledger": "ocr",
+        "lease_contract": "ocr"
+      },
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      },
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "임다운",
+          "actual": "임다운",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 마포구 검증로 120, 220호",
+          "actual": "서울특별시 마포구 검증로120,220호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "임다운",
+          "actual": "임다운",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "문다솜",
+          "actual": "문다솜",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 마포구 검증로 120, 220호",
+          "actual": "서울특별시마포구검증로120,220호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 70000000,
+          "actual": 70000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 500000,
+          "actual": 500000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "case_id": "RG-SYN-023",
+      "profile": "illegal_building",
+      "ocr_profile": {
+        "name": "low_resolution",
+        "dpi": 155,
+        "rotation_degrees": 0.0,
+        "contrast": 1.0,
+        "blur_radius": 0.12,
+        "noise_ratio": 0.0,
+        "jpeg_quality": 86
+      },
+      "passed": true,
+      "matched": 16,
+      "exact_matched": 15,
+      "total": 16,
+      "accuracy": 1.0,
+      "exact_accuracy": 0.9375,
+      "extraction_method": {
+        "registry": "ocr",
+        "building_ledger": "ocr",
+        "lease_contract": "ocr"
+      },
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      },
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "박윤슬",
+          "actual": "박윤슬",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [],
+          "actual": [],
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 은평구 테스트로 123, 223호",
+          "actual": "서울특별시은평구테스트로123,223호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": true,
+          "actual": true,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "박윤슬",
+          "actual": "박윤슬",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "서라온",
+          "actual": "서라온",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 은평구 테스트로 123, 223호",
+          "actual": "서울특별시 은평구 테스트로 123, 223호",
+          "match_mode": "address_normalized",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 90000000,
+          "actual": 90000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 800000,
+          "actual": 800000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "case_id": "RG-SYN-026",
+      "profile": "provisional_seizure",
+      "ocr_profile": {
+        "name": "compressed_scan",
+        "dpi": 175,
+        "rotation_degrees": -0.3,
+        "contrast": 0.93,
+        "blur_radius": 0.18,
+        "noise_ratio": 0.0002,
+        "jpeg_quality": 78
+      },
+      "passed": true,
+      "matched": 16,
+      "exact_matched": 14,
+      "total": 16,
+      "accuracy": 1.0,
+      "exact_accuracy": 0.875,
+      "extraction_method": {
+        "registry": "ocr",
+        "building_ledger": "ocr",
+        "lease_contract": "ocr"
+      },
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      },
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "강한결",
+          "actual": "강한결",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 0,
+          "actual": 0,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "provisional_seizure"
+          ],
+          "actual": [
+            "provisional_seizure"
+          ],
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 마포구 검증로 126, 226호",
+          "actual": "서울특별시마포구 검증로126, 226호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": false,
+          "actual": false,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "강한결",
+          "actual": "강한결",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "황다정",
+          "actual": "황다정",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 마포구 검증로 126, 226호",
+          "actual": "서울특별시 마포구검증로 126, 226호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 40000000,
+          "actual": 40000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 500000,
+          "actual": 500000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "case_id": "RG-SYN-030",
+      "profile": "mixed_high",
+      "ocr_profile": {
+        "name": "mixed_scan",
+        "dpi": 170,
+        "rotation_degrees": 0.4,
+        "contrast": 0.9,
+        "blur_radius": 0.2,
+        "noise_ratio": 0.0003,
+        "jpeg_quality": 82
+      },
+      "passed": true,
+      "matched": 16,
+      "exact_matched": 14,
+      "total": 16,
+      "accuracy": 1.0,
+      "exact_accuracy": 0.875,
+      "extraction_method": {
+        "registry": "ocr",
+        "building_ledger": "ocr",
+        "lease_contract": "ocr"
+      },
+      "review_codes": {
+        "registry": [],
+        "building_ledger": [],
+        "lease_contract": []
+      },
+      "comparisons": [
+        {
+          "field": "registry.owner",
+          "expected": "임다운",
+          "actual": "임다운",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.mortgage_amount",
+          "expected": 220000000,
+          "actual": 220000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "registry.active_right_types",
+          "expected": [
+            "mortgage",
+            "seizure"
+          ],
+          "actual": [
+            "mortgage",
+            "seizure"
+          ],
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.road_address",
+          "expected": "서울특별시 송파구 안전로 130, 230호",
+          "actual": "서울특별시 송파구 안전로130,230호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.main_use",
+          "expected": "다세대주택",
+          "actual": "다세대주택",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "building_ledger.is_illegal_building",
+          "expected": true,
+          "actual": true,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.landlord",
+          "expected": "김하늘",
+          "actual": "김하늘",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.tenant",
+          "expected": "문다솜",
+          "actual": "문다솜",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.address",
+          "expected": "서울특별시 송파구 안전로 130, 230호",
+          "actual": "서울특별시 송파구 안전로130, 230호",
+          "match_mode": "address_normalized",
+          "exact_match": false,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.deposit",
+          "expected": 80000000,
+          "actual": 80000000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "lease_contract.monthly_rent",
+          "expected": 900000,
+          "actual": 900000,
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.owner-landlord",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.property-address",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.deposit",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.monthly-rent",
+          "expected": "verified",
+          "actual": "verified",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        },
+        {
+          "field": "cross_checks.illegal-building",
+          "expected": "mismatch",
+          "actual": "mismatch",
+          "match_mode": "exact",
+          "exact_match": true,
+          "passed": true
+        }
+      ]
+    }
+  ]
+}

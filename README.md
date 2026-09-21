@@ -59,6 +59,8 @@ API 문서는 http://localhost:8000/docs 에서 확인할 수 있습니다.
 
 합성 문서 검증 결과는 CI 실행별 artifact로 14일간 보관합니다. OCR 모델은 용량과 실행 시간 때문에 기본 CI에서 제외하며, `RUN_OCR_TESTS=1`로 별도 실행합니다.
 
+OCR 회귀검증은 10건·30페이지의 이미지 전용 PDF를 사용하며 GitHub Actions의 `RentGuard OCR Regression`에서 수동 실행하거나 매주 자동 실행합니다. 실행 결과는 30일간 artifact로 보관합니다.
+
 ### Docker Compose
 
 저장소에 포함된 검증된 `models/deposit-quantile-v2.joblib`을 API 이미지에 복사하므로 새 환경에서 별도 학습 없이 보증금 모델을 사용할 수 있습니다. `.env.example`을 참고해 로컬 `.env`에 API 키를 설정한 뒤 실행합니다.
