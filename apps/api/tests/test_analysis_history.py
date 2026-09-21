@@ -1,3 +1,4 @@
+import sqlite3
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -219,6 +220,9 @@ def test_feedback_overview_returns_statistics_and_masked_context(
         "missing": 1,
         "analyses_with_feedback": 1,
         "positive_rate": 50.0,
+        "pending": 2,
+        "approved": 0,
+        "excluded": 0,
     }
     assert payload["items"][0]["masked_address"] == (
         "서울특별시 강서구 · 상세주소 비공개"
@@ -227,3 +231,108 @@ def test_feedback_overview_returns_statistics_and_masked_context(
     assert filtered.status_code == 200
     assert filtered.json()["total"] == 1
     assert filtered.json()["items"][0]["verdict"] == "missing"
+
+
+def test_initialize_migrates_existing_feedback_table(tmp_path):
+    database_path = tmp_path / "legacy.db"
+    connection = sqlite3.connect(database_path)
+    connection.execute(
+        """
+        CREATE TABLE analysis_feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            analysis_id VARCHAR(36) NOT NULL,
+            target VARCHAR(32) NOT NULL,
+            verdict VARCHAR(16) NOT NULL,
+            original_value INTEGER,
+            corrected_value INTEGER,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO analysis_feedback (
+            analysis_id, target, verdict, original_value, corrected_value,
+            created_at, updated_at
+        ) VALUES ('legacy-analysis', 'deposit', 'correct', 30000000, NULL,
+                  '2026-09-15 00:00:00', '2026-09-15 00:00:00')
+        """
+    )
+    connection.commit()
+    connection.close()
+
+    store = AnalysisHistoryStore(database_path)
+    store.initialize()
+
+    with store.sessions() as session:
+        feedback = session.get(AnalysisFeedbackRecord, 1)
+        assert feedback is not None
+        assert feedback.review_status == "pending"
+        assert feedback.reviewed_at is None
+    store.engine.dispose()
+
+
+def test_review_and_export_only_approved_feedback(isolated_history_store):
+    analysis = _analysis()
+    isolated_history_store.save(
+        "서울특별시 강서구 화곡로 123, 301호",
+        analysis,
+    )
+    first = isolated_history_store.save_feedback(
+        analysis.analysis_id,
+        AnalysisFeedbackCreate(target="deposit", verdict="correct"),
+    )
+    second = isolated_history_store.save_feedback(
+        analysis.analysis_id,
+        AnalysisFeedbackCreate(target="risk_signals", verdict="missing"),
+    )
+    assert first is not None
+    assert second is not None
+
+    approved = client.patch(
+        f"/api/v1/feedback/{first.id}/review",
+        json={"review_status": "approved"},
+    )
+    overview = client.get("/api/v1/feedback?review_status=approved")
+    csv_export = client.get("/api/v1/feedback/export?format=csv")
+    json_export = client.get("/api/v1/feedback/export?format=json")
+
+    assert approved.status_code == 200
+    assert approved.json()["review_status"] == "approved"
+    assert approved.json()["reviewed_at"] is not None
+    assert overview.status_code == 200
+    assert overview.json()["total"] == 1
+    assert overview.json()["statistics"]["pending"] == 1
+    assert overview.json()["statistics"]["approved"] == 1
+    assert csv_export.status_code == 200
+    assert "verified_value" in csv_export.text
+    assert str(first.id) in csv_export.text
+    assert len(csv_export.text.strip().splitlines()) == 2
+    assert "화곡로" not in csv_export.text
+    assert json_export.status_code == 200
+    assert len(json_export.json()) == 1
+    assert json_export.json()[0]["feedback_id"] == first.id
+
+
+def test_editing_feedback_resets_review_to_pending(isolated_history_store):
+    analysis = _analysis()
+    isolated_history_store.save("서울특별시 강서구 화곡로 123", analysis)
+    feedback = isolated_history_store.save_feedback(
+        analysis.analysis_id,
+        AnalysisFeedbackCreate(target="overall", verdict="correct"),
+    )
+    assert feedback is not None
+    reviewed = client.patch(
+        f"/api/v1/feedback/{feedback.id}/review",
+        json={"review_status": "approved"},
+    )
+    changed = client.post(
+        f"/api/v1/analysis-history/{analysis.analysis_id}/feedback",
+        json={"target": "overall", "verdict": "incorrect"},
+    )
+
+    assert reviewed.status_code == 200
+    assert changed.status_code == 200
+    assert changed.json()["review_status"] == "pending"
+    assert changed.json()["reviewed_at"] is None

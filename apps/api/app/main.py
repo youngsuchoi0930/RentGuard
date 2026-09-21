@@ -1,6 +1,9 @@
+import csv
+import json
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from io import StringIO
 from typing import Annotated, Any, AsyncIterator, Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Response, UploadFile
@@ -20,6 +23,7 @@ from .schemas import (
     AnalysisFeedbackItem,
     AnalysisFeedbackList,
     AnalysisFeedbackOverview,
+    AnalysisFeedbackReviewUpdate,
     AnalysisFromExtractionsRequest,
     AnalysisHistoryDetail,
     AnalysisHistoryList,
@@ -146,11 +150,76 @@ def get_feedback_overview(
         Literal["correct", "incorrect", "missing"] | None,
         Query(),
     ] = None,
+    review_status: Annotated[
+        Literal["pending", "approved", "excluded"] | None,
+        Query(),
+    ] = None,
 ) -> AnalysisFeedbackOverview:
     return get_history_store().feedback_overview(
         limit=limit,
         offset=offset,
         verdict=verdict,
+        review_status=review_status,
+    )
+
+
+@app.patch(
+    "/api/v1/feedback/{feedback_id}/review",
+    response_model=AnalysisFeedbackItem,
+)
+def review_feedback(
+    feedback_id: int,
+    payload: AnalysisFeedbackReviewUpdate,
+) -> AnalysisFeedbackItem:
+    result = get_history_store().review_feedback(feedback_id, payload)
+    if result is None:
+        raise HTTPException(status_code=404, detail="피드백을 찾지 못했습니다.")
+    return result
+
+
+@app.get("/api/v1/feedback/export")
+def export_approved_feedback(
+    format: Annotated[Literal["csv", "json"], Query()] = "csv",
+) -> Response:
+    rows = get_history_store().approved_feedback_rows()
+    date_stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    if format == "json":
+        return Response(
+            content=json.dumps(rows, ensure_ascii=False, indent=2),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="rentguard-feedback-{date_stamp}.json"'
+                )
+            },
+        )
+
+    fieldnames = [
+        "feedback_id",
+        "case_id",
+        "target",
+        "verdict",
+        "original_value",
+        "corrected_value",
+        "verified_value",
+        "analysis_mode",
+        "risk_score",
+        "risk_grade",
+        "feedback_created_at",
+        "reviewed_at",
+    ]
+    buffer = StringIO(newline="")
+    writer = csv.DictWriter(buffer, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+    return Response(
+        content="\ufeff" + buffer.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="rentguard-feedback-{date_stamp}.csv"'
+            )
+        },
     )
 
 

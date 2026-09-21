@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleHelp,
+  Download,
   FileCheck2,
   FileText,
   Info,
@@ -219,6 +220,7 @@ type AnalysisHistoryDetail = AnalysisHistorySummary & Pick<
 
 type FeedbackTarget = "overall" | "estimated_value" | "mortgage_amount" | "deposit" | "monthly_rent" | "risk_signals";
 type FeedbackVerdict = "correct" | "incorrect" | "missing";
+type FeedbackReviewStatus = "pending" | "approved" | "excluded";
 
 type AnalysisFeedback = {
   id: number;
@@ -227,6 +229,8 @@ type AnalysisFeedback = {
   verdict: FeedbackVerdict;
   original_value: number | null;
   corrected_value: number | null;
+  review_status: FeedbackReviewStatus;
+  reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -249,6 +253,9 @@ type AnalysisFeedbackOverview = {
     missing: number;
     analyses_with_feedback: number;
     positive_rate: number;
+    pending: number;
+    approved: number;
+    excluded: number;
   };
 };
 
@@ -431,6 +438,12 @@ const FEEDBACK_VERDICT_LABELS: Record<FeedbackVerdict, string> = {
   missing: "누락",
 };
 
+const FEEDBACK_REVIEW_LABELS: Record<FeedbackReviewStatus, string> = {
+  pending: "검수 대기",
+  approved: "승인",
+  excluded: "제외",
+};
+
 function FeedbackPanel({
   analysisId,
   values,
@@ -448,9 +461,6 @@ function FeedbackPanel({
 
   useEffect(() => {
     let active = true;
-    setFeedback({});
-    setEditing(null);
-    setMessage(null);
     const load = async () => {
       try {
         const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -583,7 +593,9 @@ export default function HomePage() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [feedbackOverview, setFeedbackOverview] = useState<AnalysisFeedbackOverview | null>(null);
   const [feedbackFilter, setFeedbackFilter] = useState<FeedbackVerdict | "all">("all");
+  const [feedbackReviewFilter, setFeedbackReviewFilter] = useState<FeedbackReviewStatus | "all">("all");
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [reviewingFeedbackId, setReviewingFeedbackId] = useState<number | null>(null);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   const requiredDocuments = analysisMode === "precheck" ? DOCUMENTS.slice(0, 2) : DOCUMENTS;
@@ -815,15 +827,20 @@ export default function HomePage() {
     }
   };
 
-  const loadFeedbackOverview = async (filter: FeedbackVerdict | "all" = feedbackFilter) => {
+  const loadFeedbackOverview = async (
+    filter: FeedbackVerdict | "all" = feedbackFilter,
+    reviewFilter: FeedbackReviewStatus | "all" = feedbackReviewFilter,
+  ) => {
     setStage("feedback");
     setMobileMenu(false);
     setFeedbackLoading(true);
     setFeedbackError(null);
     try {
       const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-      const query = filter === "all" ? "" : `?verdict=${filter}`;
-      const response = await fetch(`${apiBase}/api/v1/feedback${query}`);
+      const query = new URLSearchParams();
+      if (filter !== "all") query.set("verdict", filter);
+      if (reviewFilter !== "all") query.set("review_status", reviewFilter);
+      const response = await fetch(`${apiBase}/api/v1/feedback${query.size ? `?${query.toString()}` : ""}`);
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { detail?: string } | null;
         throw new Error(payload?.detail || "피드백 현황을 불러오지 못했습니다.");
@@ -838,7 +855,53 @@ export default function HomePage() {
 
   const changeFeedbackFilter = (filter: FeedbackVerdict | "all") => {
     setFeedbackFilter(filter);
-    void loadFeedbackOverview(filter);
+    void loadFeedbackOverview(filter, feedbackReviewFilter);
+  };
+
+  const changeFeedbackReviewFilter = (filter: FeedbackReviewStatus | "all") => {
+    setFeedbackReviewFilter(filter);
+    void loadFeedbackOverview(feedbackFilter, filter);
+  };
+
+  const reviewFeedback = async (feedbackId: number, reviewStatus: FeedbackReviewStatus) => {
+    setReviewingFeedbackId(feedbackId);
+    setFeedbackError(null);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const response = await fetch(`${apiBase}/api/v1/feedback/${feedbackId}/review`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ review_status: reviewStatus }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(payload?.detail || "검수 상태를 저장하지 못했습니다.");
+      }
+      await loadFeedbackOverview(feedbackFilter, feedbackReviewFilter);
+    } catch (cause) {
+      setFeedbackError(requestFailureMessage(cause, "검수 상태를 저장하지 못했습니다."));
+    } finally {
+      setReviewingFeedbackId(null);
+    }
+  };
+
+  const downloadApprovedFeedback = async (format: "csv" | "json") => {
+    setFeedbackError(null);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const response = await fetch(`${apiBase}/api/v1/feedback/export?format=${format}`);
+      if (!response.ok) throw new Error("학습용 데이터를 내려받지 못했습니다.");
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `rentguard-feedback-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (cause) {
+      setFeedbackError(requestFailureMessage(cause, "학습용 데이터를 내려받지 못했습니다."));
+    }
   };
 
   return (
@@ -947,6 +1010,7 @@ export default function HomePage() {
                         <div className="history-detail-section"><strong>발견된 신호</strong>{selectedHistory.signals.length > 0 ? <ul>{selectedHistory.signals.map((signal) => <li key={signal.id}><span>{signal.title}</span><em>{signal.points > 0 ? `+${signal.points}점` : "확인"}</em></li>)}</ul> : <p>저장된 위험 신호가 없습니다.</p>}</div>
                         <div className="history-detail-section"><strong>계약 전 행동</strong><ol>{selectedHistory.actions.map((action) => <li key={action}>{action}</li>)}</ol></div>
                         <FeedbackPanel
+                          key={selectedHistory.analysis_id}
                           analysisId={selectedHistory.analysis_id}
                           compact
                           values={{
@@ -975,7 +1039,11 @@ export default function HomePage() {
                   <h1>사용자가 확인한 분석 결과</h1>
                   <p>개인정보 없이 정확·오탐·누락 판정과 수정된 금액만 모아봅니다.</p>
                 </div>
-                <button className="outline-button" onClick={() => loadFeedbackOverview()} disabled={feedbackLoading}><RefreshCw className={feedbackLoading ? "spin" : ""} size={16} /> 새로고침</button>
+                <div className="feedback-header-actions">
+                  <button className="outline-button" onClick={() => downloadApprovedFeedback("csv")} disabled={!feedbackOverview?.statistics.approved}><Download size={15} /> 승인 CSV</button>
+                  <button className="outline-button" onClick={() => downloadApprovedFeedback("json")} disabled={!feedbackOverview?.statistics.approved}><Download size={15} /> 승인 JSON</button>
+                  <button className="outline-button" onClick={() => loadFeedbackOverview()} disabled={feedbackLoading}><RefreshCw className={feedbackLoading ? "spin" : ""} size={16} /> 새로고침</button>
+                </div>
               </div>
 
               {feedbackError && <div className="error-banner" role="alert"><AlertTriangle size={18} />{feedbackError}</div>}
@@ -986,15 +1054,21 @@ export default function HomePage() {
                   <div className="positive"><span>정확 응답 비율</span><strong>{feedbackOverview.statistics.positive_rate}<em>%</em></strong><small>사용자 확인 기준</small></div>
                   <div className="incorrect"><span>오탐·수정</span><strong>{feedbackOverview.statistics.incorrect}<em>건</em></strong><small>우선 검수 대상</small></div>
                   <div className="missing"><span>누락</span><strong>{feedbackOverview.statistics.missing}<em>건</em></strong><small>규칙·추출 보완 대상</small></div>
+                  <div className="pending"><span>검수 대기</span><strong>{feedbackOverview.statistics.pending}<em>건</em></strong><small>아직 확인하지 않은 항목</small></div>
+                  <div className="approved"><span>학습 승인</span><strong>{feedbackOverview.statistics.approved}<em>건</em></strong><small>내보내기 포함</small></div>
+                  <div className="excluded"><span>학습 제외</span><strong>{feedbackOverview.statistics.excluded}<em>건</em></strong><small>내보내기 제외</small></div>
                 </div>
               )}
 
               <div className="feedback-dashboard-card">
                 <div className="feedback-toolbar">
-                  <div>
-                    {(["all", "correct", "incorrect", "missing"] as const).map((filter) => (
+                  <div className="feedback-filter-groups">
+                    <div><span>판정</span>{(["all", "correct", "incorrect", "missing"] as const).map((filter) => (
                       <button className={feedbackFilter === filter ? "active" : ""} key={filter} onClick={() => changeFeedbackFilter(filter)}>{filter === "all" ? "전체" : FEEDBACK_VERDICT_LABELS[filter]}</button>
-                    ))}
+                    ))}</div>
+                    <div><span>검수</span>{(["all", "pending", "approved", "excluded"] as const).map((filter) => (
+                      <button className={feedbackReviewFilter === filter ? "active" : ""} key={filter} onClick={() => changeFeedbackReviewFilter(filter)}>{filter === "all" ? "전체" : FEEDBACK_REVIEW_LABELS[filter]}</button>
+                    ))}</div>
                   </div>
                   <span>{feedbackOverview?.total ?? 0}건 표시</span>
                 </div>
@@ -1005,7 +1079,7 @@ export default function HomePage() {
                   <div className="history-empty"><MessageSquareText size={30} /><strong>조건에 맞는 피드백이 없어요</strong><p>분석 결과에서 정확성 피드백을 남기면 여기에 표시됩니다.</p></div>
                 ) : (
                   <div className="feedback-table">
-                    <div className="feedback-table-head"><span>판정</span><span>분석</span><span>확인 항목</span><span>결과값</span><span>남긴 시간</span></div>
+                    <div className="feedback-table-head"><span>판정</span><span>분석</span><span>확인 항목</span><span>결과값</span><span>남긴 시간</span><span>검수</span></div>
                     {feedbackOverview.items.map((item) => (
                       <div className="feedback-table-row" key={item.id}>
                         <div><span className={`feedback-verdict ${item.verdict}`}>{item.verdict === "correct" ? <Check size={12} /> : item.verdict === "missing" ? <Plus size={12} /> : <AlertTriangle size={12} />}{FEEDBACK_VERDICT_LABELS[item.verdict]}</span></div>
@@ -1013,6 +1087,14 @@ export default function HomePage() {
                         <div><strong>{FEEDBACK_TARGET_LABELS[item.target]}</strong><small>{item.target === "overall" || item.target === "risk_signals" ? "판정 피드백" : "금액 확인"}</small></div>
                         <div>{item.original_value === null ? <span>금액 없음</span> : <strong>{money(item.original_value)}</strong>}{item.corrected_value !== null && <small>{money(item.corrected_value)}으로 수정</small>}</div>
                         <div><span>{formatDateTime(item.updated_at)}</span></div>
+                        <div className="review-actions">
+                          <span className={`review-status ${item.review_status}`}>{FEEDBACK_REVIEW_LABELS[item.review_status]}</span>
+                          <div>
+                            <button aria-label="피드백 승인" title="승인" disabled={reviewingFeedbackId === item.id} className={item.review_status === "approved" ? "active approved" : ""} onClick={() => reviewFeedback(item.id, "approved")}><Check size={13} /></button>
+                            <button aria-label="피드백 검수 대기" title="검수 대기" disabled={reviewingFeedbackId === item.id} className={item.review_status === "pending" ? "active pending" : ""} onClick={() => reviewFeedback(item.id, "pending")}><CircleHelp size={13} /></button>
+                            <button aria-label="피드백 제외" title="제외" disabled={reviewingFeedbackId === item.id} className={item.review_status === "excluded" ? "active excluded" : ""} onClick={() => reviewFeedback(item.id, "excluded")}><X size={13} /></button>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1309,6 +1391,7 @@ export default function HomePage() {
                   </article>
 
                   <FeedbackPanel
+                    key={analysis.analysis_id}
                     analysisId={analysis.analysis_id}
                     values={{
                       estimated_value: analysis.facts.estimated_value,

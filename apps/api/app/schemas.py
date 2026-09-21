@@ -172,6 +172,7 @@ FeedbackTarget = Literal[
     "risk_signals",
 ]
 FeedbackVerdict = Literal["correct", "incorrect", "missing"]
+FeedbackReviewStatus = Literal["pending", "approved", "excluded"]
 
 
 class AnalysisFeedbackCreate(BaseModel):
@@ -205,8 +206,14 @@ class AnalysisFeedbackItem(BaseModel):
     verdict: FeedbackVerdict
     original_value: int | None = Field(default=None, ge=0)
     corrected_value: int | None = Field(default=None, ge=0)
+    review_status: FeedbackReviewStatus
+    reviewed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class AnalysisFeedbackReviewUpdate(BaseModel):
+    review_status: FeedbackReviewStatus
 
 
 class AnalysisFeedbackList(BaseModel):
@@ -229,6 +236,9 @@ class AnalysisFeedbackStatistics(BaseModel):
     missing: int = Field(ge=0)
     analyses_with_feedback: int = Field(ge=0)
     positive_rate: float = Field(ge=0, le=100)
+    pending: int = Field(ge=0)
+    approved: int = Field(ge=0)
+    excluded: int = Field(ge=0)
 
 
 class AnalysisFeedbackOverview(BaseModel):

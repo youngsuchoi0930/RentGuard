@@ -4,8 +4,9 @@ import re
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
-from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint, create_engine, func, select
+from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint, create_engine, func, inspect, select
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
@@ -17,6 +18,7 @@ from ..schemas import (
     AnalysisFeedbackList,
     AnalysisFeedbackOverview,
     AnalysisFeedbackOverviewItem,
+    AnalysisFeedbackReviewUpdate,
     AnalysisFeedbackStatistics,
     AnalysisHistoryDetail,
     AnalysisHistoryList,
@@ -59,6 +61,12 @@ class AnalysisFeedbackRecord(Base):
     verdict: Mapped[str] = mapped_column(String(16))
     original_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
     corrected_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    review_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending", server_default="pending"
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
@@ -98,6 +106,20 @@ class AnalysisHistoryStore:
 
     def initialize(self) -> None:
         Base.metadata.create_all(self.engine)
+        columns = {
+            column["name"]
+            for column in inspect(self.engine).get_columns("analysis_feedback")
+        }
+        with self.engine.begin() as connection:
+            if "review_status" not in columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE analysis_feedback "
+                    "ADD COLUMN review_status VARCHAR(16) NOT NULL DEFAULT 'pending'"
+                )
+            if "reviewed_at" not in columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE analysis_feedback ADD COLUMN reviewed_at DATETIME"
+                )
 
     def health(self) -> dict[str, str]:
         self.initialize()
@@ -249,6 +271,8 @@ class AnalysisHistoryStore:
             verdict=record.verdict,
             original_value=record.original_value,
             corrected_value=record.corrected_value,
+            review_status=record.review_status,
+            reviewed_at=_utc(record.reviewed_at) if record.reviewed_at else None,
             created_at=_utc(record.created_at),
             updated_at=_utc(record.updated_at),
         )
@@ -287,6 +311,8 @@ class AnalysisHistoryStore:
                     verdict=payload.verdict,
                     original_value=original_values.get(payload.target),
                     corrected_value=payload.corrected_value,
+                    review_status="pending",
+                    reviewed_at=None,
                     created_at=now,
                     updated_at=now,
                 )
@@ -294,6 +320,8 @@ class AnalysisHistoryStore:
             else:
                 feedback.verdict = payload.verdict
                 feedback.corrected_value = payload.corrected_value
+                feedback.review_status = "pending"
+                feedback.reviewed_at = None
                 feedback.updated_at = now
             session.flush()
             return self._feedback_item(feedback)
@@ -319,6 +347,7 @@ class AnalysisHistoryStore:
         limit: int = 100,
         offset: int = 0,
         verdict: str | None = None,
+        review_status: str | None = None,
     ) -> AnalysisFeedbackOverview:
         self.initialize()
         with self.sessions() as session:
@@ -333,6 +362,10 @@ class AnalysisHistoryStore:
             )
             if verdict is not None:
                 query = query.where(AnalysisFeedbackRecord.verdict == verdict)
+            if review_status is not None:
+                query = query.where(
+                    AnalysisFeedbackRecord.review_status == review_status
+                )
             rows = session.execute(query.offset(offset).limit(limit)).all()
             filtered_total_query = select(func.count()).select_from(
                 AnalysisFeedbackRecord
@@ -340,6 +373,10 @@ class AnalysisHistoryStore:
             if verdict is not None:
                 filtered_total_query = filtered_total_query.where(
                     AnalysisFeedbackRecord.verdict == verdict
+                )
+            if review_status is not None:
+                filtered_total_query = filtered_total_query.where(
+                    AnalysisFeedbackRecord.review_status == review_status
                 )
             filtered_total = session.scalar(filtered_total_query) or 0
 
@@ -374,8 +411,62 @@ class AnalysisHistoryStore:
                 positive_rate=round(counts["correct"] / total * 100, 1)
                 if total
                 else 0,
+                pending=sum(item.review_status == "pending" for item in all_feedback),
+                approved=sum(item.review_status == "approved" for item in all_feedback),
+                excluded=sum(item.review_status == "excluded" for item in all_feedback),
             ),
         )
+
+    def review_feedback(
+        self,
+        feedback_id: int,
+        payload: AnalysisFeedbackReviewUpdate,
+    ) -> AnalysisFeedbackItem | None:
+        self.initialize()
+        now = datetime.now(timezone.utc)
+        with self.sessions.begin() as session:
+            feedback = session.get(AnalysisFeedbackRecord, feedback_id)
+            if feedback is None:
+                return None
+            feedback.review_status = payload.review_status
+            feedback.reviewed_at = now if payload.review_status != "pending" else None
+            feedback.updated_at = now
+            session.flush()
+            return self._feedback_item(feedback)
+
+    def approved_feedback_rows(self) -> list[dict[str, Any]]:
+        self.initialize()
+        with self.sessions() as session:
+            rows = session.execute(
+                select(AnalysisFeedbackRecord, AnalysisRecord)
+                .join(
+                    AnalysisRecord,
+                    AnalysisRecord.analysis_id == AnalysisFeedbackRecord.analysis_id,
+                )
+                .where(AnalysisFeedbackRecord.review_status == "approved")
+                .order_by(AnalysisFeedbackRecord.reviewed_at.asc())
+            ).all()
+        return [
+            {
+                "feedback_id": feedback.id,
+                "case_id": feedback.analysis_id,
+                "target": feedback.target,
+                "verdict": feedback.verdict,
+                "original_value": feedback.original_value,
+                "corrected_value": feedback.corrected_value,
+                "verified_value": feedback.corrected_value
+                if feedback.corrected_value is not None
+                else feedback.original_value,
+                "analysis_mode": analysis.mode,
+                "risk_score": analysis.score,
+                "risk_grade": analysis.grade,
+                "feedback_created_at": _utc(feedback.created_at).isoformat(),
+                "reviewed_at": _utc(feedback.reviewed_at).isoformat()
+                if feedback.reviewed_at
+                else None,
+            }
+            for feedback, analysis in rows
+        ]
 
     def delete(self, analysis_id: str) -> bool:
         self.initialize()
