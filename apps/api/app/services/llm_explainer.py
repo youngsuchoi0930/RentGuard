@@ -13,8 +13,10 @@ from ..schemas import (
     CheckItem,
     DepositMarketState,
     MarketDataState,
+    OfficialGuidanceSource,
     RiskSignal,
 )
+from .official_guidance import retrieve_official_guidance
 
 
 class _GeneratedExplanation(BaseModel):
@@ -60,6 +62,8 @@ _SYSTEM_INSTRUCTION = """당신은 주택 임대차 계약을 판단하는 심�
 overview에서는 확인된 신호와 공공데이터 상태만 요약하세요.
 caution에서는 recommended_actions에 있는 행동만 쉬운 확인 팁으로 바꿔 말하고, 목록에 없는 조언을 새로 만들지 마세요.
 limitation에서는 확인하지 못한 데이터와 이 설명이 법률 판단이 아니라는 한계를 밝히세요.
+official_guidance에 있는 공식자료 요약만 참고하고, 그 요약에 없는 제도·자격·법률 내용을 만들지 마세요.
+공식자료를 근거로 한 팁도 recommended_actions의 범위를 벗어나면 안 됩니다.
 공공데이터가 unavailable 또는 needs_review이면 확인했다고 표현하지 마세요."""
 
 
@@ -71,6 +75,7 @@ def _safe_payload(
     actions: Sequence[str],
     market_data: MarketDataState,
     deposit_market: DepositMarketState,
+    official_guidance: Sequence[OfficialGuidanceSource],
 ) -> dict[str, object]:
     """Build the only data shape allowed to leave the RentGuard server.
 
@@ -120,6 +125,7 @@ def _safe_payload(
             for check in checks
         ],
         "recommended_actions": list(actions),
+        "official_guidance": [source.model_dump() for source in official_guidance],
     }
 
 
@@ -135,12 +141,14 @@ def _unavailable(
     model: str,
     status: str = "unavailable",
     message: str = "AI 쉬운 설명을 불러오지 못해 규칙 기반 결과만 표시합니다.",
+    sources: Sequence[OfficialGuidanceSource] = (),
 ) -> AIExplanation:
     return AIExplanation(
         status=status,  # type: ignore[arg-type]
         provider="gemini",
         model=model,
         message=message,
+        sources=list(sources),
     )
 
 
@@ -156,8 +164,17 @@ async def generate_gemini_explanation(
     client: httpx.AsyncClient | None = None,
 ) -> AIExplanation:
     resolved = settings or get_settings()
+    official_guidance = retrieve_official_guidance(
+        signals=signals,
+        checks=checks,
+        actions=actions,
+    )
     if resolved.gemini_api_key is None:
-        return _unavailable(model=resolved.gemini_model, status="disabled")
+        return _unavailable(
+            model=resolved.gemini_model,
+            status="disabled",
+            sources=official_guidance,
+        )
 
     safe_input = _safe_payload(
         grade=grade,
@@ -166,6 +183,7 @@ async def generate_gemini_explanation(
         actions=actions,
         market_data=market_data,
         deposit_market=deposit_market,
+        official_guidance=official_guidance,
     )
     request_body = {
         "systemInstruction": {"parts": [{"text": _SYSTEM_INSTRUCTION}]},
@@ -210,7 +228,10 @@ async def generate_gemini_explanation(
         text = "".join(part.get("text", "") for part in parts)
         generated = _GeneratedExplanation.model_validate_json(text)
         if not _is_safe_output(generated):
-            return _unavailable(model=resolved.gemini_model)
+            return _unavailable(
+                model=resolved.gemini_model,
+                sources=official_guidance,
+            )
         return AIExplanation(
             status="generated",
             provider="gemini",
@@ -219,26 +240,31 @@ async def generate_gemini_explanation(
             caution=generated.caution,
             limitation=generated.limitation,
             privacy_note="Gemini는 판단에 관여하지 않으며 원본 문서·주소·이름·금액을 전송하지 않았습니다.",
+            sources=official_guidance,
         )
     except httpx.TimeoutException:
         return _unavailable(
             model=resolved.gemini_model,
             message="Gemini 응답 시간이 초과되어 규칙 기반 결과만 표시합니다. 잠시 후 다시 분석해주세요.",
+            sources=official_guidance,
         )
     except httpx.HTTPStatusError as exc:
         return _unavailable(
             model=resolved.gemini_model,
             message=f"Gemini API가 오류({exc.response.status_code})를 반환해 규칙 기반 결과만 표시합니다.",
+            sources=official_guidance,
         )
     except httpx.HTTPError:
         return _unavailable(
             model=resolved.gemini_model,
             message="Gemini API에 연결하지 못해 규칙 기반 결과만 표시합니다.",
+            sources=official_guidance,
         )
     except (KeyError, TypeError, ValueError, ValidationError):
         return _unavailable(
             model=resolved.gemini_model,
             message="Gemini 응답 형식을 확인하지 못해 규칙 기반 결과만 표시합니다.",
+            sources=official_guidance,
         )
     finally:
         if owns_client:

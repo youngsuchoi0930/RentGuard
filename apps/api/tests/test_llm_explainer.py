@@ -64,6 +64,9 @@ def test_gemini_explainer_sends_only_allowlisted_non_personal_data():
         assert "잔금 지급 전 최신 등기부등본을 다시 확인하세요." in prompt
         assert "건축HUB 공식 건축물대장" in prompt
         assert "within_expected_range" in prompt
+        assert "official_guidance" in prompt
+        assert "등기부등본 확인 방법" in prompt
+        assert "https://m.khug.or.kr/jeonse/web/s03/s030105.jsp" in prompt
         assert "심사자가 아니라" in body["systemInstruction"]["parts"][0]["text"]
         assert "목록에 없는 조언을 새로 만들지 마세요" in body["systemInstruction"]["parts"][0]["text"]
         assert request.headers["x-goog-api-key"] == "test-key"
@@ -92,6 +95,8 @@ def test_gemini_explainer_sends_only_allowlisted_non_personal_data():
     assert result.provider == "gemini"
     assert result.privacy_note is not None
     assert "판단에 관여하지 않으며" in result.privacy_note
+    assert result.sources[0].id == "hug-registry-review"
+    assert all(source.url.startswith("https://") for source in result.sources)
 
 
 def test_gemini_explainer_rejects_new_numbers():
@@ -119,6 +124,7 @@ def test_gemini_explainer_rejects_new_numbers():
     result = asyncio.run(run())
     assert result.status == "unavailable"
     assert result.overview is None
+    assert result.sources[0].id == "hug-registry-review"
 
 
 def test_gemini_explainer_reports_timeout_reason():
@@ -135,3 +141,4 @@ def test_gemini_explainer_reports_timeout_reason():
     assert result.status == "unavailable"
     assert result.message is not None
     assert "시간이 초과" in result.message
+    assert result.sources[0].id == "hug-registry-review"

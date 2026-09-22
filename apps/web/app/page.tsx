@@ -12,6 +12,7 @@ import {
   ChevronDown,
   CircleHelp,
   Download,
+  ExternalLink,
   FileCheck2,
   FileText,
   Info,
@@ -199,6 +200,13 @@ type Analysis = {
     limitation: string | null;
     privacy_note: string | null;
     message: string | null;
+    sources: Array<{
+      id: string;
+      organization: string;
+      title: string;
+      url: string;
+      summary: string;
+    }>;
   };
   documents: DocumentBundle;
   corrections: UserCorrection[];
@@ -1365,6 +1373,20 @@ export default function HomePage() {
                           <p>{analysis.ai_explanation.message ?? "규칙 기반 분석 결과는 정상적으로 사용할 수 있습니다."}</p>
                           <small className="ai-privacy"><Info size={13} /> 사용 모델: {analysis.ai_explanation.model}</small>
                         </>
+                      )}
+                      {analysis.ai_explanation.sources.length > 0 && (
+                        <div className="ai-official-sources">
+                          <strong>이 팁에 사용한 공식 참고자료</strong>
+                          <div>
+                            {analysis.ai_explanation.sources.map((source) => (
+                              <a key={source.id} href={source.url} target="_blank" rel="noreferrer" title={source.summary}>
+                                <span>{source.organization}</span>
+                                <b>{source.title}</b>
+                                <ExternalLink size={13} />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
                       )}
                   </article>
 

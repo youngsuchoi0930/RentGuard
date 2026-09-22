@@ -101,6 +101,14 @@ class AddressSearchResponse(BaseModel):
     items: list[AddressSuggestion]
 
 
+class OfficialGuidanceSource(BaseModel):
+    id: str = Field(min_length=3, max_length=80)
+    organization: str = Field(min_length=2, max_length=40)
+    title: str = Field(min_length=2, max_length=120)
+    url: str = Field(pattern=r"^https://")
+    summary: str = Field(min_length=10, max_length=350)
+
+
 class AIExplanation(BaseModel):
     status: Literal["generated", "unavailable", "disabled"]
     provider: Literal["gemini"]
@@ -110,6 +118,7 @@ class AIExplanation(BaseModel):
     limitation: str | None = None
     privacy_note: str | None = None
     message: str | None = None
+    sources: list[OfficialGuidanceSource] = Field(default_factory=list, max_length=3)
 
 
 class AnalysisResponse(BaseModel):

@@ -307,6 +307,14 @@ main { min-height: 100vh; margin-left: var(--sidebar); }
 .ai-explanation-points strong { margin-bottom: 5px; color: #315b51; font-size: 10px; }
 .ai-explanation-points span { color: #64716d; font-size: 9px; line-height: 1.6; }
 .ai-privacy { display: flex; align-items: center; gap: 5px; margin-top: 14px; color: #7b8784; font-size: 8px; }
+.ai-official-sources { margin-top: 16px; padding-top: 14px; border-top: 1px solid #dcebe7; }
+.ai-official-sources > strong { display: block; margin-bottom: 8px; color: #315b51; font-size: 10px; }
+.ai-official-sources > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.ai-official-sources a { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; max-width: 100%; padding: 8px 10px; border: 1px solid #d8e9e4; border-radius: 9px; background: #fff; color: #445b55; text-decoration: none; }
+.ai-official-sources a:hover { border-color: #8bd7c5; background: #f8fffd; }
+.ai-official-sources a span { color: #168e70; font-size: 8px; font-weight: 800; }
+.ai-official-sources a b { overflow: hidden; font-size: 9px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.ai-official-sources a svg { color: #6b817b; }
 .risk-copy { position: relative; z-index: 1; }
 .danger-pill { display: inline-flex; align-items: center; gap: 5px; color: #c64d48; background: var(--red-soft); border-radius: 20px; padding: 5px 9px; font-size: 10px; font-weight: 800; }
 .risk-copy h2 { font-size: 24px; letter-spacing: -.8px; margin: 11px 0 9px; }
