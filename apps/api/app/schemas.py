@@ -54,11 +54,20 @@ class RiskSignal(BaseModel):
     sources: list[EvidenceReference] = Field(default_factory=list)
 
 
+class CheckComparison(BaseModel):
+    label: str
+    document_value: str | None = None
+    official_value: str | None = None
+    status: Literal["verified", "warning", "needs_review"]
+
+
 class CheckItem(BaseModel):
     label: str
     status: Literal["verified", "warning", "needs_review"]
     detail: str
     sources: list[EvidenceReference] = Field(default_factory=list)
+    comparisons: list[CheckComparison] = Field(default_factory=list)
+    next_step: str | None = None
 
 
 class MarketDataState(BaseModel):

@@ -163,6 +163,13 @@ type Analysis = {
     status: "verified" | "warning" | "needs_review";
     detail: string;
     sources: EvidenceReference[];
+    comparisons: Array<{
+      label: string;
+      document_value: string | null;
+      official_value: string | null;
+      status: "verified" | "warning" | "needs_review";
+    }>;
+    next_step: string | null;
   }>;
   actions: string[];
   market_data: {
@@ -1441,20 +1448,34 @@ export default function HomePage() {
                     <div className="check-legend" aria-label="확인 상태 안내">
                       <span className="verified"><Check size={11} />확인 완료</span>
                       <span className="warning"><AlertTriangle size={11} />위험·불일치</span>
-                      <span className="needs_review"><CircleHelp size={11} />확인 불가</span>
+                      <span className="needs_review"><CircleHelp size={11} />확인 필요</span>
                       <span className="user_confirmed"><PenLine size={11} />사용자 입력</span>
                     </div>
                     <div className="check-list">
                       {analysis.checks.map((check) => {
                         const userConfirmed = check.sources.some((source) => source.corrected);
                         const visualStatus = userConfirmed ? "user_confirmed" : check.status;
-                        const statusLabel = userConfirmed ? "사용자 입력" : check.status === "verified" ? "확인 완료" : check.status === "warning" ? "위험·불일치" : "확인 불가";
+                        const partiallyVerified = check.status === "needs_review" && check.comparisons.some((comparison) => comparison.status === "verified");
+                        const statusLabel = userConfirmed ? "사용자 입력" : check.status === "verified" ? "확인 완료" : check.status === "warning" ? "위험·불일치" : partiallyVerified ? "부분 확인" : "확인 필요";
                         return (
                           <div key={check.label}>
                             <span className={visualStatus}>{visualStatus === "verified" ? <Check size={14} /> : visualStatus === "user_confirmed" ? <PenLine size={14} /> : visualStatus === "needs_review" ? <CircleHelp size={14} /> : <AlertTriangle size={14} />}</span>
                             <div className="check-copy">
                               <div className="check-title"><strong>{check.label}</strong><em className={visualStatus}>{statusLabel}</em></div>
                               <small>{check.detail}</small>
+                              {check.comparisons.length > 0 && (
+                                <div className="check-comparisons">
+                                  <div className="check-comparison-head"><span>항목</span><span>업로드 문서</span><span>공식 데이터</span></div>
+                                  {check.comparisons.map((comparison) => (
+                                    <div className={`check-comparison-row ${comparison.status}`} key={comparison.label}>
+                                      <strong>{comparison.label}</strong>
+                                      <span>{comparison.document_value ?? "확인 못함"}</span>
+                                      <span>{comparison.official_value ?? "제공 안 됨"}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {check.next_step && <p className="check-next-step"><ArrowRight size={11} />{check.next_step}</p>}
                               <EvidenceList sources={check.sources} />
                             </div>
                           </div>

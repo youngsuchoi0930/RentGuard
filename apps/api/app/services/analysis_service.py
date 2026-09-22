@@ -11,6 +11,7 @@ from ..risk_engine import analyze_risk
 from ..schemas import (
     AIExplanation,
     AnalysisResponse,
+    CheckComparison,
     CheckItem,
     EvidenceReference,
     ExtractedFacts,
@@ -28,6 +29,35 @@ def _approval_year(ledger: BuildingLedgerExtraction) -> int | None:
     if not value or len(value) < 4 or not value[:4].isdigit():
         return None
     return int(value[:4])
+
+
+def _comparison_status(
+    document_value: object | None,
+    official_value: object | None,
+    matches: bool,
+) -> Literal["verified", "warning", "needs_review"]:
+    if document_value is None or official_value is None:
+        return "needs_review"
+    return "verified" if matches else "warning"
+
+
+def _display_date(value: str | None) -> str | None:
+    if not value:
+        return None
+    digits = "".join(character for character in value if character.isdigit())
+    if len(digits) >= 8:
+        return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"
+    return value
+
+
+def _display_area(value: float | None) -> str | None:
+    return f"{value:g}㎡" if value is not None else None
+
+
+def _display_illegal(value: bool | None) -> str | None:
+    if value is None:
+        return None
+    return "위반건축물 해당" if value else "해당 없음"
 
 
 def _reference(
@@ -523,6 +553,13 @@ def build_analysis(
         document_date = _comparable_text(building_ledger.property.approval_date)
         official_date = _comparable_text(official_building.approval_date)
         date_matches = not document_date or not official_date or document_date[:8] == official_date[:8]
+        document_area = building_ledger.property.exclusive_area
+        official_area = official_building.exclusive_area
+        area_matches = (
+            True
+            if document_area is None or official_area is None
+            else abs(document_area - official_area) <= 0.1
+        )
         address_matches = _address_matches(address, official_building.address)
         document_illegal = building_ledger.property.is_illegal_building
         illegal_matches = (
@@ -543,7 +580,49 @@ def build_analysis(
                 f"문서 {building_ledger.property.approval_date or '미확인'} / "
                 f"공식 {official_building.approval_date or '미확인'}"
             )
+        if not area_matches:
+            metadata_differences.append(
+                "전유면적: "
+                f"문서 {_display_area(document_area) or '미확인'} / "
+                f"공식 {_display_area(official_area) or '미확인'}"
+            )
         metadata_mismatch = bool(metadata_differences)
+        official_comparisons = [
+            CheckComparison(
+                label="주용도",
+                document_value=building_ledger.property.main_use,
+                official_value=official_building.main_use,
+                status=_comparison_status(
+                    building_ledger.property.main_use,
+                    official_building.main_use,
+                    use_matches,
+                ),
+            ),
+            CheckComparison(
+                label="사용승인일",
+                document_value=_display_date(building_ledger.property.approval_date),
+                official_value=_display_date(official_building.approval_date),
+                status=_comparison_status(
+                    building_ledger.property.approval_date,
+                    official_building.approval_date,
+                    date_matches,
+                ),
+            ),
+            CheckComparison(
+                label="전유면적",
+                document_value=_display_area(document_area),
+                official_value=_display_area(official_area),
+                status=_comparison_status(
+                    document_area,
+                    official_area,
+                    area_matches,
+                ),
+            ),
+        ]
+        metadata_incomplete = any(
+            comparison.status == "needs_review"
+            for comparison in official_comparisons
+        )
         has_official_mismatch = (
             metadata_mismatch
             or address_matches is False
@@ -564,16 +643,45 @@ def build_analysis(
                     if address_matches is False
                     else "건축HUB 공식 도로명주소를 확인하지 못했습니다"
                 ),
+                comparisons=[
+                    CheckComparison(
+                        label="도로명주소",
+                        document_value=address,
+                        official_value=official_building.address,
+                        status=(
+                            "verified" if address_matches is True
+                            else "warning" if address_matches is False
+                            else "needs_review"
+                        ),
+                    )
+                ],
+                next_step=(
+                    "주소 찾기에서 공식 도로명주소를 다시 선택한 뒤 재분석하세요."
+                    if address_matches is False
+                    else None
+                ),
             )
         )
         checks.append(
             CheckItem(
                 label="공식 건축물대장",
-                status="warning" if metadata_mismatch else "verified",
+                status=(
+                    "warning" if metadata_mismatch
+                    else "needs_review" if metadata_incomplete
+                    else "verified"
+                ),
                 detail=(
                     " · ".join(metadata_differences)
                     if metadata_mismatch
                     else official_detail or "건축HUB 표제부와 주소를 확인했습니다"
+                ),
+                comparisons=official_comparisons,
+                next_step=(
+                    "업로드 문서가 최신 발급본인지 확인하고, 공식값과 다른 항목은 계약 전에 임대인 또는 중개사에게 확인하세요."
+                    if metadata_mismatch
+                    else "업로드 문서에서 읽지 못한 항목은 원본을 직접 확인하세요."
+                    if metadata_incomplete
+                    else None
                 ),
             )
         )
@@ -601,6 +709,25 @@ def build_analysis(
             illegal_check.detail = (
                 "건축HUB 표제부 API가 위반 여부를 제공하지 않아 업로드 원문 확인이 필요합니다"
             )
+        if illegal_check:
+            illegal_check.comparisons = [
+                CheckComparison(
+                    label="위반건축물",
+                    document_value=_display_illegal(document_illegal),
+                    official_value=_display_illegal(official_illegal),
+                    status=(
+                        "needs_review"
+                        if official_illegal is None or document_illegal is None
+                        else "warning"
+                        if official_illegal or document_illegal != official_illegal
+                        else "verified"
+                    ),
+                )
+            ]
+            if official_illegal is None:
+                illegal_check.next_step = (
+                    "건축물대장 원본의 위반건축물 표시를 확인하거나 정부24·세움터에서 최신 건축물대장을 다시 발급해 확인하세요."
+                )
     else:
         if official_building:
             checks.append(

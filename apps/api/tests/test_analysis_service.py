@@ -105,6 +105,7 @@ def test_precheck_separates_official_address_from_document_ocr_review(monkeypatc
     registry = extract_registry((fixtures / "registry_risky_digital.pdf").read_bytes())
     ledger = extract_building_ledger((fixtures / "building_ledger_risky.pdf").read_bytes())
     ledger.property.is_illegal_building = False
+    ledger.property.exclusive_area = 84.59
     prediction_inputs = {}
 
     def fake_predict_deposit_market(**kwargs):
@@ -140,6 +141,7 @@ def test_precheck_separates_official_address_from_document_ocr_review(monkeypatc
                 address="서울특별시 강서구 화곡로 123 (화곡동)",
                 main_use="다세대주택",
                 approval_date="2017-06-20",
+                exclusive_area=ledger.property.exclusive_area,
                 is_illegal_building=None,
             ),
             market=MarketEstimate(
@@ -164,9 +166,15 @@ def test_precheck_separates_official_address_from_document_ocr_review(monkeypatc
 
     official_address = next(check for check in analysis.checks if check.label == "입력 주소와 공식 주소")
     illegal = next(check for check in analysis.checks if check.label == "위반건축물 여부")
+    official_ledger = next(check for check in analysis.checks if check.label == "공식 건축물대장")
     assert official_address.status == "verified"
+    comparisons = {item.label: item for item in official_ledger.comparisons}
+    assert comparisons["주용도"].status == "verified"
+    assert comparisons["전유면적"].status == "verified"
     assert illegal.status == "needs_review"
     assert "사용자가 위반건축물 아님으로 입력했지만" in illegal.detail
+    assert illegal.comparisons[0].official_value is None
+    assert "정부24·세움터" in illegal.next_step
     assert analysis.status == "needs_review"
     ml_signal = next(signal for signal in analysis.signals if signal.id == "deposit-market-upper")
     assert ml_signal.points == 0
@@ -174,3 +182,49 @@ def test_precheck_separates_official_address_from_document_ocr_review(monkeypatc
     assert next(check for check in analysis.checks if check.label == "보증금 시장 범위").status == "warning"
     assert prediction_inputs["exclusive_area_m2"] == ledger.property.exclusive_area
     assert prediction_inputs["approval_date"] == ledger.property.approval_date
+
+
+def test_official_building_area_mismatch_is_visible_and_requires_review():
+    root = Path(__file__).resolve().parents[3]
+    fixtures = root / "output" / "pdf" / "rentguard-fixtures"
+    registry = extract_registry((fixtures / "registry_risky_digital.pdf").read_bytes())
+    ledger = extract_building_ledger((fixtures / "building_ledger_risky.pdf").read_bytes())
+    ledger.property.exclusive_area = 84.59
+
+    analysis = build_analysis(
+        mode="precheck",
+        address="서울특별시 강서구 화곡로 123, 301호",
+        deposit=30_000_000,
+        monthly_rent=1_300_000,
+        registry=registry,
+        building_ledger=ledger,
+        lease_contract=None,
+        public_data=PublicDataResult(
+            address=None,
+            building=OfficialBuilding(
+                status="available",
+                address="서울특별시 강서구 화곡로 123 (화곡동)",
+                main_use=ledger.property.main_use,
+                approval_date=ledger.property.approval_date,
+                exclusive_area=(ledger.property.exclusive_area or 0) + 1,
+                is_illegal_building=None,
+            ),
+            market=MarketEstimate(
+                status="unavailable",
+                estimated_value=None,
+                estimated_value_low=None,
+                estimated_value_high=None,
+                transaction_count=0,
+                volatility=None,
+                message="테스트",
+            ),
+        ),
+    )
+
+    official_ledger = next(check for check in analysis.checks if check.label == "공식 건축물대장")
+    area = next(item for item in official_ledger.comparisons if item.label == "전유면적")
+    assert official_ledger.status == "warning"
+    assert area.status == "warning"
+    assert "전유면적" in official_ledger.detail
+    assert official_ledger.next_step is not None
+    assert analysis.status == "needs_review"

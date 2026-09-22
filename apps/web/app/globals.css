@@ -426,6 +426,17 @@ main { min-height: 100vh; margin-left: var(--sidebar); }
 .check-title em.warning { color: var(--red); background: var(--red-soft); }
 .check-title em.needs_review { color: var(--amber); background: var(--amber-soft); }
 .check-title em.user_confirmed { color: #37658f; background: #edf5fb; }
+.check-comparisons { overflow: hidden; margin-top: 8px; border: 1px solid #e3e8ed; border-radius: 8px; background: #fbfcfd; }
+.check-comparison-head, .check-comparison-row { display: grid; grid-template-columns: .75fr 1fr 1fr; gap: 6px; align-items: center; padding: 6px 7px; }
+.check-comparison-head { color: #939caa; background: #f4f6f8; font-size: 7px; font-weight: 800; }
+.check-comparison-row { border-top: 1px solid #e8ecef; font-size: 7px; line-height: 1.4; }
+.check-comparison-row strong { margin: 0; font-size: 7px; }
+.check-comparison-row span { overflow-wrap: anywhere; color: #657286; }
+.check-comparison-row.warning { box-shadow: inset 3px 0 0 var(--red); }
+.check-comparison-row.needs_review { box-shadow: inset 3px 0 0 var(--amber); }
+.check-comparison-row.verified { box-shadow: inset 3px 0 0 var(--mint); }
+.check-next-step { display: flex; align-items: flex-start; gap: 4px; margin: 8px 0 0; padding: 7px 8px; border-radius: 7px; color: #8a641f; background: var(--amber-soft); font-size: 7px; font-weight: 700; line-height: 1.5; }
+.check-next-step svg { flex: 0 0 auto; margin-top: 1px; }
 .source-card { display: flex; align-items: flex-start; gap: 11px; padding: 17px; border: 1px solid #cce9df; border-radius: 13px; background: #f3fbf8; color: #19866a; }
 .source-card strong { display: block; font-size: 10px; margin-bottom: 4px; }
 .source-card p { color: #6e8d82; font-size: 9px; line-height: 1.5; margin: 0; }

@@ -181,6 +181,22 @@ class AnalysisHistoryStore:
                 update={
                     "label": _redact(check.label, private_values),
                     "detail": _redact(check.detail, private_values),
+                    "comparisons": [
+                        comparison.model_copy(
+                            update={
+                                "document_value": _redact(
+                                    comparison.document_value,
+                                    private_values,
+                                ),
+                                "official_value": _redact(
+                                    comparison.official_value,
+                                    private_values,
+                                ),
+                            }
+                        )
+                        for comparison in check.comparisons
+                    ],
+                    "next_step": _redact(check.next_step, private_values),
                     "sources": [],
                 }
             )
