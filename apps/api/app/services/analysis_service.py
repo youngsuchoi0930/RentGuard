@@ -500,11 +500,19 @@ def build_analysis(
     checks = _bundle_checks(bundle, sources)
     checks.append(right_check)
     if official_building and official_building.status == "available":
+        official_note = (
+            official_building.message
+            if official_building.message
+            and official_building.message != "건축HUB 공식 표제부를 확인했습니다."
+            else None
+        )
         official_detail = " · ".join(
             value
             for value in (
                 official_building.main_use,
                 f"사용승인 {official_building.approval_date}" if official_building.approval_date else None,
+                f"전유면적 {official_building.exclusive_area:g}㎡" if official_building.exclusive_area else None,
+                official_note,
             )
             if value
         )

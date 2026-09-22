@@ -41,6 +41,8 @@ def _identity_and_unit(text: str) -> tuple[str | None, str | None]:
         for value in nearby:
             if unit is None and re.fullmatch(r"\d{1,5}\s*호", value):
                 unit = compact(value)
+            elif unit is None and building_name is not None and re.fullmatch(r"\d{1,5}", value):
+                unit = f"{value}호"
             elif building_name is None and compact(value) not in {"호명칭", "대지위치", "지번"}:
                 building_name = value
         break
@@ -84,7 +86,11 @@ def parse_building_ledger(document: ExtractedDocument) -> BuildingLedgerExtracti
     road_address = labeled_value(text, ("도로명주소", "도로명 주소"))
     building_name = labeled_value(text, ("명칭", "건물명칭"))
     inferred_name, unit = _identity_and_unit(text)
-    if not building_name or compact(building_name) in {"호명칭", "명칭"}:
+    if (
+        not building_name
+        or compact(building_name) in {"호명칭", "명칭"}
+        or not re.search(r"[가-힣A-Za-z]", building_name)
+    ):
         building_name = inferred_name
     main_use = labeled_value(text, ("주용도", "주 용도"))
     structure = labeled_value(text, ("주구조", "주 구조"))

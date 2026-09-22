@@ -88,6 +88,45 @@ def test_collective_unit_ocr_extracts_identity_use_and_exclusive_area():
     assert result.property.exclusive_area == 84.59
 
 
+def test_collective_unit_ocr_ignores_building_id_and_accepts_unit_without_suffix():
+    document = ExtractedDocument(
+        method="ocr",
+        pages=[ExtractedPage(
+            number=1,
+            confidence=.95,
+            text="""
+            집합건축물대장(전유부,갑)
+            건물ID
+            고유번호
+            1150010100-3-01230000
+            명칭
+            2220221181845891
+            호명칭
+            테스트단지204동
+            203
+            대지위치
+            서울특별시 테스트구 검증동
+            지번
+            123
+            도로명주소
+            서울특별시 테스트구 신뢰로 59
+            전유부분
+            주
+            2층
+            철근콘크리트구조
+            아파트
+            79.97
+            """,
+        )],
+    )
+
+    result = parse_building_ledger(document)
+
+    assert result.property.building_name == "테스트단지204동"
+    assert result.property.unit == "203호"
+    assert result.property.exclusive_area == 79.97
+
+
 def test_side_road_address_normalization_keeps_full_road_name_and_number():
     assert _address_matches(
         "서울특별시 강서구 안심로35길 26, 201호",

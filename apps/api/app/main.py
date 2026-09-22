@@ -354,6 +354,12 @@ async def create_analysis(
         public_data=await fetch_public_data(
             address,
             document_area=ledger_result.property.exclusive_area,
+            document_building_name=" ".join(filter(None, (
+                ledger_result.property.building_name,
+                registry_result.property.building_name,
+                registry_result.property.lot_address,
+            ))) or None,
+            document_unit=ledger_result.property.unit or registry_result.property.unit,
         ),
     )
     analysis.ai_explanation = await generate_gemini_explanation(
@@ -389,6 +395,15 @@ async def create_analysis_from_extractions(
         public_data=await fetch_public_data(
             payload.address,
             document_area=payload.documents.building_ledger.property.exclusive_area,
+            document_building_name=" ".join(filter(None, (
+                payload.documents.building_ledger.property.building_name,
+                payload.documents.registry.property.building_name,
+                payload.documents.registry.property.lot_address,
+            ))) or None,
+            document_unit=(
+                payload.documents.building_ledger.property.unit
+                or payload.documents.registry.property.unit
+            ),
         ),
         corrections=payload.corrections,
     )

@@ -114,6 +114,17 @@ def _normalize_unit(value: str | None) -> str:
     return re.sub(r"[^가-힣a-z0-9]", "", (value or "").lower().replace("호", ""))
 
 
+def _building_dong(value: str | None) -> str | None:
+    match = re.search(r"(?:^|[^0-9])(?:제)?(\d{1,5})\s*동\b", value or "")
+    if not match:
+        return None
+    return f"{match.group(1)}동"
+
+
+def _normalize_name(value: str | None) -> str:
+    return re.sub(r"[^가-힣a-z0-9]", "", (value or "").lower())
+
+
 def _items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     items = payload.get("response", {}).get("body", {}).get("items")
     if not isinstance(items, dict):
@@ -216,10 +227,114 @@ def _building_params(address: ResolvedAddress, key: str) -> dict[str, Any]:
     }
 
 
+def _provider_error_message(header: dict[str, Any], resource: str) -> str | None:
+    code = str(header.get("resultCode") or "")
+    if code in {"00", "000"}:
+        return None
+    raw_message = str(header.get("resultMsg") or "").upper()
+    if code in {"20", "30", "31"} or any(
+        token in raw_message for token in ("KEY", "PERMISSION", "ACCESS_DENIED", "EXPIRED")
+    ):
+        return f"{resource} API 키 또는 활용 권한을 확인해주세요."
+    if code in {"22", "23"} or "LIMITED_NUMBER" in raw_message:
+        return f"{resource} API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요."
+    if code == "10":
+        return f"{resource} 조회 요청값이 올바르지 않습니다."
+    if code == "05" or "TIMEOUT" in raw_message:
+        return f"{resource} 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요."
+    return f"{resource} 기관 응답을 확인하지 못했습니다."
+
+
+def _building_response_payload(response: httpx.Response, resource: str) -> dict[str, Any]:
+    try:
+        payload = response.json()
+    except ValueError:
+        try:
+            root = ElementTree.fromstring(response.content)
+        except ElementTree.ParseError as exc:
+            raise PublicAPIError(f"{resource} 응답 형식을 확인하지 못했습니다.") from exc
+        code = root.findtext(".//resultCode")
+        message = root.findtext(".//resultMsg")
+        if code:
+            provider_message = _provider_error_message(
+                {"resultCode": code, "resultMsg": message or ""},
+                resource,
+            )
+            if provider_message:
+                raise PublicAPIError(provider_message)
+        raise PublicAPIError(f"{resource} 응답 형식을 확인하지 못했습니다.")
+    if not isinstance(payload, dict):
+        raise PublicAPIError(f"{resource} 응답 형식을 확인하지 못했습니다.")
+    return payload
+
+
+async def _request_building_json(
+    client: httpx.AsyncClient,
+    url: str,
+    params: dict[str, Any],
+    resource: str,
+) -> dict[str, Any]:
+    try:
+        response = await client.get(url, params=params)
+        response.raise_for_status()
+    except httpx.TimeoutException as exc:
+        raise PublicAPIError(
+            f"{resource} 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요."
+        ) from exc
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        if status in {401, 403}:
+            message = f"{resource} API 키 또는 활용 권한을 확인해주세요."
+        elif status == 429:
+            message = f"{resource} API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요."
+        else:
+            message = f"{resource} 기관에서 HTTP {status} 오류를 반환했습니다."
+        raise PublicAPIError(message) from exc
+    except httpx.RequestError as exc:
+        raise PublicAPIError(f"{resource} 기관에 연결하지 못했습니다.") from exc
+
+    payload = _building_response_payload(response, resource)
+    header = payload.get("response", {}).get("header", {})
+    message = _provider_error_message(header if isinstance(header, dict) else {}, resource)
+    if message:
+        raise PublicAPIError(message)
+    return payload
+
+
+def _select_title(
+    titles: list[dict[str, Any]],
+    *,
+    building_name: str | None,
+    dong_name: str | None,
+) -> dict[str, Any]:
+    normalized_building = _normalize_name(building_name)
+    normalized_dong = _normalize_name(dong_name)
+
+    def score(item: dict[str, Any]) -> tuple[int, int]:
+        item_building = _normalize_name(str(item.get("bldNm") or ""))
+        item_dong = _normalize_name(str(item.get("dongNm") or ""))
+        value = 0
+        if normalized_dong and item_dong == normalized_dong:
+            value += 10
+        if normalized_building and item_building and (
+            normalized_building in item_building or item_building in normalized_building
+        ):
+            value += 3
+        if str(item.get("regstrKindCdNm") or "") == "표제부":
+            value += 1
+        return value, -titles.index(item)
+
+    return max(titles, key=score)
+
+
 async def _get_building_data(
     address: ResolvedAddress,
     input_address: str,
     settings: Settings,
+    *,
+    document_building_name: str | None = None,
+    document_unit: str | None = None,
+    document_area: float | None = None,
 ) -> OfficialBuilding:
     key = _secret_value(settings.data_go_kr_service_key)
     if not key:
@@ -228,40 +343,59 @@ async def _get_building_data(
     params = _building_params(address, key)
     try:
         async with httpx.AsyncClient(timeout=settings.public_api_timeout_seconds) as client:
-            # Avoid concurrent calls with the same key because the provider can
-            # throttle the title and area endpoints independently.
-            title_response = await client.get(BUILDING_TITLE_URL, params=params)
-            area_response = await client.get(BUILDING_AREA_URL, params=params)
-            title_response.raise_for_status()
-            area_response.raise_for_status()
-            title_payload = title_response.json()
-            area_payload = area_response.json()
-    except (httpx.HTTPError, ValueError) as exc:
-        return OfficialBuilding(status="unavailable", message="건축HUB 응답을 확인하지 못했습니다.")
+            title_payload = await _request_building_json(
+                client, BUILDING_TITLE_URL, params, "건축HUB 표제부"
+            )
+    except PublicAPIError as exc:
+        return OfficialBuilding(status="unavailable", message=str(exc))
 
-    header = title_payload.get("response", {}).get("header", {})
-    if str(header.get("resultCode")) not in {"00", "000"}:
-        return OfficialBuilding(status="unavailable", message="건축HUB 활용 권한 또는 응답을 확인해주세요.")
     titles = _items(title_payload)
     if not titles:
         return OfficialBuilding(status="unavailable", message="입력 주소의 공식 건축물 표제부를 찾지 못했습니다.")
 
-    title = titles[0]
-    unit = _normalize_unit(_unit_name(input_address))
+    dong_name = _building_dong(document_building_name) or _building_dong(input_address)
+    title = _select_title(
+        titles,
+        building_name=document_building_name or address.building_name,
+        dong_name=dong_name,
+    )
+    unit = _normalize_unit(document_unit or _unit_name(input_address))
     exclusive_area = None
+    area_message = None
     if unit:
-        areas = []
-        for item in _items(area_payload):
-            if _normalize_unit(str(item.get("hoNm") or "")) != unit:
-                continue
-            if "전유" not in str(item.get("exposPubuseGbCdNm") or ""):
-                continue
-            try:
-                areas.append(float(item.get("area")))
-            except (TypeError, ValueError):
-                continue
-        if areas:
-            exclusive_area = sum(areas)
+        area_params = {**params, "hoNm": unit, "numOfRows": 100}
+        if dong_name:
+            area_params["dongNm"] = dong_name
+        try:
+            async with httpx.AsyncClient(timeout=settings.public_api_timeout_seconds) as client:
+                area_payload = await _request_building_json(
+                    client, BUILDING_AREA_URL, area_params, "건축HUB 전유면적"
+                )
+            candidates = [
+                item for item in _items(area_payload)
+                if _normalize_unit(str(item.get("hoNm") or "")) == unit
+                and (not dong_name or _normalize_name(str(item.get("dongNm") or "")) == _normalize_name(dong_name))
+            ]
+            candidate_dongs = {
+                _normalize_name(str(item.get("dongNm") or "")) for item in candidates
+            }
+            if not dong_name and len(candidate_dongs) > 1:
+                area_message = "동 정보가 없어 동일 호수의 공식 전유면적을 확정하지 못했습니다."
+            else:
+                areas = []
+                for item in candidates:
+                    if "전유" not in str(item.get("exposPubuseGbCdNm") or ""):
+                        continue
+                    try:
+                        areas.append(float(item.get("area")))
+                    except (TypeError, ValueError):
+                        continue
+                if areas:
+                    exclusive_area = sum(areas)
+                elif document_area is not None:
+                    area_message = "공식 전유면적을 찾지 못해 업로드 문서의 면적을 사용합니다."
+        except PublicAPIError as exc:
+            area_message = f"공식 표제부는 확인했지만 {exc}"
 
     return OfficialBuilding(
         status="available",
@@ -276,7 +410,7 @@ async def _get_building_data(
             or title.get("violBldAt")
             or title.get("illegalBldYn")
         ),
-        message="건축HUB 공식 표제부를 확인했습니다.",
+        message=area_message or "건축HUB 공식 표제부를 확인했습니다.",
     )
 
 
@@ -474,6 +608,8 @@ async def fetch_public_data(
     address: str,
     *,
     document_area: float | None = None,
+    document_building_name: str | None = None,
+    document_unit: str | None = None,
 ) -> PublicDataResult:
     settings = get_settings()
     try:
@@ -510,7 +646,14 @@ async def fetch_public_data(
         )
 
     resolved = matches[0]
-    building = await _get_building_data(resolved, address, settings)
+    building = await _get_building_data(
+        resolved,
+        address,
+        settings,
+        document_building_name=document_building_name,
+        document_unit=document_unit,
+        document_area=document_area,
+    )
     # A road-address search result often omits the unit number. In that case the
     # Building HUB area endpoint cannot select a household even though the
     # uploaded building ledger already supplied its exclusive area.
