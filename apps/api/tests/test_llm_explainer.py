@@ -5,7 +5,7 @@ import httpx
 from pydantic import SecretStr
 
 from app.config import Settings
-from app.schemas import CheckItem, MarketDataState, RiskSignal
+from app.schemas import CheckItem, DepositMarketState, MarketDataState, RiskSignal
 from app.services.llm_explainer import generate_gemini_explanation
 
 
@@ -36,9 +36,18 @@ def _inputs():
                 detail="홍길동과 홍길동이 일치합니다",
             )
         ],
+        "actions": ["잔금 지급 전 최신 등기부등본을 다시 확인하세요."],
         "market_data": MarketDataState(
             status="not_connected",
             message="공공 실거래가 연동 전",
+        ),
+        "deposit_market": DepositMarketState(
+            status="available",
+            message="예측 범위 안",
+            expected_deposit=50_000_000,
+            upper_deposit=100_000_000,
+            upper_ratio=1.0,
+            exceeds_upper=False,
         ),
     }
 
@@ -51,10 +60,16 @@ def test_gemini_explainer_sends_only_allowlisted_non_personal_data():
         assert "110,000,000" not in prompt
         assert "evidence" not in prompt
         assert "description" not in prompt
+        assert "recommended_actions" in prompt
+        assert "잔금 지급 전 최신 등기부등본을 다시 확인하세요." in prompt
+        assert "건축HUB 공식 건축물대장" in prompt
+        assert "within_expected_range" in prompt
+        assert "심사자가 아니라" in body["systemInstruction"]["parts"][0]["text"]
+        assert "목록에 없는 조언을 새로 만들지 마세요" in body["systemInstruction"]["parts"][0]["text"]
         assert request.headers["x-goog-api-key"] == "test-key"
         generated = {
             "overview": "문서끼리 확인된 내용은 서로 일치하지만 주의 신호가 있습니다.",
-            "caution": "근저당권은 보증금 회수 가능성에 영향을 줄 수 있어 확인이 필요합니다.",
+            "caution": "잔금을 보내기 전에 최신 등기부를 다시 발급해 권리 변동이 없는지 확인하세요.",
             "limitation": "시세 자료가 없어 전체 부담 수준은 아직 판단할 수 없습니다.",
         }
         return httpx.Response(
@@ -76,6 +91,7 @@ def test_gemini_explainer_sends_only_allowlisted_non_personal_data():
     assert result.status == "generated"
     assert result.provider == "gemini"
     assert result.privacy_note is not None
+    assert "판단에 관여하지 않으며" in result.privacy_note
 
 
 def test_gemini_explainer_rejects_new_numbers():

@@ -366,7 +366,9 @@ async def create_analysis(
         grade=analysis.grade,
         signals=analysis.signals,
         checks=analysis.checks,
+        actions=analysis.actions,
         market_data=analysis.market_data,
+        deposit_market=analysis.deposit_market,
     )
     await run_in_threadpool(get_history_store().save, address, analysis)
     return analysis
@@ -411,7 +413,9 @@ async def create_analysis_from_extractions(
         grade=analysis.grade,
         signals=analysis.signals,
         checks=analysis.checks,
+        actions=analysis.actions,
         market_data=analysis.market_data,
+        deposit_market=analysis.deposit_market,
     )
     await run_in_threadpool(get_history_store().save, payload.address, analysis)
     return analysis

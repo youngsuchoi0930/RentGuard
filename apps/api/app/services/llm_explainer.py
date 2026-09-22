@@ -8,7 +8,13 @@ import httpx
 from pydantic import BaseModel, Field, ValidationError
 
 from ..config import Settings, get_settings
-from ..schemas import AIExplanation, CheckItem, MarketDataState, RiskSignal
+from ..schemas import (
+    AIExplanation,
+    CheckItem,
+    DepositMarketState,
+    MarketDataState,
+    RiskSignal,
+)
 
 
 class _GeneratedExplanation(BaseModel):
@@ -26,7 +32,7 @@ _OUTPUT_SCHEMA = {
         },
         "caution": {
             "type": "string",
-            "description": "확인된 위험 신호가 왜 중요한지 설명한 한두 문장",
+            "description": "규칙 엔진의 행동 목록을 바탕으로 사용자가 지금 할 수 있는 확인 팁 한두 문장",
         },
         "limitation": {
             "type": "string",
@@ -46,12 +52,15 @@ _FORBIDDEN_CERTAINTY = (
     "확실합니다",
 )
 
-_SYSTEM_INSTRUCTION = """당신은 주택 임대차 문서 분석 결과를 쉬운 한국어로 풀어쓰는 설명 도우미입니다.
-판단과 점수는 이미 규칙 엔진이 확정했으므로 절대 새로 계산하거나 변경하지 마세요.
+_SYSTEM_INSTRUCTION = """당신은 주택 임대차 계약을 판단하는 심사자가 아니라, RentGuard가 확인한 정보를 쉽게 설명하는 조언 도우미입니다.
+판단과 점수는 규칙 엔진과 연결된 공공데이터가 이미 확정했으므로 절대 새로 계산하거나 변경하지 마세요.
 입력 JSON에 없는 사실, 수치, 금액, 인물, 주소, 법률 결론을 만들지 마세요.
 출력 문장에는 숫자, 금액, 백분율을 쓰지 마세요.
 안전을 보장하거나 계약 진행을 권하는 단정적 표현을 쓰지 마세요.
-위험 신호와 검증 상태의 의미, 그리고 분석의 한계만 차분하고 간결하게 설명하세요."""
+overview에서는 확인된 신호와 공공데이터 상태만 요약하세요.
+caution에서는 recommended_actions에 있는 행동만 쉬운 확인 팁으로 바꿔 말하고, 목록에 없는 조언을 새로 만들지 마세요.
+limitation에서는 확인하지 못한 데이터와 이 설명이 법률 판단이 아니라는 한계를 밝히세요.
+공공데이터가 unavailable 또는 needs_review이면 확인했다고 표현하지 마세요."""
 
 
 def _safe_payload(
@@ -59,24 +68,58 @@ def _safe_payload(
     grade: str,
     signals: Sequence[RiskSignal],
     checks: Sequence[CheckItem],
+    actions: Sequence[str],
     market_data: MarketDataState,
+    deposit_market: DepositMarketState,
 ) -> dict[str, object]:
     """Build the only data shape allowed to leave the RentGuard server.
 
     Raw documents, evidence snippets, names, addresses, and monetary values are
     deliberately absent. Keep this allowlist narrow when adding new fields.
     """
+    official_building = next(
+        (check for check in checks if check.label == "공식 건축물대장"),
+        None,
+    )
     return {
         "grade": grade,
-        "market_data_status": market_data.status,
+        "connected_data": [
+            {
+                "source": "건축HUB 공식 건축물대장",
+                "status": official_building.status if official_building else "needs_review",
+            },
+            {
+                "source": market_data.source or "국토교통부 매매 실거래가",
+                "status": market_data.status,
+            },
+            {
+                "source": deposit_market.source,
+                "status": deposit_market.status,
+                "range_result": (
+                    "above_expected_range"
+                    if deposit_market.exceeds_upper is True
+                    else "within_expected_range"
+                    if deposit_market.exceeds_upper is False
+                    else "not_determined"
+                ),
+            },
+        ],
         "signals": [
             {"id": signal.id, "severity": signal.severity, "title": signal.title}
             for signal in signals
         ],
         "checks": [
-            {"label": check.label, "status": check.status}
+            {
+                "label": check.label,
+                "status": check.status,
+                "comparisons": [
+                    {"label": comparison.label, "status": comparison.status}
+                    for comparison in check.comparisons
+                ],
+            }
             for check in checks
         ],
+        "recommended_actions": list(actions),
     }
 
 
@@ -106,7 +149,9 @@ async def generate_gemini_explanation(
     grade: str,
     signals: Sequence[RiskSignal],
     checks: Sequence[CheckItem],
+    actions: Sequence[str],
     market_data: MarketDataState,
+    deposit_market: DepositMarketState,
     settings: Settings | None = None,
     client: httpx.AsyncClient | None = None,
 ) -> AIExplanation:
@@ -118,7 +163,9 @@ async def generate_gemini_explanation(
         grade=grade,
         signals=signals,
         checks=checks,
+        actions=actions,
         market_data=market_data,
+        deposit_market=deposit_market,
     )
     request_body = {
         "systemInstruction": {"parts": [{"text": _SYSTEM_INSTRUCTION}]},
@@ -127,7 +174,7 @@ async def generate_gemini_explanation(
                 "role": "user",
                 "parts": [
                     {
-                        "text": "다음 비식별 분석 결과만 설명하세요.\n"
+                        "text": "다음 비식별 분석 결과와 연결 데이터 상태만 근거로 정보 기반 확인 팁을 작성하세요.\n"
                         + json.dumps(safe_input, ensure_ascii=False)
                     }
                 ],
@@ -171,7 +218,7 @@ async def generate_gemini_explanation(
             overview=generated.overview,
             caution=generated.caution,
             limitation=generated.limitation,
-            privacy_note="원본 문서·주소·이름·금액을 Gemini에 전송하지 않았습니다.",
+            privacy_note="Gemini는 판단에 관여하지 않으며 원본 문서·주소·이름·금액을 전송하지 않았습니다.",
         )
     except httpx.TimeoutException:
         return _unavailable(

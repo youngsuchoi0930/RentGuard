@@ -1346,16 +1346,16 @@ export default function HomePage() {
 
                   <article className={`ai-explanation-card ${analysis.ai_explanation.status !== "generated" ? "is-unavailable" : ""}`}>
                       <div className="ai-explanation-head">
-                        <div><Sparkles size={17} /><span>Gemini 쉬운 설명</span></div>
-                        <small>{analysis.ai_explanation.status === "generated" ? "개인정보 제외 후 생성" : "규칙 기반 결과 유지"}</small>
+                        <div><Sparkles size={17} /><span>Gemini 정보 기반 팁</span></div>
+                        <small>{analysis.ai_explanation.status === "generated" ? "공공데이터·규칙 결과만 설명" : "규칙 기반 결과 유지"}</small>
                       </div>
                       {analysis.ai_explanation.status === "generated" && analysis.ai_explanation.overview ? (
                         <>
-                          <h2>분석 결과를 쉽게 풀어봤어요</h2>
+                          <h2>확인된 정보를 바탕으로 팁을 정리했어요</h2>
                           <p>{analysis.ai_explanation.overview}</p>
                           <div className="ai-explanation-points">
-                            {analysis.ai_explanation.caution && <div><strong>왜 확인해야 하나요?</strong><span>{analysis.ai_explanation.caution}</span></div>}
-                            {analysis.ai_explanation.limitation && <div><strong>어디까지 참고해야 하나요?</strong><span>{analysis.ai_explanation.limitation}</span></div>}
+                            {analysis.ai_explanation.caution && <div><strong>지금 할 수 있는 확인 팁</strong><span>{analysis.ai_explanation.caution}</span></div>}
+                            {analysis.ai_explanation.limitation && <div><strong>이 설명의 한계</strong><span>{analysis.ai_explanation.limitation}</span></div>}
                           </div>
                           {analysis.ai_explanation.privacy_note && <small className="ai-privacy"><LockKeyhole size={13} /> {analysis.ai_explanation.privacy_note}</small>}
                         </>
