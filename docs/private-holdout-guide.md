@@ -17,6 +17,10 @@ local-fixtures/
     ...
 ```
 
+기존 비공개 원본 폴더를 바로 평가할 수 있도록 `registry-original.pdf`,
+`building-ledger-upright-private.pdf`, `building-ledger-original.pdf`,
+`lease-contract-template.pdf` 파일명도 자동으로 인식합니다.
+
 계약 전 사전점검 사례라면 `lease-contract.pdf`와 `expected.lease_contract`를
 생략할 수 있습니다. `expected.json`에는 사람이 원문을 확인한 값만 기록합니다.
 라벨을 작성하지 않은 필드는 평가에서 제외되며, 비어 있어야 하는 배열은 반드시
@@ -40,7 +44,10 @@ local-fixtures/
     "building_ledger": {
       "road_address": "문서의 도로명주소",
       "building_name": "건물명",
+      "unit": "203호",
+      "exclusive_area": 79.97,
       "main_use": "공동주택",
+      "approval_date": "2022-08-31",
       "is_illegal_building": false
     }
   }
@@ -54,6 +61,7 @@ local-fixtures/
 ```powershell
 apps\api\.venv\Scripts\python scripts\evaluate_private_holdout.py
 apps\api\.venv\Scripts\python scripts\evaluate_private_holdout.py --case case-001 --strict
+apps\api\.venv\Scripts\python scripts\evaluate_private_holdout.py --cases-dir C:\RentGuard-private-raw --strict
 ```
 
 결과는 기본적으로 Git에서 제외된

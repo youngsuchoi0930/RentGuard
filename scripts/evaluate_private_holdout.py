@@ -28,9 +28,13 @@ from app.services.registry_parser import extract_registry  # noqa: E402
 
 DEFAULT_CASES_DIR = ROOT / "local-fixtures"
 DOCUMENT_FILES = {
-    "registry": "registry.pdf",
-    "building_ledger": "building-ledger.pdf",
-    "lease_contract": "lease-contract.pdf",
+    "registry": ("registry.pdf", "registry-original.pdf"),
+    "building_ledger": (
+        "building-ledger.pdf",
+        "building-ledger-upright-private.pdf",
+        "building-ledger-original.pdf",
+    ),
+    "lease_contract": ("lease-contract.pdf", "lease-contract-template.pdf"),
 }
 ADDRESS_FIELDS = {
     "registry.road_address",
@@ -124,7 +128,18 @@ def _compare_section(
     for field, expected_value in expected.items():
         path = f"{section}.{field}"
         actual_value = actual.get(field)
-        exact_match = actual_value == expected_value
+        exact_actual = actual_value
+        if (
+            isinstance(expected_value, list)
+            and expected_value
+            and isinstance(expected_value[0], dict)
+            and isinstance(actual_value, list)
+        ):
+            exact_actual = [
+                _project_item(item, expected_value[0])
+                for item in actual_value
+            ]
+        exact_match = exact_actual == expected_value
         passed = _semantic_value(path, actual_value) == _semantic_value(path, expected_value)
         true_positive = false_positive = false_negative = 0
         if isinstance(expected_value, list):
@@ -183,13 +198,21 @@ def _actual_values(registry: Any, ledger: Any, contract: Any, bundle: Any) -> di
         "registry": {
             "owners": active_owners,
             "road_address": registry.property.road_address,
+            "building_name": registry.property.building_name,
+            "unit": registry.property.unit,
             "mortgages": active_mortgages,
             "active_right_types": active_right_types,
         },
         "building_ledger": {
+            "lot_address": ledger.property.lot_address,
             "road_address": ledger.property.road_address,
             "building_name": ledger.property.building_name,
+            "unit": ledger.property.unit,
+            "exclusive_area": ledger.property.exclusive_area,
             "main_use": ledger.property.main_use,
+            "structure": ledger.property.structure,
+            "households": ledger.property.households,
+            "approval_date": ledger.property.approval_date,
             "is_illegal_building": ledger.property.is_illegal_building,
         },
         "cross_checks": {
@@ -218,6 +241,14 @@ def _review_codes(extraction: Any | None) -> list[str]:
     return [item.code for item in extraction.needs_review] if extraction is not None else []
 
 
+def _document_path(case_dir: Path, document: str) -> Path:
+    candidates = DOCUMENT_FILES[document]
+    return next(
+        (case_dir / filename for filename in candidates if (case_dir / filename).is_file()),
+        case_dir / candidates[0],
+    )
+
+
 def _case_directories(cases_dir: Path, selected: set[str]) -> list[Path]:
     directories = sorted(
         path for path in cases_dir.iterdir()
@@ -237,9 +268,9 @@ def _evaluate_case(case_dir: Path, *, allow_ocr: bool) -> dict[str, Any]:
     metadata = json.loads((case_dir / "expected.json").read_text(encoding="utf-8"))
     expected = metadata["expected"]
     inputs = metadata["input"]
-    registry_path = case_dir / DOCUMENT_FILES["registry"]
-    ledger_path = case_dir / DOCUMENT_FILES["building_ledger"]
-    contract_path = case_dir / DOCUMENT_FILES["lease_contract"]
+    registry_path = _document_path(case_dir, "registry")
+    ledger_path = _document_path(case_dir, "building_ledger")
+    contract_path = _document_path(case_dir, "lease_contract")
     required = [registry_path, ledger_path]
     if "lease_contract" in expected:
         required.append(contract_path)

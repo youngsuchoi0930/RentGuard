@@ -6,7 +6,23 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-from scripts.evaluate_private_holdout import _actual_values, _compare_section, _summarize  # noqa: E402
+from scripts.evaluate_private_holdout import (  # noqa: E402
+    _actual_values,
+    _compare_section,
+    _document_path,
+    _summarize,
+)
+
+
+def test_private_holdout_accepts_private_raw_document_names(tmp_path):
+    registry = tmp_path / "registry-original.pdf"
+    ledger = tmp_path / "building-ledger-upright-private.pdf"
+    registry.write_bytes(b"registry")
+    ledger.write_bytes(b"ledger")
+
+    assert _document_path(tmp_path, "registry") == registry
+    assert _document_path(tmp_path, "building_ledger") == ledger
+    assert _document_path(tmp_path, "lease_contract").name == "lease-contract.pdf"
 
 
 def test_private_holdout_comparison_normalizes_addresses_and_counts_collection_errors():
@@ -43,6 +59,7 @@ def test_private_holdout_comparison_normalizes_addresses_and_counts_collection_e
     assert by_field["registry.road_address"]["passed"] is True
     assert by_field["registry.road_address"]["exact_match"] is False
     assert by_field["registry.mortgages"]["passed"] is True
+    assert by_field["registry.mortgages"]["exact_match"] is True
     assert by_field["registry.owners"]["passed"] is False
     assert by_field["registry.owners"]["true_positive"] == 1
     assert by_field["registry.owners"]["false_positive"] == 1
@@ -86,13 +103,23 @@ def test_private_holdout_captures_active_rights_and_precheck_statuses():
                 maximum_claim_amount=80_000_000,
             ),
         ],
-        property=SimpleNamespace(road_address="서울특별시 테스트구 신뢰로 59"),
+        property=SimpleNamespace(
+            road_address="서울특별시 테스트구 신뢰로 59",
+            building_name="테스트빌딩",
+            unit="203호",
+        ),
     )
     ledger = SimpleNamespace(
         property=SimpleNamespace(
             road_address="서울특별시 테스트구 신뢰로 59",
+            lot_address="서울특별시 테스트구 신뢰동 123",
             building_name="테스트빌딩",
+            unit="203호",
+            exclusive_area=79.97,
             main_use="아파트",
+            structure="철근콘크리트구조",
+            households=None,
+            approval_date=None,
             is_illegal_building=False,
         )
     )
@@ -106,5 +133,7 @@ def test_private_holdout_captures_active_rights_and_precheck_statuses():
 
     assert actual["registry"]["active_right_types"] == ["trust"]
     assert actual["registry"]["mortgages"] == []
+    assert actual["building_ledger"]["unit"] == "203호"
+    assert actual["building_ledger"]["exclusive_area"] == 79.97
     assert actual["cross_checks"]["registry_owner_found"] is True
     assert actual["cross_checks"]["illegal_building_clear"] is True
