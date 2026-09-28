@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint, create_engine, func, inspect, select
+from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint, create_engine, delete, func, inspect, select
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
@@ -33,6 +33,7 @@ class Base(DeclarativeBase):
 
 MIN_APPROVED_EXPORT_ROWS = 20
 MIN_APPROVED_EXPORT_ANALYSES = 5
+ALLOWED_RETENTION_DAYS = {7, 30, 90}
 AMOUNT_FEEDBACK_TARGETS = {
     "estimated_value",
     "mortgage_amount",
@@ -58,6 +59,9 @@ class AnalysisRecord(Base):
 
     analysis_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     masked_address: Mapped[str] = mapped_column(String(120))
     mode: Mapped[str] = mapped_column(String(24))
     status: Mapped[str] = mapped_column(String(24))
@@ -128,30 +132,56 @@ class AnalysisHistoryStore:
 
     def initialize(self) -> None:
         Base.metadata.create_all(self.engine)
-        columns = {
+        feedback_columns = {
             column["name"]
             for column in inspect(self.engine).get_columns("analysis_feedback")
         }
+        history_columns = {
+            column["name"]
+            for column in inspect(self.engine).get_columns("analysis_history")
+        }
         with self.engine.begin() as connection:
-            if "review_status" not in columns:
+            if "review_status" not in feedback_columns:
                 connection.exec_driver_sql(
                     "ALTER TABLE analysis_feedback "
                     "ADD COLUMN review_status VARCHAR(16) NOT NULL DEFAULT 'pending'"
                 )
-            if "reviewed_at" not in columns:
+            if "reviewed_at" not in feedback_columns:
                 connection.exec_driver_sql(
                     "ALTER TABLE analysis_feedback ADD COLUMN reviewed_at DATETIME"
                 )
+            if "expires_at" not in history_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE analysis_history ADD COLUMN expires_at DATETIME"
+                )
+                connection.exec_driver_sql(
+                    "UPDATE analysis_history "
+                    "SET expires_at = datetime('now', '+30 days') "
+                    "WHERE expires_at IS NULL"
+                )
+        self._purge_expired()
 
-    def health(self) -> dict[str, str]:
+    def health(self) -> dict[str, str | int]:
         self.initialize()
         with self.engine.connect() as connection:
             connection.exec_driver_sql("SELECT 1")
-        return {"status": "ready", "engine": "sqlite"}
+        return {
+            "status": "ready",
+            "engine": "sqlite",
+            "default_retention_days": 30,
+        }
 
-    def save(self, address: str, analysis: AnalysisResponse) -> AnalysisHistoryDetail:
+    def save(
+        self,
+        address: str,
+        analysis: AnalysisResponse,
+        retention_days: int = 30,
+    ) -> AnalysisHistoryDetail:
+        if retention_days not in ALLOWED_RETENTION_DAYS:
+            raise ValueError("보관 기간은 7일, 30일, 90일 중 하나여야 합니다.")
         self.initialize()
         created_at = datetime.now(timezone.utc)
+        expires_at = created_at + timedelta(days=retention_days)
         masked_address = mask_address(address)
         private_values = tuple(
             value
@@ -215,6 +245,7 @@ class AnalysisHistoryStore:
         detail = AnalysisHistoryDetail(
             analysis_id=analysis.analysis_id,
             created_at=created_at,
+            expires_at=expires_at,
             masked_address=masked_address,
             mode=analysis.mode,
             status=analysis.status,
@@ -244,6 +275,7 @@ class AnalysisHistoryStore:
         record = AnalysisRecord(
             analysis_id=detail.analysis_id,
             created_at=detail.created_at,
+            expires_at=detail.expires_at,
             masked_address=detail.masked_address,
             mode=detail.mode,
             status=detail.status,
@@ -265,6 +297,7 @@ class AnalysisHistoryStore:
         return AnalysisHistorySummary(
             analysis_id=record.analysis_id,
             created_at=_utc(record.created_at),
+            expires_at=_utc(record.expires_at) if record.expires_at else None,
             masked_address=record.masked_address,
             mode=record.mode,
             status=record.status,
@@ -298,7 +331,43 @@ class AnalysisHistoryStore:
             record = session.get(AnalysisRecord, analysis_id)
             if record is None:
                 return None
-            return AnalysisHistoryDetail.model_validate_json(record.payload_json)
+            detail = AnalysisHistoryDetail.model_validate_json(record.payload_json)
+            return detail.model_copy(
+                update={
+                    "expires_at": _utc(record.expires_at)
+                    if record.expires_at
+                    else None
+                }
+            )
+
+    def _purge_expired(self, now: datetime | None = None) -> int:
+        cutoff = now or datetime.now(timezone.utc)
+        with self.sessions.begin() as session:
+            expired_ids = list(
+                session.scalars(
+                    select(AnalysisRecord.analysis_id).where(
+                        AnalysisRecord.expires_at.is_not(None),
+                        AnalysisRecord.expires_at <= cutoff,
+                    )
+                ).all()
+            )
+            if not expired_ids:
+                return 0
+            session.execute(
+                delete(AnalysisFeedbackRecord).where(
+                    AnalysisFeedbackRecord.analysis_id.in_(expired_ids)
+                )
+            )
+            session.execute(
+                delete(AnalysisRecord).where(
+                    AnalysisRecord.analysis_id.in_(expired_ids)
+                )
+            )
+            return len(expired_ids)
+
+    def purge_expired(self, now: datetime | None = None) -> int:
+        self.initialize()
+        return self._purge_expired(now)
 
     @staticmethod
     def _feedback_quality(record: AnalysisFeedbackRecord) -> list[str]:
@@ -597,6 +666,14 @@ class AnalysisHistoryStore:
                 session.delete(feedback)
             session.delete(record)
         return True
+
+    def delete_all(self) -> int:
+        self.initialize()
+        with self.sessions.begin() as session:
+            count = session.scalar(select(func.count()).select_from(AnalysisRecord)) or 0
+            session.execute(delete(AnalysisFeedbackRecord))
+            session.execute(delete(AnalysisRecord))
+        return count
 
 
 @lru_cache(maxsize=4)

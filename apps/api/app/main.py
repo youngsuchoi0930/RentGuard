@@ -27,6 +27,7 @@ from .schemas import (
     AnalysisFeedbackReviewUpdate,
     AnalysisFromExtractionsRequest,
     AnalysisHistoryDetail,
+    AnalysisHistoryDeleteResult,
     AnalysisHistoryList,
     AnalysisResponse,
 )
@@ -106,6 +107,14 @@ def list_analysis_history(
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> AnalysisHistoryList:
     return get_history_store().list(limit=limit, offset=offset)
+
+
+@app.delete(
+    "/api/v1/analysis-history",
+    response_model=AnalysisHistoryDeleteResult,
+)
+def delete_all_analysis_history() -> AnalysisHistoryDeleteResult:
+    return AnalysisHistoryDeleteResult(deleted=get_history_store().delete_all())
 
 
 @app.get(
@@ -327,6 +336,8 @@ async def create_analysis(
     registry: Annotated[UploadFile, File(description="등기사항증명서 PDF")],
     building_ledger: Annotated[UploadFile, File(description="건축물대장 PDF")],
     analysis_mode: Annotated[Literal["precheck", "contract_review"], Form()] = "contract_review",
+    save_history: Annotated[bool, Form()] = False,
+    retention_days: Annotated[Literal[7, 30, 90], Form()] = 30,
     lease_contract: Annotated[
         UploadFile | None,
         File(description="계약서 교차검증 모드에서 필요한 주택임대차계약서 PDF"),
@@ -375,7 +386,15 @@ async def create_analysis(
         market_data=analysis.market_data,
         deposit_market=analysis.deposit_market,
     )
-    await run_in_threadpool(get_history_store().save, address, analysis)
+    if save_history:
+        stored = await run_in_threadpool(
+            get_history_store().save,
+            address,
+            analysis,
+            retention_days,
+        )
+        analysis.history_saved = True
+        analysis.history_expires_at = stored.expires_at
     return analysis
 
 
@@ -422,5 +441,13 @@ async def create_analysis_from_extractions(
         market_data=analysis.market_data,
         deposit_market=analysis.deposit_market,
     )
-    await run_in_threadpool(get_history_store().save, payload.address, analysis)
+    if payload.save_history:
+        stored = await run_in_threadpool(
+            get_history_store().save,
+            payload.address,
+            analysis,
+            payload.retention_days,
+        )
+        analysis.history_saved = True
+        analysis.history_expires_at = stored.expires_at
     return analysis

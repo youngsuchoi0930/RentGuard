@@ -82,7 +82,7 @@ docker compose up --build
 
 API 컨테이너는 모델 파일과 manifest의 SHA-256을 확인하고 `deposit-quantile-model-2.0`을 정상적으로 불러온 뒤에만 healthy 상태가 됩니다. `GET http://localhost:8000/health`의 `deposit_model`에서 모델 버전, 학습 기준월과 무결성 상태를 확인할 수 있습니다. 운영 컨테이너는 `REQUIRE_DEPOSIT_MODEL=true`이므로 모델이 누락되거나 손상되면 시작에 실패합니다.
 
-분석 기록은 Docker named volume `rentguard-data`의 SQLite DB에 저장되어 컨테이너를 다시 만들어도 유지됩니다. 전체 주소는 시·구까지만 남기고, 소유자·임대인 이름과 PDF·OCR 원문·문서 증거는 저장하지 않습니다.
+분석 기록은 사용자가 저장에 동의한 경우에만 Docker named volume `rentguard-data`의 SQLite DB에 저장됩니다. 7일·30일·90일 중 보관 기간을 선택할 수 있고 만료된 기록과 연결 피드백은 자동 삭제됩니다. 전체 주소는 시·구까지만 남기고, 소유자·임대인 이름과 PDF·OCR 원문·문서 증거는 저장하지 않습니다. 기록 화면에서는 개별 기록 또는 전체 기록을 즉시 삭제할 수 있습니다.
 피드백 역시 분석 ID, 대상 항목, 판정, 숫자 수정값만 저장하며 자유 입력 문장과 원문은 받지 않습니다. 결과 화면과 분석 기록 상세 화면에서 같은 피드백을 확인하거나 수정할 수 있습니다.
 금액 오탐은 실제 수정값이 있고 원래 값과 달라야 승인할 수 있습니다. 학습용 내보내기는 품질 검수를 통과한 승인 피드백 20건과 서로 다른 분석 5건 이상이 모였을 때만 활성화됩니다.
 
@@ -124,6 +124,7 @@ apps\api\.venv\Scripts\python scripts\evaluate_registry.py --pdf output\pdf\rent
 | `POST /api/v1/analyses/from-extractions` | 사용자가 확인·수정한 추출값으로 공공데이터 대조 및 위험 분석 |
 | `POST /api/v1/ml/dataset-rows/preview` | 분석 결과를 저장 없이 비식별 ML 학습 행으로 변환 |
 | `GET /api/v1/analysis-history` | 개인정보를 제거한 분석 기록 목록 |
+| `DELETE /api/v1/analysis-history` | 저장된 분석 기록과 연결 피드백 전체 삭제 |
 | `GET /api/v1/analysis-history/{analysis_id}` | 저장된 분석 결과 상세 조회 |
 | `DELETE /api/v1/analysis-history/{analysis_id}` | 분석 기록 삭제 |
 | `GET /api/v1/analysis-history/{analysis_id}/feedback` | 분석별 비식별 피드백 조회 |
@@ -132,7 +133,7 @@ apps\api\.venv\Scripts\python scripts\evaluate_registry.py --pdf output\pdf\rent
 | `PATCH /api/v1/feedback/{feedback_id}/review` | 피드백을 검수 대기·승인·제외로 분류 |
 | `GET /api/v1/feedback/export?format=csv` | 승인된 피드백만 학습용 CSV·JSON으로 내보내기 |
 
-`POST /api/v1/analyses`의 `analysis_mode`는 `precheck` 또는 `contract_review`입니다. `precheck`에는 등기부등본과 건축물대장만 필요하며, `contract_review`에는 임대차계약서도 필요합니다. 주소정보에서 법정동 코드와 지번을 확인하고, 건축HUB 표제부 및 최근 12개월 연립·다세대 매매 실거래가를 조회합니다. 같은 지번 또는 같은 법정동의 유사 전용면적 거래만 비교하고, 중간가격과 함께 비교 거래의 25~75백분위 예상 범위를 반환합니다. 일부 조회 월의 실거래 API만 실패하면 성공한 월의 거래를 사용하고 누락 월 수를 결과 메시지에 표시합니다. 모든 월이 실패하거나 근거가 부족하면 `estimated_value`를 `null`, `market_data.status`를 `unavailable`로 반환하며 시세 대비 보증금·근저당 비율을 계산하지 않습니다.
+`POST /api/v1/analyses`의 `analysis_mode`는 `precheck` 또는 `contract_review`입니다. `precheck`에는 등기부등본과 건축물대장만 필요하며, `contract_review`에는 임대차계약서도 필요합니다. `save_history=true`인 경우에만 비식별 결과를 저장하며 `retention_days`는 `7`, `30`, `90` 중 하나입니다. 주소정보에서 법정동 코드와 지번을 확인하고, 건축HUB 표제부 및 최근 12개월 연립·다세대 매매 실거래가를 조회합니다. 같은 지번 또는 같은 법정동의 유사 전용면적 거래만 비교하고, 중간가격과 함께 비교 거래의 25~75백분위 예상 범위를 반환합니다. 일부 조회 월의 실거래 API만 실패하면 성공한 월의 거래를 사용하고 누락 월 수를 결과 메시지에 표시합니다. 모든 월이 실패하거나 근거가 부족하면 `estimated_value`를 `null`, `market_data.status`를 `unavailable`로 반환하며 시세 대비 보증금·근저당 비율을 계산하지 않습니다.
 
 입력 주소와 건축HUB 공식 도로명주소의 대조 결과는 업로드 문서 OCR 주소 대조와 별도 항목으로 표시합니다. 위반건축물 여부는 건축HUB 응답에 관련 플래그가 있을 때 공식 값을 우선 사용하고, 현재 표제부 API처럼 해당 필드가 없으면 업로드한 건축물대장 원문 확인이 필요하다고 명시합니다.
 

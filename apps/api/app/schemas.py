@@ -139,6 +139,8 @@ class AnalysisResponse(BaseModel):
     documents: DocumentBundleExtraction
     corrections: list[UserCorrection] = Field(default_factory=list)
     disclaimer: str
+    history_saved: bool = False
+    history_expires_at: datetime | None = None
 
 
 class AnalysisFromExtractionsRequest(BaseModel):
@@ -148,11 +150,14 @@ class AnalysisFromExtractionsRequest(BaseModel):
     monthly_rent: int = Field(ge=0)
     documents: DocumentBundleExtraction
     corrections: list[UserCorrection] = Field(default_factory=list, max_length=50)
+    save_history: bool = False
+    retention_days: Literal[7, 30, 90] = 30
 
 
 class AnalysisHistorySummary(BaseModel):
     analysis_id: str
     created_at: datetime
+    expires_at: datetime | None = None
     masked_address: str
     mode: Literal["precheck", "contract_review"]
     status: Literal["complete", "partial", "needs_review"]
@@ -179,6 +184,10 @@ class AnalysisHistoryDetail(AnalysisHistorySummary):
 class AnalysisHistoryList(BaseModel):
     items: list[AnalysisHistorySummary]
     total: int = Field(ge=0)
+
+
+class AnalysisHistoryDeleteResult(BaseModel):
+    deleted: int = Field(ge=0)
 
 
 FeedbackTarget = Literal[

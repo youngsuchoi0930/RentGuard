@@ -36,6 +36,7 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
 type Stage = "form" | "extracting" | "review" | "analyzing" | "result" | "history" | "feedback";
 type AnalysisMode = "precheck" | "contract_review";
+type RetentionDays = 7 | 30 | 90;
 type DocKey = "registry" | "building_ledger" | "lease_contract";
 type RegistryRightType = "mortgage" | "seizure" | "provisional_seizure" | "trust" | "leasehold" | "tenant_registration" | "auction" | "other";
 
@@ -211,11 +212,14 @@ type Analysis = {
   documents: DocumentBundle;
   corrections: UserCorrection[];
   disclaimer: string;
+  history_saved: boolean;
+  history_expires_at: string | null;
 };
 
 type AnalysisHistorySummary = {
   analysis_id: string;
   created_at: string;
+  expires_at: string | null;
   masked_address: string;
   mode: AnalysisMode;
   status: "complete" | "partial" | "needs_review";
@@ -599,6 +603,8 @@ export default function HomePage() {
   const [address, setAddress] = useState("");
   const [deposit, setDeposit] = useState("");
   const [monthlyRent, setMonthlyRent] = useState("");
+  const [saveHistory, setSaveHistory] = useState(false);
+  const [retentionDays, setRetentionDays] = useState<RetentionDays>(30);
   const [files, setFiles] = useState<Partial<Record<DocKey, File>>>({});
   const [progress, setProgress] = useState(0);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
@@ -767,6 +773,8 @@ export default function HomePage() {
           monthly_rent: parseMoney(monthlyRent),
           documents,
           corrections,
+          save_history: saveHistory,
+          retention_days: retentionDays,
         }),
       });
       if (!response.ok) {
@@ -847,6 +855,27 @@ export default function HomePage() {
       await loadHistory();
     } catch (cause) {
       setHistoryError(requestFailureMessage(cause, "분석 기록을 삭제하지 못했습니다."));
+      setHistoryLoading(false);
+    }
+  };
+
+  const deleteAllHistory = async () => {
+    if (!window.confirm(`저장된 분석 기록 ${historyTotal}건과 연결된 피드백을 모두 삭제할까요? 삭제 후 복구할 수 없습니다.`)) return;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const response = await fetch(`${apiBase}/api/v1/analysis-history`, { method: "DELETE" });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(payload?.detail || "분석 기록 전체 삭제에 실패했습니다.");
+      }
+      setHistoryItems([]);
+      setHistoryTotal(0);
+      setSelectedHistory(null);
+    } catch (cause) {
+      setHistoryError(requestFailureMessage(cause, "분석 기록 전체 삭제에 실패했습니다."));
+    } finally {
       setHistoryLoading(false);
     }
   };
@@ -988,9 +1017,12 @@ export default function HomePage() {
                 <div>
                   <span><CalendarClock size={16} /> 분석 기록</span>
                   <h1>이전에 확인한 계약</h1>
-                  <p>PDF 원본과 이름은 저장하지 않고, 마스킹된 주소와 분석 결과만 보관합니다.</p>
+                  <p>저장에 동의한 비식별 결과만 선택한 기간 동안 보관하고 만료 시 자동 삭제합니다.</p>
                 </div>
-                <button className="outline-button" onClick={loadHistory} disabled={historyLoading}><RefreshCw className={historyLoading ? "spin" : ""} size={16} /> 새로고침</button>
+                <div className="history-header-actions">
+                  <button className="outline-button danger" onClick={deleteAllHistory} disabled={historyLoading || historyTotal === 0}><Trash2 size={16} /> 전체 삭제</button>
+                  <button className="outline-button" onClick={loadHistory} disabled={historyLoading}><RefreshCw className={historyLoading ? "spin" : ""} size={16} /> 새로고침</button>
+                </div>
               </div>
 
               {historyError && <div className="error-banner" role="alert"><AlertTriangle size={18} />{historyError}</div>}
@@ -1008,7 +1040,7 @@ export default function HomePage() {
                         <div className={`history-item ${selectedHistory?.analysis_id === item.analysis_id ? "active" : ""}`} key={item.analysis_id}>
                           <button className="history-item-main" onClick={() => openHistoryDetail(item.analysis_id)}>
                             <span className={`history-score grade-${item.grade}`}>{item.score}</span>
-                            <span className="history-item-copy"><strong>{item.masked_address}</strong><small>{item.mode === "precheck" ? "사전점검" : "계약서 교차검증"} · {formatDateTime(item.created_at)}</small><em>{item.headline}</em></span>
+                            <span className="history-item-copy"><strong>{item.masked_address}</strong><small>{item.mode === "precheck" ? "사전점검" : "계약서 교차검증"} · {formatDateTime(item.created_at)}</small><em>{item.headline}</em>{item.expires_at && <small className="history-expiry">{formatDateTime(item.expires_at)} 자동 삭제</small>}</span>
                           </button>
                           <button className="history-delete" onClick={() => deleteHistory(item)} aria-label={`${item.masked_address} 기록 삭제`}><Trash2 size={15} /></button>
                         </div>
@@ -1020,7 +1052,7 @@ export default function HomePage() {
                     {selectedHistory ? (
                       <>
                         <div className="history-detail-head">
-                          <div><span>{selectedHistory.mode === "precheck" ? "사전점검" : "계약서 교차검증"}</span><h2>{selectedHistory.masked_address}</h2><small>{formatDateTime(selectedHistory.created_at)}</small></div>
+                          <div><span>{selectedHistory.mode === "precheck" ? "사전점검" : "계약서 교차검증"}</span><h2>{selectedHistory.masked_address}</h2><small>{formatDateTime(selectedHistory.created_at)}{selectedHistory.expires_at ? ` · ${formatDateTime(selectedHistory.expires_at)} 자동 삭제` : ""}</small></div>
                           <strong>{selectedHistory.score}<em>점</em></strong>
                         </div>
                         <h3>{selectedHistory.headline}</h3>
@@ -1210,8 +1242,30 @@ export default function HomePage() {
                 </div>
               </div>
 
+              <article className={`storage-choice ${saveHistory ? "active" : ""}`}>
+                <label className="storage-toggle">
+                  <input type="checkbox" checked={saveHistory} onChange={(event) => setSaveHistory(event.target.checked)} />
+                  <span className="storage-check">{saveHistory && <Check size={14} />}</span>
+                  <span className="storage-copy">
+                    <strong>개인정보를 제외한 분석 기록 저장</strong>
+                    <small>피드백을 남기거나 나중에 결과를 다시 보려면 선택해주세요.</small>
+                  </span>
+                </label>
+                {saveHistory && (
+                  <label className="retention-select">
+                    <span>자동 삭제 시점</span>
+                    <select value={retentionDays} onChange={(event) => setRetentionDays(Number(event.target.value) as RetentionDays)}>
+                      <option value={7}>7일 후</option>
+                      <option value={30}>30일 후</option>
+                      <option value={90}>90일 후</option>
+                    </select>
+                  </label>
+                )}
+                <p><LockKeyhole size={14} /> PDF·OCR 원문·이름·상세주소는 저장하지 않으며, 기간이 지나면 결과와 피드백을 함께 삭제합니다.</p>
+              </article>
+
               <div className="form-footer">
-                <div><ShieldCheck size={18} /><span>원본 파일은 분석 후 즉시 삭제됩니다.</span></div>
+                <div><ShieldCheck size={18} /><span>원본 파일은 분석 후 즉시 삭제되며, 아래에서 동의한 경우에만 결과를 보관합니다.</span></div>
                 <button className="primary-button" disabled={!canAnalyze} onClick={runExtraction}>문서에서 값 추출하기 <ArrowRight size={19} /></button>
               </div>
             </section>
@@ -1444,16 +1498,23 @@ export default function HomePage() {
                     </div>
                   </article>
 
-                  <FeedbackPanel
-                    key={analysis.analysis_id}
-                    analysisId={analysis.analysis_id}
-                    values={{
-                      estimated_value: analysis.facts.estimated_value,
-                      mortgage_amount: analysis.facts.mortgage_amount,
-                      deposit: analysis.facts.deposit,
-                      monthly_rent: analysis.facts.monthly_rent,
-                    }}
-                  />
+                  {analysis.history_saved ? (
+                    <FeedbackPanel
+                      key={analysis.analysis_id}
+                      analysisId={analysis.analysis_id}
+                      values={{
+                        estimated_value: analysis.facts.estimated_value,
+                        mortgage_amount: analysis.facts.mortgage_amount,
+                        deposit: analysis.facts.deposit,
+                        monthly_rent: analysis.facts.monthly_rent,
+                      }}
+                    />
+                  ) : (
+                    <article className="feedback-disabled-note">
+                      <LockKeyhole size={20} />
+                      <div><strong>이번 결과는 저장하지 않았어요</strong><p>기록 저장에 동의한 분석에서만 결과 피드백을 남길 수 있습니다.</p></div>
+                    </article>
+                  )}
                 </div>
 
                 <aside className="report-side">

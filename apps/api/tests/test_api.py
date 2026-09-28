@@ -113,6 +113,8 @@ def test_analysis_endpoint_returns_explainable_result(monkeypatch):
         for check in result["documents"]["cross_checks"]
     )
     assert len(result["actions"]) == 3
+    assert result["history_saved"] is False
+    assert result["history_expires_at"] is None
 
 
 def test_contract_review_requires_all_three_documents():
@@ -196,7 +198,10 @@ def test_precheck_accepts_registry_and_building_ledger_without_contract(monkeypa
     assert all("계약서" not in check["label"] for check in result["documents"]["cross_checks"])
 
 
-def test_reviewed_extractions_apply_corrections_and_keep_page_evidence(monkeypatch):
+def test_reviewed_extractions_apply_corrections_and_keep_page_evidence(
+    monkeypatch,
+    isolated_history_store,
+):
     from pathlib import Path
 
     from app.schemas import AIExplanation
@@ -266,6 +271,28 @@ def test_reviewed_extractions_apply_corrections_and_keep_page_evidence(monkeypat
     assert owner_check["sources"][0]["corrected_value"] == "수정소유자"
     address_check = next(check for check in result["checks"] if check["label"] == "입력 주소와 두 문서")
     assert len(address_check["sources"]) >= 2
+    assert result["history_saved"] is False
+    assert isolated_history_store.list().total == 0
+
+    saved_response = client.post(
+        "/api/v1/analyses/from-extractions",
+        json={
+            "mode": "precheck",
+            "address": "서울특별시 강서구 화곡로 123",
+            "deposit": 30000000,
+            "monthly_rent": 1300000,
+            "documents": documents,
+            "corrections": [],
+            "save_history": True,
+            "retention_days": 7,
+        },
+    )
+
+    assert saved_response.status_code == 200
+    payload = saved_response.json()
+    assert payload["history_saved"] is True
+    assert payload["history_expires_at"] is not None
+    assert isolated_history_store.list().total == 1
 
 
 def test_address_search_endpoint_returns_safe_public_fields(monkeypatch):

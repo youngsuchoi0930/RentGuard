@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -103,6 +104,40 @@ def test_store_lists_newest_and_deletes_record(tmp_path):
     store.engine.dispose()
 
 
+def test_store_sets_retention_and_purges_history_with_feedback(tmp_path):
+    store = AnalysisHistoryStore(tmp_path / "history.db")
+    analysis = _analysis()
+    stored = store.save(
+        "서울특별시 강서구 화곡로 123",
+        analysis,
+        retention_days=7,
+    )
+    store.save_feedback(
+        analysis.analysis_id,
+        AnalysisFeedbackCreate(target="overall", verdict="correct"),
+    )
+
+    assert stored.expires_at is not None
+    assert timedelta(days=6, hours=23) < stored.expires_at - stored.created_at
+    assert store.purge_expired(stored.expires_at + timedelta(seconds=1)) == 1
+    assert store.get(analysis.analysis_id) is None
+    with store.sessions() as session:
+        assert session.query(AnalysisFeedbackRecord).count() == 0
+    store.engine.dispose()
+
+
+def test_store_rejects_unsupported_retention_period(tmp_path):
+    store = AnalysisHistoryStore(tmp_path / "history.db")
+
+    try:
+        store.save("서울특별시 강서구 화곡로 123", _analysis(), retention_days=365)
+    except ValueError as exc:
+        assert "7일, 30일, 90일" in str(exc)
+    else:
+        raise AssertionError("지원하지 않는 보관 기간을 거부해야 합니다.")
+    store.engine.dispose()
+
+
 def test_history_api_lists_opens_and_deletes(isolated_history_store):
     analysis = _analysis()
     isolated_history_store.save("서울특별시 강서구 화곡로 123", analysis)
@@ -118,6 +153,26 @@ def test_history_api_lists_opens_and_deletes(isolated_history_store):
     assert detail.json()["facts"]["owner"] is None
     assert deleted.status_code == 204
     assert missing.status_code == 404
+
+
+def test_history_api_deletes_all_records_and_feedback(isolated_history_store):
+    first = _analysis()
+    second = _analysis()
+    isolated_history_store.save("서울특별시 강서구 화곡로 123", first)
+    isolated_history_store.save("서울특별시 강서구 화곡로 125", second)
+    isolated_history_store.save_feedback(
+        first.analysis_id,
+        AnalysisFeedbackCreate(target="overall", verdict="correct"),
+    )
+
+    deleted = client.delete("/api/v1/analysis-history")
+    listing = client.get("/api/v1/analysis-history")
+
+    assert deleted.status_code == 200
+    assert deleted.json() == {"deleted": 2}
+    assert listing.json()["total"] == 0
+    with isolated_history_store.sessions() as session:
+        assert session.query(AnalysisFeedbackRecord).count() == 0
 
 
 def test_feedback_is_upserted_without_free_text_or_document_content(tmp_path):
