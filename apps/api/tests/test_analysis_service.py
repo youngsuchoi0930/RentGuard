@@ -228,3 +228,87 @@ def test_official_building_area_mismatch_is_visible_and_requires_review():
     assert "전유면적" in official_ledger.detail
     assert official_ledger.next_step is not None
     assert analysis.status == "needs_review"
+
+
+def test_building_hub_outage_does_not_change_document_or_market_calculations():
+    root = Path(__file__).resolve().parents[3]
+    fixtures = root / "output" / "pdf" / "rentguard-fixtures"
+    registry = extract_registry((fixtures / "registry_risky_digital.pdf").read_bytes())
+    ledger = extract_building_ledger((fixtures / "building_ledger_risky.pdf").read_bytes())
+    ledger.property.is_illegal_building = False
+    shared_market = MarketEstimate(
+        status="available",
+        estimated_value=220_000_000,
+        estimated_value_low=200_000_000,
+        estimated_value_high=240_000_000,
+        transaction_count=8,
+        volatility=.05,
+        message="동일한 실거래가 스냅샷",
+        method="테스트 중간가격",
+        as_of="202608",
+    )
+
+    available = build_analysis(
+        mode="precheck",
+        address="서울특별시 강서구 화곡로 123",
+        deposit=30_000_000,
+        monthly_rent=1_300_000,
+        registry=registry,
+        building_ledger=ledger,
+        lease_contract=None,
+        public_data=PublicDataResult(
+            address=None,
+            building=OfficialBuilding(
+                status="available",
+                address="서울특별시 강서구 화곡로 123",
+                main_use=ledger.property.main_use,
+                approval_date=ledger.property.approval_date,
+                exclusive_area=ledger.property.exclusive_area,
+                is_illegal_building=False,
+                message="건축HUB 공식 표제부를 확인했습니다.",
+            ),
+            market=shared_market,
+        ),
+    )
+    unavailable = build_analysis(
+        mode="precheck",
+        address="서울특별시 강서구 화곡로 123",
+        deposit=30_000_000,
+        monthly_rent=1_300_000,
+        registry=registry,
+        building_ledger=ledger,
+        lease_contract=None,
+        public_data=PublicDataResult(
+            address=None,
+            building=OfficialBuilding(
+                status="unavailable",
+                message="건축HUB 표제부 응답 시간이 초과되었습니다.",
+            ),
+            market=shared_market,
+        ),
+    )
+
+    invariant_fields = (
+        "owner",
+        "mortgage_amount",
+        "deposit",
+        "monthly_rent",
+        "estimated_value",
+        "estimated_value_low",
+        "estimated_value_high",
+    )
+    assert {
+        field: getattr(available.facts, field) for field in invariant_fields
+    } == {
+        field: getattr(unavailable.facts, field) for field in invariant_fields
+    }
+    assert available.score == unavailable.score
+    assert {signal.id for signal in available.signals} == {
+        signal.id for signal in unavailable.signals
+    }
+    assert available.market_data == unavailable.market_data
+    outage_check = next(
+        check for check in unavailable.checks if check.label == "공식 건축물대장"
+    )
+    assert outage_check.status == "needs_review"
+    assert "응답 시간이 초과" in outage_check.detail

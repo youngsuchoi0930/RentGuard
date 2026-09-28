@@ -16,7 +16,7 @@
 
 LLM은 최종 설명 계층에만 연결하도록 설계하며, 위험 판단은 재현 가능한 Rule/ML 계층에서 수행합니다.
 
-Gemini 설명 기능은 저장소 루트의 `.env`에 `GEMINI_API_KEY`를 설정하면 활성화됩니다. 기존 로컬 설정과의 호환을 위해 `gemini_key`도 인식합니다. 모델 기본값은 무료 등급을 지원하는 `gemini-3.5-flash-lite`이며 `GEMINI_MODEL`로 변경할 수 있습니다. Gemini에는 PDF 원문, 주소, 이름, 금액, 증거 원문을 보내지 않고 위험 신호 범주와 검증 상태만 전송합니다. 키가 없거나 호출·검증에 실패하면 규칙 기반 결과만 반환합니다.
+Gemini 설명 기능은 저장소 루트의 `.env`에 `GEMINI_API_KEY`를 설정하면 활성화됩니다. 기존 로컬 설정과의 호환을 위해 `gemini_key`도 인식합니다. 모델 기본값은 무료 등급을 지원하는 `gemini-3.5-flash-lite`이며 `GEMINI_MODEL`로 변경할 수 있습니다. Gemini에는 PDF 원문, 주소, 이름, 금액, 증거 원문을 보내지 않고 위험 신호 범주와 검증 상태만 전송합니다. 서버는 위험 신호에 맞는 HUG·국토교통부·정부24 공식 안내를 결정적으로 선택하고, Gemini가 해당 요약과 규칙 엔진의 행동 목록 범위 안에서만 팁을 작성하도록 제한합니다. 키가 없거나 호출·검증에 실패해도 규칙 기반 결과와 공식 참고 링크는 반환합니다.
 
 주소 및 공공데이터 연동은 `.env`의 `JUSO_CONFIRM_KEY`와 `DATA_GO_KR_SERVICE_KEY`를 사용합니다. 공공데이터포털에서는 연립·다세대 매매 실거래가와 건축HUB 건축물대장정보 서비스에 각각 활용신청해야 합니다. 서비스키는 브라우저로 전달하지 않고 FastAPI 서버에서만 사용합니다.
 
@@ -130,7 +130,7 @@ apps\api\.venv\Scripts\python scripts\evaluate_registry.py --pdf output\pdf\rent
 | `PATCH /api/v1/feedback/{feedback_id}/review` | 피드백을 검수 대기·승인·제외로 분류 |
 | `GET /api/v1/feedback/export?format=csv` | 승인된 피드백만 학습용 CSV·JSON으로 내보내기 |
 
-`POST /api/v1/analyses`의 `analysis_mode`는 `precheck` 또는 `contract_review`입니다. `precheck`에는 등기부등본과 건축물대장만 필요하며, `contract_review`에는 임대차계약서도 필요합니다. 주소정보에서 법정동 코드와 지번을 확인하고, 건축HUB 표제부 및 최근 12개월 연립·다세대 매매 실거래가를 조회합니다. 같은 지번 또는 같은 법정동의 유사 전용면적 거래만 비교하고, 중간가격과 함께 비교 거래의 25~75백분위 예상 범위를 반환합니다. 근거가 부족하면 `estimated_value`를 `null`, `market_data.status`를 `unavailable`로 반환하며 시세 대비 보증금·근저당 비율을 계산하지 않습니다.
+`POST /api/v1/analyses`의 `analysis_mode`는 `precheck` 또는 `contract_review`입니다. `precheck`에는 등기부등본과 건축물대장만 필요하며, `contract_review`에는 임대차계약서도 필요합니다. 주소정보에서 법정동 코드와 지번을 확인하고, 건축HUB 표제부 및 최근 12개월 연립·다세대 매매 실거래가를 조회합니다. 같은 지번 또는 같은 법정동의 유사 전용면적 거래만 비교하고, 중간가격과 함께 비교 거래의 25~75백분위 예상 범위를 반환합니다. 일부 조회 월의 실거래 API만 실패하면 성공한 월의 거래를 사용하고 누락 월 수를 결과 메시지에 표시합니다. 모든 월이 실패하거나 근거가 부족하면 `estimated_value`를 `null`, `market_data.status`를 `unavailable`로 반환하며 시세 대비 보증금·근저당 비율을 계산하지 않습니다.
 
 입력 주소와 건축HUB 공식 도로명주소의 대조 결과는 업로드 문서 OCR 주소 대조와 별도 항목으로 표시합니다. 위반건축물 여부는 건축HUB 응답에 관련 플래그가 있을 때 공식 값을 우선 사용하고, 현재 표제부 API처럼 해당 필드가 없으면 업로드한 건축물대장 원문 확인이 필요하다고 명시합니다.
 

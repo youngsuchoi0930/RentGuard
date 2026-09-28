@@ -15,6 +15,7 @@ from app.services.public_data import (
     _base_address,
     _building_response_payload,
     _get_building_data,
+    _get_market_data,
     _month_keys,
     _optional_yes_no,
     _provider_error_message,
@@ -162,6 +163,22 @@ def test_building_area_uses_document_dong_and_unit(monkeypatch):
     assert result.exclusive_area == 79.97
 
 
+def test_building_title_timeout_returns_actionable_unavailable_state(monkeypatch):
+    async def fake_request(_client, _url, _params, _resource):
+        raise public_data.PublicAPIError("건축HUB 표제부 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.")
+
+    monkeypatch.setattr(public_data, "_request_building_json", fake_request)
+    settings = SimpleNamespace(
+        data_go_kr_service_key=SecretStr("test-key"),
+        public_api_timeout_seconds=1.0,
+    )
+
+    result = asyncio.run(_get_building_data(_address(), _address().road_address, settings))
+
+    assert result.status == "unavailable"
+    assert result.message and "응답 시간이 초과" in result.message
+
+
 def test_market_estimate_prefers_exact_lot_and_similar_area():
     trades = [
         Trade(200_000_000, 50.0, "역삼동", "123-4", "테스트빌라", 2026, 7),
@@ -189,6 +206,50 @@ def test_market_estimate_refuses_thin_neighborhood_data():
     assert result.estimated_value is None
     assert result.estimated_value_low is None
     assert result.estimated_value_high is None
+
+
+def test_market_data_uses_successful_months_when_one_month_times_out(monkeypatch):
+    async def fake_month(_client, _key, _lawd_code, month):
+        if month == "202607":
+            raise httpx.ReadTimeout("timed out")
+        return [
+            Trade(200_000_000, 50.0, "역삼동", "123-4", "테스트빌라", 2026, 6)
+        ]
+
+    monkeypatch.setattr(public_data, "_month_keys", lambda _count: ["202607", "202606", "202605"])
+    monkeypatch.setattr(public_data, "_get_trade_month", fake_month)
+    settings = SimpleNamespace(
+        data_go_kr_service_key=SecretStr("test-key"),
+        public_api_timeout_seconds=1.0,
+        public_market_months=3,
+    )
+
+    result = asyncio.run(_get_market_data(_address(), 50.0, settings))
+
+    assert result.status == "available"
+    assert result.estimated_value == 200_000_000
+    assert result.transaction_count == 2
+    assert result.as_of == "202606"
+    assert "1개월은 기관 응답 오류로 제외" in result.message
+
+
+def test_market_data_is_unavailable_when_every_month_fails(monkeypatch):
+    async def fake_month(_client, _key, _lawd_code, _month):
+        raise httpx.ConnectError("offline")
+
+    monkeypatch.setattr(public_data, "_month_keys", lambda _count: ["202607", "202606"])
+    monkeypatch.setattr(public_data, "_get_trade_month", fake_month)
+    settings = SimpleNamespace(
+        data_go_kr_service_key=SecretStr("test-key"),
+        public_api_timeout_seconds=1.0,
+        public_market_months=2,
+    )
+
+    result = asyncio.run(_get_market_data(_address(), 50.0, settings))
+
+    assert result.status == "unavailable"
+    assert result.estimated_value is None
+    assert "응답을 확인하지 못했습니다" in result.message
 
 
 def test_public_data_uses_document_area_when_address_has_no_unit(monkeypatch):

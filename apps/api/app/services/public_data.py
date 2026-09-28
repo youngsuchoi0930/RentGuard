@@ -4,7 +4,7 @@ import asyncio
 import math
 import re
 import statistics
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any
 from urllib.parse import unquote
@@ -581,12 +581,17 @@ async def _get_market_data(
             message="공공데이터포털 키가 설정되지 않았습니다.",
         )
     months = _month_keys(settings.public_market_months)
-    try:
-        async with httpx.AsyncClient(timeout=settings.public_api_timeout_seconds) as client:
-            batches = await asyncio.gather(
-                *(_get_trade_month(client, key, address.sigungu_code, month) for month in months)
-            )
-    except (httpx.HTTPError, ElementTree.ParseError, PublicAPIError):
+    async with httpx.AsyncClient(timeout=settings.public_api_timeout_seconds) as client:
+        results = await asyncio.gather(
+            *(_get_trade_month(client, key, address.sigungu_code, month) for month in months),
+            return_exceptions=True,
+        )
+    successful = [
+        (month, result)
+        for month, result in zip(months, results, strict=True)
+        if isinstance(result, list)
+    ]
+    if not successful:
         return MarketEstimate(
             status="unavailable",
             estimated_value=None,
@@ -596,12 +601,21 @@ async def _get_market_data(
             volatility=None,
             message="국토교통부 실거래가 응답을 확인하지 못했습니다.",
         )
-    return estimate_market_value(
-        [trade for batch in batches for trade in batch],
+    estimate = estimate_market_value(
+        [trade for _, batch in successful for trade in batch],
         address,
         target_area,
-        as_of=months[0],
+        as_of=successful[0][0],
     )
+    failed_count = len(months) - len(successful)
+    if failed_count:
+        estimate = replace(
+            estimate,
+            message=(
+                f"{estimate.message} 실거래가 조회 {failed_count}개월은 기관 응답 오류로 제외했습니다."
+            ),
+        )
+    return estimate
 
 
 async def fetch_public_data(
