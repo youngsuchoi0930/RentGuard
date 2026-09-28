@@ -64,6 +64,20 @@ apps\api\.venv\Scripts\python scripts\evaluate_private_holdout.py --case case-00
 apps\api\.venv\Scripts\python scripts\evaluate_private_holdout.py --cases-dir C:\RentGuard-private-raw --strict
 ```
 
+처음 두 사례처럼 사람이 원문을 확인한 라벨이 모두 통과하면 로컬 기준선을
+승인합니다. 기준선에는 사례 ID와 필드명·통과 여부만 저장되고 이름·주소·금액은
+포함되지 않습니다.
+
+```powershell
+apps\api\.venv\Scripts\python scripts\evaluate_private_holdout.py --strict --update-baseline
+apps\api\.venv\Scripts\python scripts\evaluate_private_holdout.py --strict
+```
+
+두 번째 명령부터는 `local-fixtures/holdout-baseline.json`과 자동 비교하여 기존
+사례·라벨 필드가 사라지거나 통과하던 필드가 실패하면 회귀로 처리합니다. 새 문서를
+추가한 직후에는 먼저 원문과 `expected.json`을 사람이 대조하고, 전체 통과를 확인한
+후에만 `--update-baseline`을 실행합니다.
+
 결과는 기본적으로 Git에서 제외된
 `local-fixtures/holdout-evaluation.json`에 저장됩니다.
 

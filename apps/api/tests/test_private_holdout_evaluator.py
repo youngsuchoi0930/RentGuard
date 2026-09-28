@@ -8,6 +8,8 @@ sys.path.insert(0, str(ROOT))
 
 from scripts.evaluate_private_holdout import (  # noqa: E402
     _actual_values,
+    _baseline_snapshot,
+    _compare_baseline,
     _compare_section,
     _document_path,
     _summarize,
@@ -137,3 +139,68 @@ def test_private_holdout_captures_active_rights_and_precheck_statuses():
     assert actual["building_ledger"]["exclusive_area"] == 79.97
     assert actual["cross_checks"]["registry_owner_found"] is True
     assert actual["cross_checks"]["illegal_building_clear"] is True
+
+
+def test_private_holdout_baseline_contains_no_expected_or_actual_values():
+    result = {
+        "evaluation_version": "private-holdout-1.1",
+        "case_count": 1,
+        "total_fields": 2,
+        "cases": [{
+            "case_id": "CASE-PRIVATE",
+            "comparisons": [
+                {
+                    "field": "registry.owners",
+                    "expected": ["민감한이름"],
+                    "actual": ["민감한이름"],
+                    "passed": True,
+                },
+                {
+                    "field": "registry.road_address",
+                    "expected": "민감한주소",
+                    "actual": "민감한주소",
+                    "passed": True,
+                },
+            ],
+        }],
+    }
+
+    baseline = _baseline_snapshot(result)
+
+    assert "민감한이름" not in str(baseline)
+    assert "민감한주소" not in str(baseline)
+    assert baseline["cases"]["CASE-PRIVATE"]["fields"] == {
+        "registry.owners": True,
+        "registry.road_address": True,
+    }
+
+
+def test_private_holdout_baseline_detects_missing_case_field_and_failed_field():
+    baseline = {
+        "total_fields": 3,
+        "cases": {
+            "CASE-001": {
+                "fields": {
+                    "registry.owners": True,
+                    "registry.road_address": True,
+                }
+            },
+            "CASE-002": {"fields": {"registry.owners": True}},
+        },
+    }
+    current = {
+        "total_fields": 1,
+        "cases": [{
+            "case_id": "CASE-001",
+            "comparisons": [{"field": "registry.owners", "passed": False}],
+        }],
+    }
+
+    comparison = _compare_baseline(baseline, current)
+
+    assert comparison["status"] == "regressed"
+    assert comparison["regression_count"] == 4
+    assert any("통과하던 필드" in item for item in comparison["regressions"])
+    assert any("기준 필드" in item for item in comparison["regressions"])
+    assert any("기준 사례" in item for item in comparison["regressions"])
+    assert any("라벨 필드 수" in item for item in comparison["regressions"])

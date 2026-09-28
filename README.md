@@ -70,7 +70,12 @@ OCR 회귀검증은 10건·30페이지의 이미지 전용 PDF를 사용하며 G
 
 ```bat
 apps\api\.venv\Scripts\python scripts\evaluate_private_holdout.py --case case-001 --strict
+apps\api\.venv\Scripts\python scripts\evaluate_private_holdout.py --strict --update-baseline
 ```
+
+승인 기준선에는 사례 ID와 필드명·통과 여부만 저장되며 실제 이름·주소·금액은
+포함되지 않습니다. 이후 `--strict` 실행은 기존 사례나 라벨 필드가 사라지거나
+통과하던 필드가 실패하는 회귀도 함께 감지합니다.
 
 ### Docker Compose
 

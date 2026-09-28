@@ -63,6 +63,16 @@ def _args() -> argparse.Namespace:
         action="store_true",
         help="Exit non-zero when any labelled field differs or any case errors",
     )
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        help="Approved private baseline (default: <cases-dir>/holdout-baseline.json)",
+    )
+    parser.add_argument(
+        "--update-baseline",
+        action="store_true",
+        help="Replace the private baseline after a fully passing evaluation",
+    )
     return parser.parse_args()
 
 
@@ -347,6 +357,63 @@ def _summarize(cases: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _baseline_snapshot(result: dict[str, Any]) -> dict[str, Any]:
+    """Build a value-free baseline safe for local regression comparison."""
+    return {
+        "baseline_version": "private-holdout-baseline-1.0",
+        "evaluation_version": result["evaluation_version"],
+        "case_count": result["case_count"],
+        "total_fields": result["total_fields"],
+        "cases": {
+            case["case_id"]: {
+                "fields": {
+                    item["field"]: bool(item["passed"])
+                    for item in case.get("comparisons", [])
+                }
+            }
+            for case in result["cases"]
+            if "error" not in case
+        },
+    }
+
+
+def _compare_baseline(
+    baseline: dict[str, Any],
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    regressions: list[str] = []
+    current_cases = {case["case_id"]: case for case in result["cases"]}
+    baseline_cases = baseline.get("cases", {})
+    for case_id, baseline_case in baseline_cases.items():
+        current_case = current_cases.get(case_id)
+        if current_case is None:
+            regressions.append(f"기준 사례가 누락됐습니다: {case_id}")
+            continue
+        if "error" in current_case:
+            regressions.append(f"기준 사례 평가가 실패했습니다: {case_id}")
+            continue
+        current_fields = {
+            item["field"]: bool(item["passed"])
+            for item in current_case.get("comparisons", [])
+        }
+        for field, was_passing in baseline_case.get("fields", {}).items():
+            if field not in current_fields:
+                regressions.append(f"기준 필드가 누락됐습니다: {case_id}/{field}")
+            elif was_passing and not current_fields[field]:
+                regressions.append(f"통과하던 필드가 실패했습니다: {case_id}/{field}")
+    baseline_total_fields = int(baseline.get("total_fields", 0))
+    if result["total_fields"] < baseline_total_fields:
+        regressions.append(
+            "전체 라벨 필드 수가 감소했습니다: "
+            f"{baseline_total_fields} -> {result['total_fields']}"
+        )
+    return {
+        "status": "passed" if not regressions else "regressed",
+        "regression_count": len(regressions),
+        "regressions": regressions,
+    }
+
+
 def evaluate(cases_dir: Path, *, selected: set[str], allow_ocr: bool) -> dict[str, Any]:
     directories = _case_directories(cases_dir, selected)
     if not directories:
@@ -367,7 +434,7 @@ def evaluate(cases_dir: Path, *, selected: set[str], allow_ocr: bool) -> dict[st
     summary = _summarize(cases)
     summary["errored_cases"] = sum("error" in case for case in cases)
     return {
-        "evaluation_version": "private-holdout-1.0",
+        "evaluation_version": "private-holdout-1.1",
         "source_kind": "private_real_document",
         **summary,
         "cases": cases,
@@ -378,17 +445,45 @@ def main() -> None:
     args = _args()
     cases_dir = args.cases_dir.resolve()
     output = args.output.resolve() if args.output else cases_dir / "holdout-evaluation.json"
+    baseline_path = (
+        args.baseline.resolve()
+        if args.baseline
+        else cases_dir / "holdout-baseline.json"
+    )
     result = evaluate(
         cases_dir,
         selected=set(args.case_ids or []),
         allow_ocr=not args.no_ocr,
     )
+    if baseline_path.is_file():
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+        result["baseline"] = _compare_baseline(baseline, result)
+    else:
+        result["baseline"] = {
+            "status": "missing",
+            "regression_count": 0,
+            "regressions": [],
+        }
+    if args.update_baseline:
+        if result["failed_cases"] or result["errored_cases"]:
+            raise SystemExit("실패한 사례가 있어 기준선을 갱신하지 않았습니다.")
+        baseline_path.parent.mkdir(parents=True, exist_ok=True)
+        baseline_path.write_text(
+            json.dumps(_baseline_snapshot(result), ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     summary = {key: value for key, value in result.items() if key != "cases"}
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     print(f"Private report: {output}")
-    if args.strict and (result["failed_cases"] or result["errored_cases"]):
+    if args.update_baseline:
+        print(f"Private baseline: {baseline_path}")
+    if args.strict and (
+        result["failed_cases"]
+        or result["errored_cases"]
+        or result["baseline"]["regression_count"]
+    ):
         raise SystemExit(1)
 
 
