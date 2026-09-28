@@ -19,6 +19,8 @@ def test_demo_contract_is_high_risk():
     assert result.grade == "높음"
     assert result.signals[0].id == "senior-burden"
     assert len(result.actions) == 3
+    assert len(result.actions) == len(set(result.actions))
+    assert result.actions[-1] == "HUG 등 보증기관에서 보증 가입 가능 여부를 직접 확인하세요."
 
 
 def test_safe_contract_stays_low():

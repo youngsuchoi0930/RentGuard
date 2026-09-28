@@ -17,6 +17,7 @@ from .cross_check_schemas import DocumentBundleExtraction
 from .lease_schemas import LeaseContractExtraction
 from .ml_schemas import MLDatasetRow, MLDatasetRowRequest
 from .registry_schemas import RegistryExtraction
+from .risk_engine import RISK_POLICY_VERSION, RISK_SCORE_CAP
 from .schemas import (
     AddressSearchResponse,
     AnalysisFeedbackCreate,
@@ -92,6 +93,10 @@ def health() -> dict[str, Any]:
         "time": datetime.now(timezone.utc).isoformat(),
         "deposit_model": deposit_model_health(),
         "analysis_history": get_history_store().health(),
+        "risk_policy": {
+            "version": RISK_POLICY_VERSION,
+            "score_cap": RISK_SCORE_CAP,
+        },
     }
 
 

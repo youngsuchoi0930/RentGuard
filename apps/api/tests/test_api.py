@@ -15,6 +15,7 @@ def test_health_check():
     assert result["deposit_model"]["status"] == "ready"
     assert result["deposit_model"]["schema_version"] == "deposit-quantile-model-2.0"
     assert result["deposit_model"]["integrity"] == "verified"
+    assert result["risk_policy"] == {"version": "2.1.0", "score_cap": 100}
 
 
 def test_document_extraction_returns_actionable_ocr_error(monkeypatch):

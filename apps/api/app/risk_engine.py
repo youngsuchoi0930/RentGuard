@@ -3,6 +3,12 @@ from dataclasses import dataclass
 from .schemas import CheckItem, ExtractedFacts, RiskSignal
 
 
+RISK_POLICY_VERSION = "2.1.0"
+RISK_SCORE_CAP = 100
+HIGH_RISK_SCORE_MIN = 65
+CAUTION_SCORE_MIN = 35
+
+
 @dataclass(frozen=True)
 class RiskResult:
     score: int
@@ -145,7 +151,7 @@ def analyze_risk(facts: ExtractedFacts) -> RiskResult:
             evidence=f"최근 가격 변동성 {facts.local_price_volatility * 100:.1f}%", points=4,
         ))
 
-    score = min(100, sum(signal.points for signal in signals))
+    score = min(RISK_SCORE_CAP, sum(signal.points for signal in signals))
     if facts.estimated_value is None:
         grade, headline = "주의", "시세 확인 후 최종 판단이 필요합니다"
         signals.append(RiskSignal(
@@ -153,18 +159,21 @@ def analyze_risk(facts: ExtractedFacts) -> RiskResult:
             description="공공 실거래가에서 동일·유사 매물 근거가 부족해 예상 주택가액을 계산하지 않았습니다.",
             evidence="비교 가능한 실거래가 부족", points=0,
         ))
-    elif score >= 65:
+    elif score >= HIGH_RISK_SCORE_MIN:
         grade, headline = "높음", "주의가 필요한 계약입니다"
-    elif score >= 35 or any(signal.severity == "danger" for signal in signals):
+    elif score >= CAUTION_SCORE_MIN or any(signal.severity == "danger" for signal in signals):
         grade, headline = "주의", "몇 가지 확인이 필요한 계약입니다"
     else:
         grade, headline = "낮음", "현재 확인된 위험 신호는 낮습니다"
 
+    actions = list(dict.fromkeys(actions))
     if not actions:
         actions.append("잔금 지급 직전 최신 등기부등본을 다시 확인하세요.")
     elif not any("최신 등기부" in action for action in actions):
         actions.insert(0, "잔금 지급 직전 최신 등기부등본을 다시 확인하세요.")
-    actions.append("HUG 등 보증기관에서 보증 가입 가능 여부를 직접 확인하세요.")
+    guarantee_action = "HUG 등 보증기관에서 보증 가입 가능 여부를 직접 확인하세요."
+    if guarantee_action not in actions:
+        actions.append(guarantee_action)
 
     checks = [
         CheckItem(

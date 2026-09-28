@@ -1,0 +1,223 @@
+{
+  "schema_version": "1.0",
+  "policy_version": "2.1.0",
+  "effective_date": "2026-09-28",
+  "score_model": {
+    "aggregation": "활성 위험 신호 점수 합산",
+    "score_cap": 100,
+    "high_min": 65,
+    "caution_min": 35,
+    "danger_forces_caution": true,
+    "missing_market_forces_caution": true
+  },
+  "action_policy": {
+    "maximum": 3,
+    "deduplicate": true,
+    "default_registry_action": "잔금 지급 직전 최신 등기부등본을 다시 확인하세요.",
+    "default_guarantee_action": "HUG 등 보증기관에서 보증 가입 가능 여부를 직접 확인하세요."
+  },
+  "official_references": [
+    {
+      "id": "hug-return-guarantee",
+      "organization": "주택도시보증공사(HUG)",
+      "title": "전세보증금반환보증 상품개요",
+      "url": "https://www.khug.or.kr/hug/web/ig/dr/igdr000001.jsp"
+    },
+    {
+      "id": "molit-safe-contract-checklist",
+      "organization": "국토교통부",
+      "title": "안심 전세계약 체크리스트",
+      "url": "https://www.molit.go.kr/USR/NEWS/m_71/dtl.jsp?id=95091216&lcmspage=1"
+    },
+    {
+      "id": "government-building-ledger",
+      "organization": "정부24",
+      "title": "건축물대장 등본·초본 발급·열람",
+      "url": "https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=15000000098&tp_seq=03"
+    }
+  ],
+  "rules": [
+    {
+      "key": "senior-burden-danger",
+      "signal_id": "senior-burden",
+      "condition": "(근저당 채권최고액 + 보증금) / 예상 주택가액 >= 1.0",
+      "minimum": 1.0,
+      "severity": "danger",
+      "points": 35,
+      "action": "특약사항에 잔금 전 근저당 말소 조건을 명확히 추가하세요.",
+      "reference_ids": ["hug-return-guarantee"]
+    },
+    {
+      "key": "senior-burden-warning",
+      "signal_id": "senior-burden",
+      "condition": "0.8 <= (근저당 채권최고액 + 보증금) / 예상 주택가액 < 1.0",
+      "minimum": 0.8,
+      "maximum_exclusive": 1.0,
+      "severity": "warning",
+      "points": 24,
+      "action": null,
+      "reference_ids": ["hug-return-guarantee"]
+    },
+    {
+      "key": "mortgage-danger",
+      "signal_id": "mortgage",
+      "condition": "근저당 채권최고액 / 예상 주택가액 >= 0.5",
+      "minimum": 0.5,
+      "severity": "danger",
+      "points": 20,
+      "action": "특약사항에 잔금 전 근저당 말소 조건을 명확히 추가하세요.",
+      "reference_ids": ["hug-return-guarantee"]
+    },
+    {
+      "key": "mortgage-warning",
+      "signal_id": "mortgage",
+      "condition": "0.3 <= 근저당 채권최고액 / 예상 주택가액 < 0.5",
+      "minimum": 0.3,
+      "maximum_exclusive": 0.5,
+      "severity": "warning",
+      "points": 12,
+      "action": null,
+      "reference_ids": ["hug-return-guarantee"]
+    },
+    {
+      "key": "mortgage-market-unavailable",
+      "signal_id": "mortgage-present",
+      "condition": "예상 주택가액 미확인이고 근저당 채권최고액 > 0",
+      "severity": "warning",
+      "points": 12,
+      "action": "특약사항에 잔금 전 근저당 말소 조건을 명확히 추가하세요.",
+      "reference_ids": ["hug-return-guarantee"]
+    },
+    {
+      "key": "deposit-ratio-danger",
+      "signal_id": "deposit-ratio",
+      "condition": "보증금 / 예상 주택가액 >= 0.8",
+      "minimum": 0.8,
+      "severity": "danger",
+      "points": 18,
+      "action": null,
+      "reference_ids": ["hug-return-guarantee"]
+    },
+    {
+      "key": "deposit-ratio-warning",
+      "signal_id": "deposit-ratio",
+      "condition": "0.65 <= 보증금 / 예상 주택가액 < 0.8",
+      "minimum": 0.65,
+      "maximum_exclusive": 0.8,
+      "severity": "warning",
+      "points": 8,
+      "action": null,
+      "reference_ids": ["hug-return-guarantee"]
+    },
+    {
+      "key": "owner-mismatch",
+      "signal_id": "owner-mismatch",
+      "condition": "등기상 현재 소유자와 계약서 임대인이 모두 추출되었고 서로 다름",
+      "severity": "danger",
+      "points": 25,
+      "action": "소유자 본인 확인 또는 인감증명서가 첨부된 위임장 원본을 확인하세요.",
+      "reference_ids": ["molit-safe-contract-checklist"]
+    },
+    {
+      "key": "illegal-building",
+      "signal_id": "illegal-building",
+      "condition": "건축물대장 위반건축물 값이 true",
+      "severity": "danger",
+      "points": 22,
+      "action": "관할 구청과 보증기관에 위반 내용 및 보증 가입 가능 여부를 확인하세요.",
+      "reference_ids": ["government-building-ledger", "hug-return-guarantee"]
+    },
+    {
+      "key": "thin-market",
+      "signal_id": "thin-market",
+      "condition": "비교 실거래가가 5건 미만",
+      "maximum_exclusive": 5,
+      "severity": "notice",
+      "points": 6,
+      "action": null,
+      "reference_ids": []
+    },
+    {
+      "key": "volatility",
+      "signal_id": "volatility",
+      "condition": "비교 표본의 ㎡당 가격 변동계수 >= 0.07",
+      "minimum": 0.07,
+      "severity": "notice",
+      "points": 4,
+      "action": null,
+      "reference_ids": []
+    },
+    {
+      "key": "market-data-unavailable",
+      "signal_id": "market-data-unavailable",
+      "condition": "비교 가능한 실거래가가 없어 예상 주택가액이 null",
+      "severity": "notice",
+      "points": 0,
+      "action": null,
+      "reference_ids": ["molit-safe-contract-checklist"]
+    },
+    {
+      "key": "registry-right-seizure",
+      "signal_id": "registry-right-seizure",
+      "condition": "말소되지 않은 압류 등기 1건 이상",
+      "severity": "danger",
+      "points": 25,
+      "action": "압류권자·관할 기관과 말소 여부를 확인하고 계약 전 전문가 검토를 받으세요.",
+      "reference_ids": ["molit-safe-contract-checklist"]
+    },
+    {
+      "key": "registry-right-provisional-seizure",
+      "signal_id": "registry-right-provisional_seizure",
+      "condition": "말소되지 않은 가압류 등기 1건 이상",
+      "severity": "danger",
+      "points": 22,
+      "action": "가압류의 청구금액과 말소 조건을 확인한 뒤 계약 여부를 판단하세요.",
+      "reference_ids": ["molit-safe-contract-checklist"]
+    },
+    {
+      "key": "registry-right-trust",
+      "signal_id": "registry-right-trust",
+      "condition": "말소되지 않은 신탁 등기 1건 이상",
+      "severity": "danger",
+      "points": 30,
+      "action": "신탁원부와 수탁자의 임대차 동의서를 확인하기 전에는 계약하지 마세요.",
+      "reference_ids": ["molit-safe-contract-checklist"]
+    },
+    {
+      "key": "registry-right-leasehold",
+      "signal_id": "registry-right-leasehold",
+      "condition": "말소되지 않은 전세권 등기 1건 이상",
+      "severity": "warning",
+      "points": 15,
+      "action": "기존 전세권의 순위와 말소 조건을 최신 등기부에서 확인하세요.",
+      "reference_ids": ["molit-safe-contract-checklist"]
+    },
+    {
+      "key": "registry-right-tenant-registration",
+      "signal_id": "registry-right-tenant_registration",
+      "condition": "말소되지 않은 임차권등기 1건 이상",
+      "severity": "warning",
+      "points": 18,
+      "action": "임차권등기의 원인과 말소 여부를 소유자에게 확인하세요.",
+      "reference_ids": ["molit-safe-contract-checklist"]
+    },
+    {
+      "key": "registry-right-auction",
+      "signal_id": "registry-right-auction",
+      "condition": "말소되지 않은 경매개시결정 등기 1건 이상",
+      "severity": "danger",
+      "points": 35,
+      "action": "경매 사건의 진행 상태를 확인하고 계약 전 법률 전문가에게 검토받으세요.",
+      "reference_ids": ["molit-safe-contract-checklist"]
+    },
+    {
+      "key": "deposit-market-upper",
+      "signal_id": "deposit-market-upper",
+      "condition": "입력 보증금이 ML 예측 상위 95% 경계를 초과",
+      "severity": "warning",
+      "points": 0,
+      "action": "보증금이 유사 계약 범위보다 높은 이유를 임대인에게 확인하세요.",
+      "reference_ids": []
+    }
+  ]
+}
