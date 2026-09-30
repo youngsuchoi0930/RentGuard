@@ -1475,7 +1475,7 @@ export default function HomePage() {
                       </div>
                     ) : (
                       <div className="deposit-benchmark unavailable">
-                        <div className="deposit-benchmark-head"><div><Info size={17} /><strong>유사 계약 보증금 범위</strong></div><span>판단 보류</span></div>
+                        <div className="deposit-benchmark-head"><div><Info size={17} /><strong>유사 계약 보증금 범위</strong></div><span>{analysis.deposit_market.status === "out_of_scope" ? "모델 범위 밖" : "판단 보류"}</span></div>
                         <p>{analysis.deposit_market.message}</p>
                       </div>
                     )}

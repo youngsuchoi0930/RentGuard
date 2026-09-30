@@ -27,7 +27,12 @@ class FixedPredictor:
         return [self.prediction]
 
 
-def _public_data(*, district_code: str = "11500", area: float | None = 50.0):
+def _public_data(
+    *,
+    district_code: str = "11500",
+    area: float | None = 50.0,
+    main_use: str | None = "다세대주택",
+):
     return PublicDataResult(
         address=ResolvedAddress(
             road_address="서울특별시 강서구 곰달래로 35길 26",
@@ -44,7 +49,7 @@ def _public_data(*, district_code: str = "11500", area: float | None = 50.0):
             status="available",
             exclusive_area=area,
             approval_date="20180101",
-            main_use="다세대주택",
+            main_use=main_use,
         ),
         market=MarketEstimate(
             status="unavailable",
@@ -155,6 +160,31 @@ def test_predictor_rejects_non_seoul_scope(tmp_path):
 
     assert result.status == "out_of_scope"
     assert "서울 연립·다세대" in result.message
+
+
+def test_predictor_rejects_clearly_unsupported_housing_type_before_area(tmp_path):
+    result = predict_deposit_market(
+        public_data=_public_data(area=None, main_use="단독주택(다가구주택)"),
+        deposit=30_000_000,
+        monthly_rent=1_300_000,
+        settings=Settings(DEPOSIT_MODEL_PATH=tmp_path / "missing.joblib"),
+    )
+
+    assert result.status == "out_of_scope"
+    assert "서울 연립·다세대" in result.message
+    assert "단독주택(다가구주택)" in result.message
+
+
+def test_predictor_keeps_supported_housing_with_missing_area_unavailable(tmp_path):
+    result = predict_deposit_market(
+        public_data=_public_data(area=None, main_use="다세대주택"),
+        deposit=30_000_000,
+        monthly_rent=1_300_000,
+        settings=Settings(DEPOSIT_MODEL_PATH=tmp_path / "missing.joblib"),
+    )
+
+    assert result.status == "unavailable"
+    assert "전용면적" in result.message
 
 
 def test_model_row_uses_uploaded_ledger_area_when_public_area_is_missing():

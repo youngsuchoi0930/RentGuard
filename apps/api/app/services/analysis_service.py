@@ -765,6 +765,10 @@ def build_analysis(
         monthly_rent=monthly_rent,
         exclusive_area_m2=building_ledger.property.exclusive_area,
         approval_date=building_ledger.property.approval_date,
+        building_use=(
+            building_ledger.property.main_use
+            or (public_data.building.main_use if public_data else None)
+        ),
     )
     if deposit_market.status == "available":
         checks.append(

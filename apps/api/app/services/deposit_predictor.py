@@ -184,6 +184,7 @@ def predict_deposit_market(
     today: date | None = None,
     exclusive_area_m2: float | None = None,
     approval_date: str | None = None,
+    building_use: str | None = None,
 ) -> DepositMarketState:
     if public_data is None or public_data.address is None:
         return _unavailable("공공 주소정보를 확인하지 못해 유사 보증금 범위를 계산하지 않았습니다.")
@@ -192,6 +193,25 @@ def predict_deposit_market(
             status="out_of_scope",
             message="현재 보증금 모델은 서울 연립·다세대 신고자료만 지원합니다.",
         )
+
+    effective_building_use = building_use or public_data.building.main_use
+    if effective_building_use:
+        normalized_use = "".join(effective_building_use.split())
+        supported_use = any(
+            token in normalized_use for token in ("연립주택", "다세대주택")
+        )
+        clearly_unsupported_use = any(
+            token in normalized_use
+            for token in ("단독주택", "다가구주택", "아파트", "오피스텔", "근린생활시설")
+        )
+        if clearly_unsupported_use and not supported_use:
+            return DepositMarketState(
+                status="out_of_scope",
+                message=(
+                    "현재 보증금 모델은 서울 연립·다세대 신고자료만 지원하므로 "
+                    f"{effective_building_use}에는 적용하지 않았습니다."
+                ),
+            )
     if public_data.building.exclusive_area is None and exclusive_area_m2 is None:
         return _unavailable("건축물대장에서 전용면적을 확인하지 못해 보증금 모델을 적용하지 않았습니다.")
 
