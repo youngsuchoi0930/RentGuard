@@ -88,6 +88,53 @@ def test_collective_unit_ocr_extracts_identity_use_and_exclusive_area():
     assert result.property.exclusive_area == 84.59
 
 
+def test_general_ledger_ocr_recovers_table_values_emitted_by_rows():
+    document = ExtractedDocument(
+        method="ocr",
+        pages=[
+            ExtractedPage(
+                number=1,
+                confidence=.95,
+                text="""
+                일반건축물대장(갑)
+                명칭
+                호수/가구수/세대수
+                서울특별시 테스트구 검증동
+                검증동다가구주택
+                0호/3가구/0세대
+                지번
+                도로명주소
+                서울특별시 테스트구 안전로6길 6-6(검증동)
+                128-95
+                주구조
+                주용도
+                층수
+                철근콘크리트구조
+                단독주택(다가구주택)
+                지하:층,지상:3층
+                사용승인일
+                공사시공자
+                기계식
+                2003.8.29.
+                """,
+            )
+        ],
+    )
+
+    result = parse_building_ledger(document)
+
+    assert result.document.ledger_type == "general"
+    assert result.property.lot_address == "서울특별시 테스트구 검증동 128-95"
+    assert result.property.road_address == "서울특별시 테스트구 안전로6길 6-6(검증동)"
+    assert result.property.building_name == "검증동다가구주택"
+    assert result.property.main_use == "단독주택(다가구주택)"
+    assert result.property.structure == "철근콘크리트구조"
+    assert result.property.households == 3
+    assert result.property.approval_date == "2003-08-29"
+    assert result.property.is_illegal_building is False
+    assert result.needs_review == []
+
+
 def test_collective_unit_ocr_ignores_building_id_and_accepts_unit_without_suffix():
     document = ExtractedDocument(
         method="ocr",

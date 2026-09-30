@@ -77,16 +77,109 @@ def _exclusive_section(text: str) -> tuple[str | None, int | None, str | None, f
     return main_use, floor_value, structure, area
 
 
+USE_VALUE_RE = re.compile(
+    r"^(?:단독주택(?:\(다가구주택\))?|다가구주택|다세대주택|"
+    r"연립주택|공동주택|아파트|오피스텔|근린생활시설)$"
+)
+STRUCTURE_VALUE_RE = re.compile(
+    r"^(?:철근콘크리트|철골철근콘크리트|철골|벽돌|블록|목)(?:구조|조)$"
+)
+
+
+def _content_line(text: str, pattern: re.Pattern[str]) -> str | None:
+    candidates = [
+        line.strip()
+        for line in text.splitlines()
+        if pattern.fullmatch(compact(line))
+    ]
+    return max(candidates, key=lambda value: len(compact(value)), default=None)
+
+
+def _general_building_name(text: str) -> str | None:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    rejected = {
+        "명칭", "호수/가구수/세대수", "대지위치", "지번", "도로명주소",
+    }
+    for index, line in enumerate(lines):
+        if compact(line) != "명칭":
+            continue
+        for candidate in lines[index + 1:index + 8]:
+            value = compact(candidate)
+            if value in rejected or not re.search(r"[가-힣A-Za-z]{2,}", value):
+                continue
+            if re.search(r"(?:특별시|광역시|시|군|구).*(?:동|리|가)$", value):
+                continue
+            if re.fullmatch(r"\d+호/\d+가구/\d+세대", value):
+                continue
+            return candidate
+    inline = next(
+        (
+            re.sub(r"^\s*명칭\s*", "", line).strip()
+            for line in lines
+            if compact(line).startswith("명칭") and compact(line) != "명칭"
+        ),
+        None,
+    )
+    if inline and compact(inline).endswith("다가구"):
+        inline = f"{inline}주택"
+    return inline
+
+
+def _general_lot_address(text: str) -> str | None:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    location_index = next(
+        (
+            index for index, line in enumerate(lines)
+            if re.search(r"(?:특별시|광역시|특별자치|도).*(?:동|리|가)$", compact(line))
+            and not re.search(r"(?:대로|로|길)\d", compact(line))
+        ),
+        None,
+    )
+    if location_index is None:
+        return None
+    lot_number = next(
+        (
+            compact(line)
+            for line in lines[location_index + 1:location_index + 8]
+            if re.fullmatch(r"\d+(?:-\d+)?", compact(line))
+        ),
+        None,
+    )
+    return " ".join(value for value in (lines[location_index], lot_number) if value)
+
+
+def _approval_value(text: str, raw: str | None) -> str | None:
+    if raw and parse_date(raw):
+        return raw
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    for index, line in enumerate(lines):
+        if compact(line) != "사용승인일":
+            continue
+        return next(
+            (candidate for candidate in lines[index + 1:index + 25] if parse_date(candidate)),
+            None,
+        )
+    return None
+
+
 def parse_building_ledger(document: ExtractedDocument) -> BuildingLedgerExtraction:
     text = clean(document.text)
     compact_text = compact(text)
+    ledger_type = _ledger_type(text)
     location = labeled_value(text, ("대지위치", "소재지"))
     lot_number = labeled_value(text, ("지번",))
     lot_address = " ".join(value for value in (location, lot_number) if value) or None
+    if ledger_type == "general":
+        inferred_lot_address = _general_lot_address(text)
+        if inferred_lot_address:
+            lot_address = inferred_lot_address
     road_address = labeled_value(text, ("도로명주소", "도로명 주소"))
     building_name = labeled_value(text, ("명칭", "건물명칭"))
     inferred_name, unit = _identity_and_unit(text)
-    if (
+    if ledger_type == "general":
+        building_name = _general_building_name(text) or building_name
+        unit = None
+    elif (
         not building_name
         or compact(building_name) in {"호명칭", "명칭"}
         or not re.search(r"[가-힣A-Za-z]", building_name)
@@ -95,13 +188,34 @@ def parse_building_ledger(document: ExtractedDocument) -> BuildingLedgerExtracti
     main_use = labeled_value(text, ("주용도", "주 용도"))
     structure = labeled_value(text, ("주구조", "주 구조"))
     inferred_use, floor, inferred_structure, exclusive_area = _exclusive_section(text)
-    main_use = main_use or inferred_use
-    structure = structure or inferred_structure
+    content_use = _content_line(text, USE_VALUE_RE)
+    content_structure = _content_line(text, STRUCTURE_VALUE_RE)
+    if not main_use or not USE_VALUE_RE.fullmatch(compact(main_use)):
+        main_use = content_use or inferred_use
+    if not structure or not STRUCTURE_VALUE_RE.fullmatch(compact(structure)):
+        structure = content_structure or inferred_structure
+    if ledger_type == "general":
+        floor = None
+        exclusive_area = None
     households_raw = labeled_value(text, ("세대수", "세대 수"))
     households_match = re.search(r"(\d+)\s*세대", households_raw or "")
+    count_match = re.search(r"(\d+)호/(\d+)가구/(\d+)세대", compact_text)
+    households = int(households_match.group(1)) if households_match else None
+    if count_match:
+        units, households_count, families = (int(value) for value in count_match.groups())
+        households = households_count or families or units
     approval_raw = labeled_value(text, ("사용승인일", "사용 승인일"))
+    approval_raw = _approval_value(text, approval_raw)
     illegal_raw = labeled_value(text, ("위반건축물 여부", "위반건축물", "위반 여부"))
     illegal_status = _illegal_status(illegal_raw)
+    if illegal_status is None and "위반건축물" in compact_text:
+        illegal_status = True
+    elif (
+        illegal_status is None
+        and ledger_type == "general"
+        and document_confidence(document) >= .85
+    ):
+        illegal_status = False
 
     evidence_map: dict[str, SourceEvidence] = {}
     for field, raw in (
@@ -133,7 +247,7 @@ def parse_building_ledger(document: ExtractedDocument) -> BuildingLedgerExtracti
     if document.method == "ocr" and document_confidence(document) < .75:
         warnings.append("OCR 평균 신뢰도가 낮아 건축물대장 원문 확인이 필요합니다.")
     return BuildingLedgerExtraction(
-        document=BuildingMetadata(ledger_type=_ledger_type(text), pages=len(document.pages)),
+        document=BuildingMetadata(ledger_type=ledger_type, pages=len(document.pages)),
         property=BuildingProperty(
             lot_address=lot_address,
             road_address=road_address,
@@ -143,7 +257,7 @@ def parse_building_ledger(document: ExtractedDocument) -> BuildingLedgerExtracti
             exclusive_area=exclusive_area,
             main_use=main_use,
             structure=structure,
-            households=int(households_match.group(1)) if households_match else None,
+            households=households,
             approval_date=parse_date(approval_raw) if approval_raw else None,
             is_illegal_building=illegal_status,
         ),

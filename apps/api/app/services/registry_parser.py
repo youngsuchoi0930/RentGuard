@@ -168,7 +168,7 @@ def _property_type(text: str) -> str:
         return "condominium"
     if "토지등기" in compact:
         return "land"
-    if "건물등기" in compact or "건물의표시" in compact:
+    if "[건물]" in compact or "건물등기" in compact or "건물의표시" in compact:
         return "building"
     return "unknown"
 
@@ -293,6 +293,27 @@ def _extract_owners(document: ExtractedDocument, text: str) -> list[OwnershipEnt
                 owner_name=name,
                 evidence=_evidence(document, name, "registry_a", snippet),
             ))
+
+        # A full ownership transfer replaces the former sole owner.  A
+        # cancelled-items certificate keeps both rows visible, so collecting
+        # every ``소유자`` token would otherwise report the former owner as
+        # current.  Do not apply this rule to share/co-owner transfers.
+        full_transfer_owners: list[str] = []
+        for line in section_lines:
+            compact_line = _compact(line)
+            if "소유권이전" not in compact_line or "지분" in compact_line:
+                continue
+            match = re.search(r"소유자\s+([가-힣A-Za-z0-9㈜()·]{2,60})", line)
+            if match:
+                full_transfer_owners.append(match.group(1))
+        if full_transfer_owners:
+            current_name = full_transfer_owners[-1]
+            owners = [
+                entry if entry.owner_name == current_name else entry.model_copy(
+                    update={"role": "former_owner", "status": "cancelled"}
+                )
+                for entry in owners
+            ]
     return owners
 
 
@@ -308,7 +329,7 @@ def _extract_encumbrances(document: ExtractedDocument, text: str) -> list[Encumb
     cancelled_refs = {
         (section_at(match.start()), match.group(1))
         for match in re.finditer(
-            r"(\d{1,4}(?:-\d{1,3})?)\s*번[^\n]{0,60}?(?:등기\s*)?말소",
+            r"(\d{1,4}(?:-\d{1,3})?)\s*번[\s\S]{0,100}?(?:등\s*기\s*)?말\s*소",
             text,
         )
     }
@@ -367,7 +388,10 @@ def _extract_encumbrances(document: ExtractedDocument, text: str) -> list[Encumb
         line_end = text.find("\n", match.end())
         if line_end == -1:
             line_end = min(len(text), match.end() + 80)
-        return "말소" in _compact(text[match.end():line_end])
+        next_line_end = text.find("\n", line_end + 1)
+        if next_line_end == -1:
+            next_line_end = min(len(text), line_end + 160)
+        return "말소" in _compact(text[match.end():next_line_end])
 
     # PDF table extraction and OCR often emit a row's cells in different orders.
     # Pair fields inside a window centred on each mortgage row anchor instead of
@@ -531,6 +555,14 @@ def parse_registry(document: ExtractedDocument) -> RegistryExtraction:
     road_address = road_address or _line_after(title_text, ("도로명주소", "도로명 주소"))
     lot_address = lot_address or _line_after(title_text, ("소재지번", "소재 지번"))
     building_name = _line_after(text, ("건물명칭", "건물 명칭"))
+    if not building_name and property_type == "building":
+        title_match = re.search(
+            r"^\s*\[건물\]\s+.*?(?:동|리|가)\s+\d+(?:-\d+)?\s+(.+?)\s*$",
+            title_text,
+            re.M,
+        )
+        if title_match:
+            building_name = title_match.group(1).strip()
     needs_review: list[ReviewItem] = []
     warnings: list[str] = []
 

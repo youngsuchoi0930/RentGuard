@@ -157,6 +157,50 @@ def test_registry_rights_extract_active_and_cancelled_rows_with_order():
     assert rights[("mortgage", "3")].maximum_claim_amount == 90_000_000
 
 
+def test_full_transfer_and_wrapped_cancellation_keep_only_current_owner_and_no_active_mortgage():
+    document = ExtractedDocument(
+        method="pdf_text",
+        pages=[
+            ExtractedPage(
+                number=1,
+                confidence=1.0,
+                text="""
+                등기사항전부증명서(말소사항 포함) - 건물 -
+                [건물] 서울특별시 테스트구 검증동 128-95 검증동다가구주택
+                [도로명주소] 서울특별시 테스트구 안전로6길 6-6
+                【 갑 구 】 (소유권에 관한 사항)
+                1 소유권보존 2003년10월14일 소유자 테스트이전 400927-*******
+                2 소유권이전 2016년12월27일 2016년11월22일 소유자 테스트현재 700902-*******
+                """,
+            ),
+            ExtractedPage(
+                number=2,
+                confidence=1.0,
+                text="""
+                【 을 구 】 (소유권 이외의 권리에 관한 사항)
+                1 근저당권설정 2010년10월5일 2010년10월5일 채권최고액 금36,000,000원
+                근저당권자 테스트은행
+                2 1번근저당권설정등 2016년12월9일
+                기말소 제204940호 해지
+                """,
+            ),
+        ],
+    )
+
+    result = parse_registry(document)
+
+    assert [owner.owner_name for owner in result.ownership if owner.status == "active"] == [
+        "테스트현재"
+    ]
+    assert result.ownership[0].role == "former_owner"
+    assert result.ownership[0].status == "cancelled"
+    mortgages = [entry for entry in result.encumbrances if entry.right_type == "mortgage"]
+    assert len(mortgages) == 1
+    assert mortgages[0].rank == "1"
+    assert mortgages[0].status == "cancelled"
+    assert result.property.building_name == "검증동다가구주택"
+
+
 def test_multiple_mortgages_keep_each_rows_amount():
     document = ExtractedDocument(
         method="pdf_text",
