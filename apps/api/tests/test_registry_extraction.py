@@ -88,6 +88,117 @@ def test_title_address_wins_over_owner_and_debtor_addresses_on_later_pages():
     assert [owner.owner_name for owner in result.ownership] == ["테스트현재"]
 
 
+def test_multi_page_title_uses_latest_road_address_and_condominium_name():
+    document = ExtractedDocument(
+        method="pdf_text",
+        pages=[
+            ExtractedPage(
+                number=1,
+                confidence=1.0,
+                text="""
+                등기사항전부증명서 말소사항포함 - 집합건물 -
+                [집합건물] 서울특별시 테스트구 안전동 334외 1필지 검증아파트 제102동 제7층 제702호
+                2 도로명주소 서울특별시 테스트구 이전로 9
+                """,
+            ),
+            ExtractedPage(
+                number=2,
+                confidence=1.0,
+                text="""
+                [집합건물] 서울특별시 테스트구 안전동 334외 1필지 검증아파트 제102동 제7층 제702호
+                3 도로명주소정정
+                [도로명주소] 1층 591.99㎡
+                서울특별시 테스트구 안전로 2층 562.0㎡
+                16 3층 562.0㎡
+                """,
+            ),
+            ExtractedPage(
+                number=3,
+                confidence=1.0,
+                text="""
+                【 갑 구 】 소유권에 관한 사항
+                1 소유권이전 소유자 테스트현재
+                """,
+            ),
+        ],
+    )
+
+    result = parse_registry(document)
+
+    assert result.property.road_address == "서울특별시 테스트구 안전로 16"
+    assert result.property.building_name == "검증아파트 102동"
+    assert result.property.unit == "702호"
+    assert result.evidence["road_address"].page == 2
+
+
+def test_cancellation_row_does_not_bind_to_previous_mortgage_change():
+    document = ExtractedDocument(
+        method="pdf_text",
+        pages=[
+            ExtractedPage(
+                number=1,
+                confidence=1.0,
+                text="""
+                등기사항전부증명서 말소사항포함 - 집합건물 -
+                [집합건물] 서울특별시 테스트구 안전동 334 제7층 제702호
+                도로명주소 서울특별시 테스트구 안전로 16
+                【 갑 구 】 소유권에 관한 사항
+                1 소유권이전 소유자 테스트현재
+                【 을 구 】 소유권 이외의 권리에 관한 사항
+                3 근저당권설정 2002년9월24일 채권최고액 금218,000,000원
+                근저당권자 테스트은행1
+                8 근저당권설정 2006년6월15일 채권최고액 금255,600,000원
+                근저당권자 테스트은행2
+                8-1 8번근저당권변경 2010년6월7일 채권최고액 금120,000,000원
+                제27265호 변경계약
+                9 3번근저당권설정등 2006년6월15일
+                기말소 제48356호 해지
+                """,
+            ),
+        ],
+    )
+
+    result = parse_registry(document)
+    mortgages = {
+        entry.rank: entry for entry in result.encumbrances
+        if entry.right_type == "mortgage"
+    }
+
+    assert mortgages["3"].status == "cancelled"
+    assert mortgages["8"].status == "active"
+
+
+def test_cancelled_mortgage_without_amount_does_not_require_review():
+    document = ExtractedDocument(
+        method="pdf_text",
+        pages=[
+            ExtractedPage(
+                number=1,
+                confidence=1.0,
+                text="""
+                등기사항전부증명서 말소사항포함 - 집합건물 -
+                [집합건물] 서울특별시 테스트구 안전동 334 제7층 제702호
+                도로명주소 서울특별시 테스트구 안전로 16
+                【 갑 구 】 소유권에 관한 사항
+                1 소유권이전 소유자 테스트현재
+                【 을 구 】 소유권 이외의 권리에 관한 사항
+                1 근저당권설정 1994년7월18일 채권최고액 금이천일백만원정
+                근저당권자 테스트은행
+                2 1번근저당권설정등 2002년9월24일
+                기말소 제80453호 해지
+                """,
+            ),
+        ],
+    )
+
+    result = parse_registry(document)
+
+    assert result.encumbrances[0].status == "cancelled"
+    assert not any(
+        item.code == "MORTGAGE_AMOUNT_NOT_FOUND" for item in result.needs_review
+    )
+
+
 def test_registry_rights_extract_active_and_cancelled_rows_with_order():
     document = ExtractedDocument(
         method="pdf_text",

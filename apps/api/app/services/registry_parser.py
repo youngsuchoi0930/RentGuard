@@ -76,6 +76,21 @@ def _address_candidates(text: str) -> tuple[str | None, str | None]:
     return road, lot
 
 
+def _registry_title_text(document: ExtractedDocument) -> str:
+    """Return every title-section page, stopping before the registry A section."""
+    title_parts: list[str] = []
+    for page in document.pages:
+        page_text = _clean(page.text)
+        section_match = re.search(r"【\s*갑\s*구\s*】", page_text)
+        if section_match:
+            before_section = page_text[:section_match.start()].strip()
+            if before_section:
+                title_parts.append(before_section)
+            break
+        title_parts.append(page_text)
+    return "\n".join(title_parts)
+
+
 def _title_addresses(document: ExtractedDocument) -> tuple[str | None, str | None]:
     """Extract only the subject property's addresses from the registry title page.
 
@@ -84,7 +99,7 @@ def _title_addresses(document: ExtractedDocument) -> tuple[str | None, str | Non
     """
     if not document.pages:
         return None, None
-    title_text = _clean(document.pages[0].text)
+    title_text = _registry_title_text(document)
     lines = [line.strip() for line in title_text.splitlines() if line.strip()]
     lot = next(
         (
@@ -99,21 +114,31 @@ def _title_addresses(document: ExtractedDocument) -> tuple[str | None, str | Non
         _, lot = _address_candidates(title_text)
 
     prefix = administrative_prefix(lot or title_text)
-    road = None
+    road_candidates: list[str] = []
     for index, line in enumerate(lines):
         if "도로명주소" not in _compact(line):
             continue
         # Government PDFs often split the label, road name and building number
         # into separate text-layer rows. A small title-page-only window joins them.
         window = " ".join(lines[index:index + 4])
-        fragment = road_fragment(window)
+        # Floor/area cells can be interleaved with the road-address cell. Remove
+        # them before looking for the building number so ``신목로 2층 ... 16``
+        # is interpreted as ``신목로 16`` rather than the second floor.
+        address_window = re.sub(
+            r"\b\d{1,2}\s*층\s*[0-9,.]+\s*(?:㎡|m2|m²)",
+            " ",
+            window,
+            flags=re.I,
+        )
+        fragment = road_fragment(address_window)
         if fragment:
-            direct_prefix = administrative_prefix(window) or prefix
+            direct_prefix = administrative_prefix(address_window) or prefix
             road = f"{direct_prefix} {fragment}".strip() if direct_prefix else fragment
             unit = re.search(r",\s*(\d{1,5})\s*호", window)
             if unit:
                 road = f"{road}, {unit.group(1)}호"
-            break
+            road_candidates.append(road)
+    road = road_candidates[-1] if road_candidates else None
     if road is None:
         inferred_road, _ = _address_candidates(title_text)
         road = inferred_road
@@ -137,7 +162,22 @@ def _evidence(document: ExtractedDocument, token: str, section: str, snippet: st
 
 
 def _title_evidence(document: ExtractedDocument, snippet: str) -> SourceEvidence:
-    page = document.pages[0]
+    compact_snippet = _compact(snippet)
+    exact_pages = [
+        page for page in document.pages
+        if compact_snippet in _compact(page.text)
+    ]
+    page = exact_pages[-1] if exact_pages else document.pages[0]
+    if not exact_pages:
+        road_name_match = re.search(r"([가-힣0-9]+(?:대로|로|길))\s*\d", snippet)
+        if road_name_match:
+            road_name = _compact(road_name_match.group(1))
+            road_pages = [
+                candidate for candidate in document.pages
+                if road_name in _compact(candidate.text)
+            ]
+            if road_pages:
+                page = road_pages[-1]
     return SourceEvidence(
         page=page.number,
         section="title",
@@ -327,9 +367,11 @@ def _extract_encumbrances(document: ExtractedDocument, text: str) -> list[Encumb
         return "registry_b" if b_index > a_index else "registry_a"
 
     cancelled_refs = {
-        (section_at(match.start()), match.group(1))
+        (section_at(match.start()), match.group("reference"))
         for match in re.finditer(
-            r"(\d{1,4}(?:-\d{1,3})?)\s*번[\s\S]{0,100}?(?:등\s*기\s*)?말\s*소",
+            r"(?m)^\s*(?:\d{1,4}(?:-\d{1,3})?\s+)?"
+            r"(?P<reference>\d{1,4}(?:-\d{1,3})?)\s*번[^\n]*"
+            r"(?:말\s*소|\n\s*(?:기\s*)?말\s*소)",
             text,
         )
     }
@@ -551,10 +593,22 @@ def parse_registry(document: ExtractedDocument) -> RegistryExtraction:
         else:
             ownership = prior_owners
     road_address, lot_address = _title_addresses(document)
-    title_text = _clean(document.pages[0].text) if document.pages else ""
+    title_text = _registry_title_text(document) if document.pages else ""
     road_address = road_address or _line_after(title_text, ("도로명주소", "도로명 주소"))
     lot_address = lot_address or _line_after(title_text, ("소재지번", "소재 지번"))
     building_name = _line_after(text, ("건물명칭", "건물 명칭"))
+    if not building_name and property_type == "condominium":
+        title_match = re.search(
+            r"^\s*\[집합건물\]\s+.*?(?:동|리|가)\s+\d+(?:-\d+)?"
+            r"(?:\s*외\s*\d+\s*필지)?\s+(?P<name>.+?)\s+"
+            r"(?:제)?(?P<block>\d+)\s*동(?:\s|$)",
+            title_text,
+            re.M,
+        )
+        if title_match:
+            building_name = (
+                f"{title_match.group('name').strip()} {title_match.group('block')}동"
+            )
     if not building_name and property_type == "building":
         title_match = re.search(
             r"^\s*\[건물\]\s+.*?(?:동|리|가)\s+\d+(?:-\d+)?\s+(.+?)\s*$",
@@ -598,7 +652,9 @@ def parse_registry(document: ExtractedDocument) -> RegistryExtraction:
             message="부동산 주소를 자동 추출하지 못했습니다.",
         ))
     if any(
-        entry.right_type == "mortgage" and entry.maximum_claim_amount is None
+        entry.right_type == "mortgage"
+        and entry.status == "active"
+        and entry.maximum_claim_amount is None
         for entry in encumbrances
     ):
         needs_review.append(ReviewItem(
