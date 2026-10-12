@@ -332,6 +332,39 @@ def test_registry_extraction_endpoint_uses_uploaded_pdf():
     assert result["encumbrances"][0]["maximum_claim_amount"] == 110000000
 
 
+def test_document_upload_rejects_non_pdf_content_before_extraction(monkeypatch):
+    def should_not_extract(_content):
+        raise AssertionError("invalid content must not reach the PDF extractor")
+
+    monkeypatch.setattr("app.main.extract_registry", should_not_extract)
+    response = client.post(
+        "/api/v1/documents/registry/extract",
+        files={"file": ("fake.pdf", b"not a pdf", "application/pdf")},
+    )
+
+    assert response.status_code == 415
+    assert response.json()["detail"] == "올바른 PDF 파일을 업로드해주세요."
+
+
+def test_document_upload_rejects_files_larger_than_20_mb(monkeypatch):
+    from app.main import MAX_PDF_BYTES
+
+    def should_not_extract(_content):
+        raise AssertionError("oversized content must not reach the PDF extractor")
+
+    monkeypatch.setattr("app.main.extract_registry", should_not_extract)
+    oversized_pdf = b"%PDF-" + (b"0" * MAX_PDF_BYTES)
+    response = client.post(
+        "/api/v1/documents/registry/extract",
+        files={"file": ("oversized.pdf", oversized_pdf, "application/pdf")},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["detail"] == (
+        "PDF 파일은 문서당 20MB 이하만 업로드할 수 있습니다."
+    )
+
+
 def test_document_bundle_endpoint_extracts_and_cross_checks_all_pdfs():
     from pathlib import Path
 

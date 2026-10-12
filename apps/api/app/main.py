@@ -47,6 +47,26 @@ from .services.pdf_extractor import OCRUnavailableError
 from .services.public_data import PublicAPIError, fetch_public_data, search_addresses
 from .services.registry_parser import extract_registry
 
+PDF_CONTENT_TYPES = {"application/pdf", "application/octet-stream"}
+MAX_PDF_BYTES = 20 * 1024 * 1024
+
+
+async def read_pdf_upload(file: UploadFile) -> bytes:
+    """Read one PDF upload with the same limits advertised by the web UI."""
+    if file.content_type not in PDF_CONTENT_TYPES:
+        raise HTTPException(status_code=415, detail="PDF 파일만 분석할 수 있습니다.")
+
+    content = await file.read(MAX_PDF_BYTES + 1)
+    if len(content) > MAX_PDF_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="PDF 파일은 문서당 20MB 이하만 업로드할 수 있습니다.",
+        )
+    if not content.startswith(b"%PDF-"):
+        raise HTTPException(status_code=415, detail="올바른 PDF 파일을 업로드해주세요.")
+    return content
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
@@ -267,30 +287,21 @@ async def search_road_addresses(
 async def extract_registry_document(
     file: Annotated[UploadFile, File(description="부동산 등기사항증명서 PDF")],
 ) -> RegistryExtraction:
-    if file.content_type not in {"application/pdf", "application/octet-stream"}:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=415, detail="PDF 파일만 분석할 수 있습니다.")
-    return extract_registry(await file.read())
+    return extract_registry(await read_pdf_upload(file))
 
 
 @app.post("/api/v1/documents/lease-contract/extract", response_model=LeaseContractExtraction)
 async def extract_lease_contract_document(
     file: Annotated[UploadFile, File(description="주택임대차계약서 PDF")],
 ) -> LeaseContractExtraction:
-    if file.content_type not in {"application/pdf", "application/octet-stream"}:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=415, detail="PDF 파일만 분석할 수 있습니다.")
-    return extract_lease_contract(await file.read())
+    return extract_lease_contract(await read_pdf_upload(file))
 
 
 @app.post("/api/v1/documents/building-ledger/extract", response_model=BuildingLedgerExtraction)
 async def extract_building_ledger_document(
     file: Annotated[UploadFile, File(description="건축물대장 PDF")],
 ) -> BuildingLedgerExtraction:
-    if file.content_type not in {"application/pdf", "application/octet-stream"}:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=415, detail="PDF 파일만 분석할 수 있습니다.")
-    return extract_building_ledger(await file.read())
+    return extract_building_ledger(await read_pdf_upload(file))
 
 
 @app.post("/api/v1/document-bundles/extract", response_model=DocumentBundleExtraction)
@@ -311,13 +322,15 @@ async def extract_document_bundle(
     uploads = [registry, building_ledger]
     if analysis_mode == "contract_review" and lease_contract:
         uploads.append(lease_contract)
-    if any(upload.content_type not in {"application/pdf", "application/octet-stream"} for upload in uploads):
-        raise HTTPException(status_code=415, detail="업로드 문서는 모두 PDF 파일이어야 합니다.")
-    registry_result = await run_in_threadpool(extract_registry, await registry.read())
-    ledger_result = await run_in_threadpool(extract_building_ledger, await building_ledger.read())
+    upload_contents = [await read_pdf_upload(upload) for upload in uploads]
+    registry_result = await run_in_threadpool(extract_registry, upload_contents[0])
+    ledger_result = await run_in_threadpool(extract_building_ledger, upload_contents[1])
     contract_result = None
     if analysis_mode == "contract_review" and lease_contract:
-        contract_result = await run_in_threadpool(extract_lease_contract, await lease_contract.read())
+        contract_result = await run_in_threadpool(
+            extract_lease_contract,
+            upload_contents[2],
+        )
     return cross_check_documents(
         registry_result,
         ledger_result,
@@ -349,16 +362,17 @@ async def create_analysis(
     uploads = [registry, building_ledger]
     if analysis_mode == "contract_review" and lease_contract:
         uploads.append(lease_contract)
-    if any(upload.content_type not in {"application/pdf", "application/octet-stream"} for upload in uploads):
-        raise HTTPException(status_code=415, detail="업로드 문서는 모두 PDF 파일이어야 합니다.")
-
-    registry_bytes = await registry.read()
-    ledger_bytes = await building_ledger.read()
+    upload_contents = [await read_pdf_upload(upload) for upload in uploads]
+    registry_bytes = upload_contents[0]
+    ledger_bytes = upload_contents[1]
     registry_result = await run_in_threadpool(extract_registry, registry_bytes)
     ledger_result = await run_in_threadpool(extract_building_ledger, ledger_bytes)
     contract_result = None
     if analysis_mode == "contract_review" and lease_contract:
-        contract_result = await run_in_threadpool(extract_lease_contract, await lease_contract.read())
+        contract_result = await run_in_threadpool(
+            extract_lease_contract,
+            upload_contents[2],
+        )
     analysis = build_analysis(
         address=address,
         deposit=deposit,
