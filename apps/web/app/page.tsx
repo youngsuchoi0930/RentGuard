@@ -982,8 +982,8 @@ export default function HomePage() {
         </div>
 
         <div className="profile">
-          <div className="avatar">민</div>
-          <div><strong>김민지</strong><span>무료 플랜</span></div>
+          <div className="avatar">U</div>
+          <div><strong>user1</strong><span>무료 플랜</span></div>
           <ChevronDown size={17} />
         </div>
       </aside>

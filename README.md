@@ -22,9 +22,9 @@ RentGuard는 서류를 구조화한 뒤 문서・입력값・공공데이터를 
 
 ## 화면과 사용 흐름
 
-![합성 시나리오로 재현한 RentGuard 결과 리포트](docs/screenshots/report.png)
+![RentGuard 사전점검 첫 화면 — user1, 배경 투명](docs/screenshots/home-transparent.png)
 
-위 화면은 **합성 테스트 문서와 모의 API 응답으로 재현한 실제 웹 UI**입니다. 표시된 주소・인물・금액과 Gemini 문장은 시연용이며 실제 공공 API 또는 Gemini 호출 결과를 캡처한 것은 아닙니다.
+위 화면은 `user1` 프로필의 사전점검 첫 화면에서 페이지 배경만 투명하게 캡처한 PNG입니다. [배경이 있는 원본 화면](docs/screenshots/home.png)도 제공합니다. 아래 펼침 영역의 입력·추출 확인·결과 이미지는 **합성 테스트 문서와 모의 API 응답으로 재현한 실제 웹 UI**이며, 표시된 주소・인물・금액과 Gemini 문장은 시연용입니다.
 
 | 단계 | 사용자 행동 | 서비스가 제공하는 정보 |
 |---|---|---|
@@ -33,11 +33,13 @@ RentGuard는 서류를 구조화한 뒤 문서・입력값・공공데이터를 
 | 3. 결과 확인 | 위험 근거와 확인 순서 확인 | 규칙 점수, 유사 계약 보증금 기준, 문서 불일치, 공식 참고자료와 행동 목록 |
 
 <details>
-<summary>입력・추출값 확인 화면 보기</summary>
+<summary>입력・추출값 확인・결과 화면 보기</summary>
 
 ![합성 PDF를 업로드한 입력 화면](docs/screenshots/input.png)
 
 ![분석 전 추출값 확인 화면](docs/screenshots/review.png)
+
+![합성 시나리오로 재현한 RentGuard 결과 리포트](docs/screenshots/report.png)
 
 </details>
 
