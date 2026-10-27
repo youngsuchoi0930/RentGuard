@@ -1,6 +1,6 @@
 # RentGuard 배포 전 마무리 점검 기록
 
-점검일: 2026-10-12
+점검일: 2026-10-27
 
 범위: 기능, UX, 개인정보, 자동 테스트, 문서
 
@@ -13,7 +13,10 @@
 | API 회귀 | 통과 | `137 passed, 1 skipped`; skip은 기본 실행에서 제외한 OCR 전용 테스트 |
 | PDF 업로드 방어 | 통과 | 모든 PDF 업로드 경로에서 MIME, 실제 `%PDF-` 서명, 문서당 20MB 제한 검증 |
 | 웹 정적 검사 | 통과 | ESLint 오류 없음 |
-| 웹 프로덕션 빌드 | 통과 | Next.js 16.3.4 production build 성공 |
+| 웹 프로덕션 빌드 | 통과 | Next.js 16.4.3 production build 성공 |
+| 브라우저 E2E | 통과 | 사전점검·계약서 교차검증, 업로드 오류, API 장애, 콘솔 오류 감시까지 `9 passed` |
+| 접근성 자동 검사 | 통과 | 키보드 모드 전환과 초기 화면 WCAG A/AA serious·critical 위반 0건 |
+| 의존성 보안 | 통과 | Python·Node.js 알려진 취약점 0건; CI에서 자동 차단 |
 | Docker 구성 | 통과 | `docker compose config -q` 성공 |
 | 비공개 실제 문서 | 통과 | Git 제외 홀드아웃 기준선 통과, 오탐·누락·기준선 회귀 0건 |
 | 데스크톱 UX | 통과 | 1440×900에서 가로 넘침 없음, 핵심 입력과 업로드 상태 확인 |
@@ -40,12 +43,16 @@
 ```powershell
 cd apps/api
 .venv\Scripts\python -m pytest -q
+.venv\Scripts\python -m pip_audit -r requirements-ci.txt
 
 cd ..\web
-npm run lint
-npm run build
+pnpm lint
+pnpm build
+pnpm exec playwright install chromium
+pnpm test:e2e
 
 cd ..\..
+pnpm audit:web
 docker compose config -q
 git diff --check
 ```
@@ -57,7 +64,6 @@ git diff --check
 - HUG 보증 가입 가능 여부는 자동 확정하지 않고 보증기관 직접 확인을 안내한다.
 - 비공개 원본과 기준선은 Git 제외 경로에서 관리하며 `--cases-dir <비공개_문서_경로>`로 전체 재검증한다.
 - 실제 문서 레이아웃 수가 적으므로 새 레이아웃 정확도는 추가 익명 사례가 생길 때 확장한다.
-- Starlette TestClient의 `anyio.abc.BlockingPortal` deprecation warning 1건은 외부 의존성 경고이며 현재 테스트 실패나 사용자 기능 오류는 아니다.
 
 ## 마무리 판정
 

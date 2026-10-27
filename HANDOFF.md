@@ -40,7 +40,7 @@ RentGuard는 임대차 계약 전에 등기사항증명서·건축물대장·임
 | 증거 추적 | 완료 | 문서·페이지·추출 방식·원문·신뢰도·사용자 수정 여부 표시 |
 | 반응형 화면 | 완료 | 데스크톱·모바일 대응 |
 | Docker | 완료 | 웹·API 이미지, API health check, 검증된 모델 포함 |
-| 자동 테스트 | 완료 | API, 추출기, 교차검증, 공공데이터, ML 회귀 테스트 |
+| 자동 테스트 | 완료 | API, 추출기, 교차검증, 공공데이터, ML 회귀, Playwright E2E·접근성, 의존성 보안 감사 |
 | DB·분석 기록 | 완료 v2 | 명시적 저장 동의, 7·30·90일 보관, 자동 만료, 개별·전체 삭제, 개인정보 제거 |
 | 사용자 피드백 | 완료 v1 | 저장·통계·검수, 승인 품질 규칙, 최소 표본 충족 시 CSV·JSON 내보내기 |
 | 공식자료 RAG | 완료 v1 | 위험 신호별 HUG·국토부·정부24 공식 가이드 결정적 검색과 링크 표시 |
@@ -285,6 +285,7 @@ pnpm dev:web
 ```powershell
 cd apps/api
 .venv\Scripts\python -m pytest -q
+.venv\Scripts\python -m pip_audit -r requirements-ci.txt
 ```
 
 다쪽 등기부 회귀 보강과 API PDF 업로드 검증 보강 후 로컬 검증 결과는 `137 passed, 1 skipped`였다. `skipped` 항목은 기본 실행에서 제외한 OCR 전용 테스트다.
@@ -318,11 +319,17 @@ $env:RUN_OCR_TESTS = "1"
 
 ```powershell
 cd apps/web
-npm run lint
-npm run build
+pnpm lint
+pnpm build
+pnpm exec playwright install chromium
+pnpm test:e2e
+pnpm audit
 ```
 
-마지막 검증에서는 ESLint와 Next.js 프로덕션 빌드가 모두 통과했다.
+마지막 검증에서는 ESLint와 Next.js 프로덕션 빌드가 통과했고 Playwright 브라우저
+테스트 `9 passed`를 확인했다. 테스트 범위는 사전점검·계약서 교차검증 전체 흐름,
+잘못된 형식·20MB 초과·API 연결 실패 안내, 키보드 조작, 초기 화면 WCAG A/AA,
+390×844 모바일 가로 넘침, 초기 화면·모드 전환 브라우저 오류 감시다.
 
 ## 11. 주요 파일 안내
 
@@ -383,6 +390,8 @@ npm run build
 
 | 우선순위 | 작업 | 완료 기준 |
 |---|---|---|
+| 완료 | 브라우저 E2E·오류 UX·접근성 게이트 | 핵심 2개 흐름, 업로드/API 오류, 키보드·WCAG AA·모바일 검사를 CI에서 자동 실행 |
+| 완료 | 의존성 보안 게이트 | Python·Node.js 알려진 취약점 0건을 CI에서 강제 |
 | P0 | 실제 익명화 회귀 사례 확대 | 다양한 등기부·건축물대장·계약서 형식에서 필드별 정확도 측정 |
 | P0 | 손글씨 계약서 OCR 평가 | 손글씨·도장·특약이 있는 문서의 보증금·월세·임대인 재현율 확인 |
 | 완료 | 공공 API 장애 스냅샷 테스트 확대 | 건축HUB 성공·실패·타임아웃에도 문서 핵심 계산 유지, 실거래 일부 월 실패 시 성공 데이터 사용 |

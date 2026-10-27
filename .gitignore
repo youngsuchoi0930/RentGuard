@@ -9,6 +9,8 @@ __pycache__/
 coverage/
 dist/
 tmp/
+playwright-report/
+test-results/
 local-fixtures/
 data/*.db
 data/*.db-shm

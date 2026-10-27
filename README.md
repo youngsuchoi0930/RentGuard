@@ -55,11 +55,40 @@ API 문서는 http://localhost:8000/docs 에서 확인할 수 있습니다.
 `main` 브랜치 푸시와 Pull Request에서 GitHub Actions가 다음 항목을 자동 검사합니다.
 
 - FastAPI 전체 테스트
+- Python·Node.js 의존성 알려진 취약점 검사
 - 30건·90페이지 합성 문서 재생성
 - 등기부·건축물대장·임대차계약서 480개 필드 엄격 회귀검증
 - Next.js lint와 production build
+- Playwright 정상 흐름·오류 안내·키보드 조작·WCAG AA·모바일 E2E 테스트
+
+### 최신 마무리 점검
+
+2026-10-27 기준 로컬 마무리 점검 결과입니다.
+
+| 항목 | 결과 |
+|---|---|
+| API 회귀 | `137 passed, 1 skipped`; skip은 선택 실행하는 OCR 전용 테스트 |
+| 브라우저 E2E | 사전점검·계약서 교차검증·오류 안내·키보드·모바일·콘솔 감시 `9 passed` |
+| 접근성 | 초기 화면 WCAG A/AA serious·critical 위반 0건, 저대비 보조 문구 색상 보정 |
+| 웹 빌드 | Next.js 16.4.3 production build와 ESLint 통과 |
+| 의존성 보안 | Python·Node.js 알려진 취약점 0건 |
+| CI | API·문서 회귀·웹 빌드·E2E·접근성·의존성 감사를 푸시와 PR에서 자동 실행 |
 
 합성 문서 검증 결과는 CI 실행별 artifact로 14일간 보관합니다. OCR 모델은 용량과 실행 시간 때문에 기본 CI에서 제외하며, `RUN_OCR_TESTS=1`로 별도 실행합니다.
+
+로컬 브라우저 회귀검증은 최초 1회 Chromium을 설치한 뒤 실행합니다.
+
+```powershell
+pnpm --dir apps/web exec playwright install chromium
+pnpm test:e2e
+pnpm audit:web
+```
+
+API 의존성은 CI와 같은 기준으로 다음 명령에서 검사합니다.
+
+```powershell
+apps\api\.venv\Scripts\python -m pip_audit -r apps\api\requirements-ci.txt
+```
 
 OCR 회귀검증은 10건·30페이지의 이미지 전용 PDF를 사용하며 GitHub Actions의 `RentGuard OCR Regression`에서 수동 실행하거나 매주 자동 실행합니다. 실행 결과는 30일간 artifact로 보관합니다.
 

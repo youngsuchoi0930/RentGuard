@@ -5,6 +5,16 @@
   "scripts": {
     "dev:web": "pnpm --dir apps/web dev",
     "build:web": "pnpm --dir apps/web build",
-    "lint:web": "pnpm --dir apps/web lint"
+    "lint:web": "pnpm --dir apps/web lint",
+    "test:e2e": "pnpm --dir apps/web test:e2e",
+    "audit:web": "pnpm audit"
+  },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion@1.1.18": "1.1.21",
+      "brace-expansion@5.0.9": "5.0.12",
+      "source-map-js@1.2.1": "1.2.2",
+      "zod@4.5.4": "4.6.6"
+    }
   }
 }
