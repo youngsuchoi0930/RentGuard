@@ -1,315 +1,208 @@
 # RentGuard AI
 
-전세계약 서류를 교차검증해 위험 신호와 계약 전 행동을 설명하는 서비스입니다.
+**등기부・건축물대장・계약서를 대조해, 계약 전에 확인할 위험 신호와 그 근거를 보여주는 서비스입니다.**
 
-현재 MVP는 두 가지 분석 모드를 제공합니다. `사전점검`은 주소/예정 계약 조건과 등기부등본·건축물대장만 사용하고, `계약서 교차검증`은 임대차계약서까지 포함합니다.
+[![RentGuard CI](https://github.com/youngsuchoi0930/RentGuard/actions/workflows/ci.yml/badge.svg)](https://github.com/youngsuchoi0930/RentGuard/actions/workflows/ci.yml)
 
-- 문서별 구조화 추출 결과
-- 분석 전 추출값 확인·수정과 사용자 수정 이력
-- 소유자/계약자, 보증금, 근저당, 위반건축물 교차검증
-- 규칙 기반 위험 점수와 근거
-- 위험 신호별 출처 문서·페이지·OCR 원문·신뢰도
-- 개인정보를 제외한 구조화 결과의 Gemini 쉬운 설명
-- 계약 전에 해야 할 행동 추천
-- PDF·이름·상세주소·OCR 원문을 제외한 분석 기록 저장·조회·삭제
-- 분석 결과의 정확성·오탐·누락과 금액 수정값을 비식별 피드백으로 저장
+| 프로젝트 | 내용 |
+|---|---|
+| 형태・기간 | 개인 프로젝트 · 약 1개월 |
+| 구현 범위 | 서비스 흐름 설계, Next.js 웹, FastAPI API, PDF/OCR 추출・교차검증, 공공 API 연동, ML 학습・평가, 회귀 테스트・CI |
+| 개발 방식 | AI 코딩 도구와 협업해 구현・수정・테스트・문서화 진행. 아래에 실제 오류 사례, 설계 선택과 검증 근거 공개 |
+| 실행 상태 | 로컬 웹・API 및 Docker Compose 실행 지원 |
+| ML 적용 범위 | 서울 연립・다세대 전월세의 보증금 시장 범위 추정 |
 
-LLM은 최종 설명 계층에만 연결하도록 설계하며, 위험 판단은 재현 가능한 Rule/ML 계층에서 수행합니다.
+[사용 흐름](#화면과-사용-흐름) · [설계](#설계와-선택-이유) · [문제 해결](#문제-해결-사례) · [성능](#모델-성능) · [실행](#실행) · [검증](#검증과-한계)
 
-위험점수의 임계값·가점·등급·행동 우선순위는 [`docs/risk-policy-v2.md`](docs/risk-policy-v2.md)에 설명하고, [`docs/risk-policy-v2.json`](docs/risk-policy-v2.json)을 회귀 테스트와 연결해 코드와 문서의 불일치를 감지합니다. 이 점수는 법정 기준이나 보증기관 심사 점수가 아니라 확인 순서를 정하기 위한 제품 내부 휴리스틱입니다.
+## 해결하려는 문제
 
-Gemini 설명 기능은 저장소 루트의 `.env`에 `GEMINI_API_KEY`를 설정하면 활성화됩니다. 기존 로컬 설정과의 호환을 위해 `gemini_key`도 인식합니다. 모델 기본값은 무료 등급을 지원하는 `gemini-3.5-flash-lite`이며 `GEMINI_MODEL`로 변경할 수 있습니다. Gemini에는 PDF 원문, 주소, 이름, 금액, 증거 원문을 보내지 않고 위험 신호 범주와 검증 상태만 전송합니다. 서버는 위험 신호에 맞는 HUG·국토교통부·정부24 공식 안내를 결정적으로 선택하고, Gemini가 해당 요약과 규칙 엔진의 행동 목록 범위 안에서만 팁을 작성하도록 제한합니다. 키가 없거나 호출·검증에 실패해도 규칙 기반 결과와 공식 참고 링크는 반환합니다.
+계약 전 확인 정보는 여러 서류와 사이트에 흩어져 있습니다. 등기부의 소유자・근저당, 건축물대장의 용도・면적, 계약서의 임대인・금액을 따로 읽으면 **같은 물건인지, 어떤 값이 충돌하는지, 무엇부터 확인할지**를 놓치기 쉽습니다.
 
-주소 및 공공데이터 연동은 `.env`의 `JUSO_CONFIRM_KEY`와 `DATA_GO_KR_SERVICE_KEY`를 사용합니다. 공공데이터포털에서는 연립·다세대 매매 실거래가와 건축HUB 건축물대장정보 서비스에 각각 활용신청해야 합니다. 서비스키는 브라우저로 전달하지 않고 FastAPI 서버에서만 사용합니다.
+RentGuard는 서류를 구조화한 뒤 문서・입력값・공공데이터를 대조하고, 결과마다 출처와 다음 행동을 연결합니다. 계약서가 없는 단계에는 등기부와 건축물대장만으로 사전점검을 시작할 수 있습니다.
+
+## 화면과 사용 흐름
+
+![합성 시나리오로 재현한 RentGuard 결과 리포트](docs/screenshots/report.png)
+
+위 화면은 **합성 테스트 문서와 모의 API 응답으로 재현한 실제 웹 UI**입니다. 표시된 주소・인물・금액과 Gemini 문장은 시연용이며 실제 공공 API 또는 Gemini 호출 결과를 캡처한 것은 아닙니다.
+
+| 단계 | 사용자 행동 | 서비스가 제공하는 정보 |
+|---|---|---|
+| 1. 계약 조건・서류 입력 | 주소・보증금・월세 입력, PDF 업로드 | 사전점검 2종, 계약서 교차검증 3종 업로드 |
+| 2. 추출값 확인 | 문서에서 읽은 주소・금액・면적 확인・수정 | 문서・페이지・원문・추출 방식・신뢰도, 수정 전후 이력 |
+| 3. 결과 확인 | 위험 근거와 확인 순서 확인 | 규칙 점수, 유사 계약 보증금 기준, 문서 불일치, 공식 참고자료와 행동 목록 |
+
+<details>
+<summary>입력・추출값 확인 화면 보기</summary>
+
+![합성 PDF를 업로드한 입력 화면](docs/screenshots/input.png)
+
+![분석 전 추출값 확인 화면](docs/screenshots/review.png)
+
+</details>
+
+## 설계와 선택 이유
+
+```mermaid
+flowchart TD
+    A[주소・계약 조건・PDF] --> B[텍스트 추출 / 스캔 OCR]
+    B --> C[필드 정규화・출처 기록]
+    C --> D[사용자 추출값 확인・수정]
+    D --> E[문서 대조・규칙 엔진]
+    P[주소 API・건축HUB・국토부 실거래가] --> E
+    D --> M[보증금 p50・p95 모델]
+    P --> M
+    E --> R[점수・위험 신호・행동・근거]
+    M --> R
+    R --> L[비식별 범주・검증 상태・공식자료 요약]
+    L --> G[Gemini 확인 팁]
+    R --> U[결과 화면]
+    G --> U
+```
+
+| 선택 | 이유와 구현 |
+|---|---|
+| 규칙・ML・LLM의 역할 분리 | 규칙은 점수와 확인 순서를 계산하고 ML은 유사 계약의 보증금 범위를 추정. Gemini는 확정된 범주・검증 상태와 공식자료 요약을 받아 팁 작성 |
+| 추출 후 사용자 확인 | OCR 오류가 바로 계산값이 되지 않도록 두 단계 API로 분리. 수정값은 원래 추출값과 구분해 추적 |
+| PDF 텍스트 우선, OCR fallback | 텍스트 레이어가 있으면 직접 추출하고 스캔 문서는 PaddleOCR로 처리 |
+| 필드의 의미・문서 영역으로 파싱 | 주소・소유자・채권최고액 표식을 활용하고 반복되는 권리・소유권은 배열로 관리 |
+| 부족한 근거를 명시 | 비교 거래 부족・API 장애・추출 실패는 `unavailable` 또는 `needs_review`. 시세가 없으면 시세 대비 비율 계산 보류 |
+| 최소 정보 저장・전송 | Gemini에는 PDF・주소・이름・금액・증거 원문을 보내지 않음. 기록은 명시적 동의 시에만 저장, 7・30・90일 보관 및 삭제 지원 |
+
+공식자료 검색은 **검수된 HUG・국토부・정부24 카탈로그에서 위험 신호・검증 상태에 따라 자료를 선택하는 방식**입니다. 벡터 DB 기반 의미 검색과는 구현 범위가 다릅니다. [선택 로직](apps/api/app/services/official_guidance.py)
+
+위험점수는 사고 확률이 아닌 **제품 내부의 확인 우선순위**입니다. 활성 신탁에는 30점, 근저당 비율 50% 이상에는 20점을 부여하지만 이 가점은 사고 라벨로 학습・검증한 값이 아닙니다. 조건・가점・등급을 [위험 정책](docs/risk-policy-v2.md)과 [정책 manifest](docs/risk-policy-v2.json)에 공개하고 경계값 테스트로 일치 여부를 검사합니다.
+
+## 문제 해결 사례
+
+| 다룬 문제 | 원인과 조치 | 확인 근거 |
+|---|---|---|
+| 같은 집인데 주소 불일치로 표시 | 등기부 뒷장의 소유자・채무자 주소가 물건 주소로 선택됨. 표제부의 대상 물건 주소와 주소 변경 이력을 우선하고 페이지 출처 보존 | [다쪽 주소 추출 회귀](apps/api/tests/test_registry_extraction.py) |
+| 띄어쓰기 차이로 주소 오탐 | OCR이 붙여 읽은 주소와 `[집합건물]` 같은 문서 표제를 정규화. 실제 다른 주소와 호수 차이는 별도 검사 | [정규화](apps/api/tests/test_cross_checker_address.py), [문서 대조](apps/api/tests/test_document_bundle.py) |
+| 말소 권리・신탁 안내문을 활성 위험으로 중복 계산 | 권리 종류・순위・접수일・말소 상태를 연결하고 안내문과 실제 등기 항목 구분. 말소 권리는 위험 계산에서 제외 | [권리 추출](apps/api/tests/test_registry_extraction.py), [분석 조립](apps/api/tests/test_analysis_service.py) |
+| 공공 API 장애에 따라 결과가 흔들림 | 업로드 문서의 면적・사용승인일을 우선하고 API는 보완에 사용. 실거래 일부 월 실패 시 성공 월 사용, 부족한 근거 표시 | [공공 API](apps/api/tests/test_public_data.py), [모델 추론](apps/api/tests/test_deposit_predictor.py) |
+| 보증금 비교 기준에 제안 금액이 섞일 위험 | 현재 제안 보증금을 예측 특성에서 제외하고 예측 후 입력 금액과 p95 비교 | [특성 독립성](apps/api/tests/test_deposit_quantile_features.py) |
+
+이 사례들은 코드・회귀 테스트로 확인할 수 있습니다. 실제 사용자의 검토 시간 감소나 새 문서 전체에 대한 정확도 향상은 별도로 측정하지 않았습니다.
+
+## 모델 성능
+
+API에 연결된 모델은 scikit-learn `HistGradientBoostingRegressor(loss="quantile")` 기반 보증금 모델입니다. 전세・월세별 p50(예상 중앙값)과 p95(상위 경계)를 제공합니다. `IsolationForest`는 실험용으로 보관하며 API에 연결하지 않았습니다.
+
+### 같은 홀드아웃에서의 비교
+
+국토교통부 서울 연립・다세대 전월세 신고자료 중 **2026-06~08의 30,780건**을 평가에 사용했습니다. 오차는 보증금 전체 금액 기준이며 비율오차는 각 거래 절대비율오차의 중앙값입니다.
+
+| 지표 | 유사 거래 중앙값 기준선 | 분위수 모델 v1 | 현재 모델 v2 |
+|---|---:|---:|---:|
+| p50 MAE | 6,582.84만원 | 2,996.61만원 | 2,946.94만원 |
+| p50 중앙 절대비율오차 | 46.38% | 14.36% | 13.93% |
+| p95 포함률 | 해당 없음 | 92.28% | 95.03% |
+
+- v2의 MAE는 단순 기준선 대비 **55.23%**, v1 대비 **1.66%** 낮았습니다.
+- 기준선은 v2에 저장된 과거 학습 거래의 지역・면적대・계약형태별 ㎡당 보증금 중앙값에 대상 면적을 곱합니다. 표본 부족 시 더 넓은 그룹으로 대체합니다. 월세액・층・연식을 직접 반영하지 않는 **단순 기준선**이므로 이 비교만으로 다른 ML 모델보다 우수하다고 주장하지 않습니다.
+- 기준선 비교는 README 보강 과정에서 기존 홀드아웃을 재사용한 사후 평가입니다. 새롭게 확보한 미사용 평가셋의 결과가 아닙니다.
+
+### 개선 과정과 해석
+
+초기 모델의 p95 포함률은 92.28%로 목표 95%보다 낮았습니다. v2에서는 p50 특성을 확장하고 전세・월세별 잔차 보정을 적용했습니다. 같은 홀드아웃에서 p95 포함률은 95.03%였고 합성 이상 조건 탐지율은 **78.83% → 75.90%로 감소**했습니다. 중앙값 오차와 상위 경계의 포함률을 우선한 선택이며 합성 탐지율 감소도 함께 공개합니다.
+
+**보정용 2026-04~05 자료는 보정값을 고정한 뒤 최종 학습에도 재사용합니다.** 따라서 독립 보정셋을 끝까지 유지하는 split-conformal 절차와 동일한 보장을 주장하지 않습니다. 95.03%는 해당 과거 홀드아웃의 전체 포함률이며 미래 모든 조건에서의 95% 보장은 아닙니다. v1・v2 결과를 비교해 본 평가 구간이므로 이후 모델 선택에는 새로운 평가 기간이 필요합니다.
+
+| 평가 구간 | 단순 기준선 MAE | v2 MAE | v2 중앙 절대비율오차 |
+|---|---:|---:|---:|
+| 전세 11,507건 | 6,091.68만원 | 2,814.94만원 | 6.69% |
+| 월세 19,273건 | 6,876.09만원 | 3,025.74만원 | 24.71% |
+
+월세는 전세보다 비율오차가 크므로 개별 계약의 확정 적정가격으로 해석하지 않습니다. p95 초과는 시장 이상 신호로 표시하며 규칙 점수에는 합산하지 않습니다.
+
+세부 모델・학습 표본・하이퍼파라미터・합성 평가・한계는 [모델 카드](docs/model-card.md)에 있습니다. 원문 거래 없이 확인할 수 있는 [기존 평가 집계](docs/evaluation/model-reports.json), [기준선 재평가 JSON](docs/evaluation/deposit-baseline.json), [모델 manifest](models/deposit-quantile-v2.manifest.json)도 제공합니다.
 
 ## 실행
 
-아래 명령은 Windows `cmd` 기준입니다.
+필요 환경: Node.js 22.13 이상과 pnpm 10.15.1, 로컬 API/OCR은 Python 3.12. 아래 명령은 저장소 루트 기준입니다.
 
-### Web
+1. `.env.example`을 로컬 `.env`로 복사하고 사용할 서비스 키를 설정합니다.
+2. 공공데이터포털에서 **건축HUB・연립/다세대 매매・연립/다세대 전월세** 서비스별 활용신청을 확인합니다.
+3. Docker Compose 또는 웹・API 개별 실행을 선택합니다.
 
-```bat
-corepack enable
-corepack prepare pnpm@latest --activate
-pnpm install
-pnpm dev:web
-```
-
-http://localhost:3000 에서 확인할 수 있습니다. 프런트엔드는 PDF를 먼저 `POST /api/v1/document-bundles/extract`로 추출하고 사용자가 핵심 값을 확인·수정한 다음 `POST /api/v1/analyses/from-extractions`에서 공공데이터 대조와 위험 계산을 수행합니다. API 오류는 목업 결과로 대체하지 않습니다. 프런트엔드와 API 모두 문서당 20MB 제한을 적용하고, API는 파일 내용이 실제 PDF 서명(`%PDF-`)으로 시작하는지도 확인합니다.
-
-### API
-
-```bat
-cd apps/api
-py -3.12 -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
-.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
-```
-
-Windows 로컬 OCR 환경은 PaddlePaddle 휠과 맞는 Python 3.12를 사용합니다. Python 3.14로 가상환경을 만들면 OCR 의존성을 설치할 수 없습니다.
-
-API 문서는 http://localhost:8000/docs 에서 확인할 수 있습니다.
-
-### 자동 검증
-
-`main` 브랜치 푸시와 Pull Request에서 GitHub Actions가 다음 항목을 자동 검사합니다.
-
-- FastAPI 전체 테스트
-- Python·Node.js 의존성 알려진 취약점 검사
-- 30건·90페이지 합성 문서 재생성
-- 등기부·건축물대장·임대차계약서 480개 필드 엄격 회귀검증
-- Next.js lint와 production build
-- Playwright 정상 흐름·오류 안내·키보드 조작·WCAG AA·모바일 E2E 테스트
-
-### 최신 마무리 점검
-
-2026-10-27 기준 로컬 마무리 점검 결과입니다.
-
-| 항목 | 결과 |
+| 설정 | 용도 |
 |---|---|
-| API 회귀 | `137 passed, 1 skipped`; skip은 선택 실행하는 OCR 전용 테스트 |
-| 브라우저 E2E | 사전점검·계약서 교차검증·오류 안내·키보드·모바일·콘솔 감시 `9 passed` |
-| 접근성 | 초기 화면 WCAG A/AA serious·critical 위반 0건, 저대비 보조 문구 색상 보정 |
-| 웹 빌드 | Next.js 16.4.3 production build와 ESLint 통과 |
-| 의존성 보안 | Python·Node.js 알려진 취약점 0건 |
-| CI | API·문서 회귀·웹 빌드·E2E·접근성·의존성 감사를 푸시와 PR에서 자동 실행 |
-
-합성 문서 검증 결과는 CI 실행별 artifact로 14일간 보관합니다. OCR 모델은 용량과 실행 시간 때문에 기본 CI에서 제외하며, `RUN_OCR_TESTS=1`로 별도 실행합니다.
-
-로컬 브라우저 회귀검증은 최초 1회 Chromium을 설치한 뒤 실행합니다.
-
-```powershell
-pnpm --dir apps/web exec playwright install chromium
-pnpm test:e2e
-pnpm audit:web
-```
-
-API 의존성은 CI와 같은 기준으로 다음 명령에서 검사합니다.
-
-```powershell
-apps\api\.venv\Scripts\python -m pip_audit -r apps\api\requirements-ci.txt
-```
-
-OCR 회귀검증은 10건·30페이지의 이미지 전용 PDF를 사용하며 GitHub Actions의 `RentGuard OCR Regression`에서 수동 실행하거나 매주 자동 실행합니다. 실행 결과는 30일간 artifact로 보관합니다.
-
-실제 익명 문서는 Git에서 제외된 `local-fixtures/case-xxx`에 두고 아래 명령으로
-합성 문서와 분리해 평가합니다. 필드 정확도와 함께 오탐·누락·값 정밀도·재현율을
-`local-fixtures/holdout-evaluation.json`에 기록합니다. 폴더와 정답 작성법은
-`docs/private-holdout-guide.md`를 참고합니다.
-
-```bat
-apps\api\.venv\Scripts\python scripts\evaluate_private_holdout.py --cases-dir "C:\path\to\private-fixtures" --strict
-apps\api\.venv\Scripts\python scripts\evaluate_private_holdout.py --cases-dir "C:\path\to\private-fixtures" --strict --update-baseline
-```
-
-승인 기준선에는 사례 ID와 필드명·통과 여부만 저장되며 실제 이름·주소·금액은
-포함되지 않습니다. 이후 `--strict` 실행은 기존 사례나 라벨 필드가 사라지거나
-통과하던 필드가 실패하는 회귀도 함께 감지합니다.
+| `JUSO_CONFIRM_KEY` | 도로명주소 검색・법정동 코드 확인 |
+| `DATA_GO_KR_SERVICE_KEY` | 건축HUB・국토부 실거래 API. 공통 키와 별개로 각 서비스 이용 승인 필요 |
+| `GEMINI_API_KEY` | 확인 팁 생성. 키 누락・호출 실패 시 규칙 결과와 공식 참고자료 제공 |
+| `GEMINI_MODEL` | 사용할 Gemini 모델 ID. 기본값은 `.env.example` 참고 |
 
 ### Docker Compose
 
-저장소에 포함된 검증된 `models/deposit-quantile-v2.joblib`을 API 이미지에 복사하므로 새 환경에서 별도 학습 없이 보증금 모델을 사용할 수 있습니다. `.env.example`을 참고해 로컬 `.env`에 API 키를 설정한 뒤 실행합니다.
-
-```bat
+```sh
 docker compose up --build
 ```
 
-API 컨테이너는 모델 파일과 manifest의 SHA-256을 확인하고 `deposit-quantile-model-2.0`을 정상적으로 불러온 뒤에만 healthy 상태가 됩니다. `GET http://localhost:8000/health`의 `deposit_model`에서 모델 버전, 학습 기준월과 무결성 상태를 확인할 수 있습니다. 운영 컨테이너는 `REQUIRE_DEPOSIT_MODEL=true`이므로 모델이 누락되거나 손상되면 시작에 실패합니다.
+웹: [localhost:3000](http://localhost:3000) · Swagger: [localhost:8000/docs](http://localhost:8000/docs) · 모델 상태: [localhost:8000/health](http://localhost:8000/health)
 
-분석 기록은 사용자가 저장에 동의한 경우에만 Docker named volume `rentguard-data`의 SQLite DB에 저장됩니다. 7일·30일·90일 중 보관 기간을 선택할 수 있고 만료된 기록과 연결 피드백은 자동 삭제됩니다. 전체 주소는 시·구까지만 남기고, 소유자·임대인 이름과 PDF·OCR 원문·문서 증거는 저장하지 않습니다. 기록 화면에서는 개별 기록 또는 전체 기록을 즉시 삭제할 수 있습니다.
-피드백 역시 분석 ID, 대상 항목, 판정, 숫자 수정값만 저장하며 자유 입력 문장과 원문은 받지 않습니다. 결과 화면과 분석 기록 상세 화면에서 같은 피드백을 확인하거나 수정할 수 있습니다.
-금액 오탐은 실제 수정값이 있고 원래 값과 달라야 승인할 수 있습니다. 학습용 내보내기는 품질 검수를 통과한 승인 피드백 20건과 서로 다른 분석 5건 이상이 모였을 때만 활성화됩니다.
+저장소의 검증된 모델을 이미지에 포함합니다. Compose API는 모델・manifest의 파일명・크기・SHA-256을 확인하며 필수 모델이 없거나 손상되면 시작에 실패합니다. 동의한 기록은 `rentguard-data` 볼륨의 SQLite에 저장됩니다.
 
-## 등기부 PDF 추출·비교 테스트
+<details>
+<summary>Windows 로컬 개별 실행</summary>
 
-등기부 추출기는 먼저 PDF 텍스트 레이어를 사용하고, 텍스트가 없는 스캔 PDF만 PaddleOCR로 처리합니다. 표의 좌표나 고정된 셀 순서에 의존하지 않고 `소유자`, `근저당권설정`, `채권최고액` 같은 의미 표식을 중심으로 필드를 묶습니다. 반복될 수 있는 소유권과 권리사항은 배열이며, 각 항목에는 페이지·원문·추출 방식·신뢰도를 남깁니다.
+웹 터미널:
 
-테스트용 합성 문서와 정답은 `output/pdf/rentguard-fixtures`에 있습니다.
-
-```bat
-REM 빠른 테스트: 텍스트 PDF와 API (OCR 모델 실행 제외)
-cd apps\api
-.venv\Scripts\python -m pytest -q -m "not ocr"
-
-REM 스캔 PDF OCR 비교: 최초 실행 시 한국어 모델 다운로드
-set RUN_OCR_TESTS=1
-.venv\Scripts\python -m pytest -q -m ocr
+```powershell
+corepack enable
+corepack prepare pnpm@10.15.1 --activate
+pnpm install --frozen-lockfile
+pnpm dev:web
 ```
 
-정답과 필드별 비교 결과를 JSON으로 직접 보려면 저장소 루트에서 실행합니다.
+API 터미널:
 
-```bat
-apps\api\.venv\Scripts\python scripts\evaluate_registry.py --pdf output\pdf\rentguard-fixtures\registry_risky_digital.pdf --no-ocr --json
-apps\api\.venv\Scripts\python scripts\evaluate_registry.py --pdf output\pdf\rentguard-fixtures\registry_risky_scan_noisy.pdf --json
+```powershell
+py -3.12 -m venv apps/api/.venv
+apps/api/.venv/Scripts/python -m pip install -r apps/api/requirements.txt
+cd apps/api
+.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
 ```
 
-실행 중인 API에 PDF를 업로드하는 엔드포인트는 `POST /api/v1/documents/registry/extract`입니다. Swagger 문서의 **Try it out**에서 바로 시험할 수 있습니다.
+최초 스캔 OCR 실행에는 모델 다운로드가 필요할 수 있습니다. 프론트와 API는 문서당 20MB 제한을 적용하며 API는 `%PDF-` 파일 서명도 확인합니다.
 
-추가된 백엔드 문서 API는 다음과 같습니다.
+</details>
 
-| 엔드포인트 | 기능 |
+API 엔드포인트・수집/학습・OCR 평가・화면 캡처 재현 명령은 [개발 가이드](docs/development.md)에 모았습니다.
+
+## 검증과 한계
+
+2026-10-27 마무리 커밋 [20e322d](https://github.com/youngsuchoi0930/RentGuard/commit/20e322d)과 [CI 실행](https://github.com/youngsuchoi0930/RentGuard/actions/runs/40454338278) 기준입니다.
+
+| 구분 | 확인 결과 | 검증 범위 |
+|---|---|---|
+| API・회귀 | 137 passed, 1 skipped | 추출・대조・권리・계산・기록・피드백・LLM 등. 기본 실행의 skip은 선택 OCR 테스트 |
+| 합성 PDF | 30건・90페이지・480개 필드 통과 | 지정한 합성 레이아웃의 정답 일치. 실제 문서 전체의 정확도를 의미하지 않음 |
+| 브라우저 | 9 passed | **API 모킹 기반** 입력→확인→결과・오류 UX・키보드・모바일・콘솔 검사. 실제 OCR/공공 API/Gemini를 묶은 통합 검증과 구분 |
+| 접근성 | serious・critical 위반 0건 | Chromium 초기 화면 axe WCAG A/AA 자동 검사와 핵심 키보드 이동. 전 화면・수동 감사는 미실시 |
+| 빌드・의존성 | lint/build 통과, 알려진 취약점 0건 | 검사 시점 pnpm/pip-audit 결과. CI에서 계속 검사 |
+| 스캔 OCR | 별도 워크플로 | 이미지 PDF 10건・30페이지 수동・주간 실행, 기본 CI와 분리 |
+
+비공개 문서는 별도 회귀검증에 사용하고 Git에 넣지 않습니다. [비공개 홀드아웃 평가 방법](docs/private-holdout-guide.md)은 공개하며 개인 서류는 ML 학습・보정・성능평가에 포함하지 않습니다.
+
+남은 과제는 다음과 같습니다.
+
+- 실제 사용자 검토 시간・오탐 경험, 분석 지연시간 p50/p95・동시 요청 성능 측정.
+- 새 문서 레이아웃・손글씨 계약서・새 평가 기간에서의 검증 확대.
+- 보정셋 재사용 없는 보정 절차, 월세 예측 개선, 같은 특성을 사용하는 다른 모델과의 비교.
+- 서울 연립・다세대 밖 유형・지역 확장과 인증・권한・운영 관측 검증. 현재 공개 배포는 하지 않았습니다.
+
+보증사고・사기 정답 라벨이 없어 사고 예측 정확도・F1을 제시하지 않습니다. 건축HUB 응답에 위반건축물 플래그가 없거나 보증 가입 여부를 자동 확인할 수 없으면 원문・기관 확인을 안내합니다.
+
+## 코드와 문서
+
+| 경로 | 역할 |
 |---|---|
-| `POST /api/v1/documents/registry/extract` | 등기사항증명서 추출 |
-| `POST /api/v1/documents/building-ledger/extract` | 건축물대장 추출 |
-| `GET /api/v1/addresses/search` | 도로명주소 검색 및 지번·법정동 코드 확인 |
-| `POST /api/v1/documents/lease-contract/extract` | 임대차계약서 추출 |
-| `POST /api/v1/document-bundles/extract` | 분석 모드에 필요한 문서 추출 및 1차 교차검증 |
-| `POST /api/v1/analyses` | 사전점검(2종) 또는 계약서 교차검증(3종) 후 위험 신호 생성 |
-| `POST /api/v1/analyses/from-extractions` | 사용자가 확인·수정한 추출값으로 공공데이터 대조 및 위험 분석 |
-| `POST /api/v1/ml/dataset-rows/preview` | 분석 결과를 저장 없이 비식별 ML 학습 행으로 변환 |
-| `GET /api/v1/analysis-history` | 개인정보를 제거한 분석 기록 목록 |
-| `DELETE /api/v1/analysis-history` | 저장된 분석 기록과 연결 피드백 전체 삭제 |
-| `GET /api/v1/analysis-history/{analysis_id}` | 저장된 분석 결과 상세 조회 |
-| `DELETE /api/v1/analysis-history/{analysis_id}` | 분석 기록 삭제 |
-| `GET /api/v1/analysis-history/{analysis_id}/feedback` | 분석별 비식별 피드백 조회 |
-| `POST /api/v1/analysis-history/{analysis_id}/feedback` | 피드백 저장 또는 항목별 갱신 |
-| `GET /api/v1/feedback` | 개인정보를 제외한 전체 피드백 통계·내역 조회 |
-| `PATCH /api/v1/feedback/{feedback_id}/review` | 피드백을 검수 대기·승인·제외로 분류 |
-| `GET /api/v1/feedback/export?format=csv` | 승인된 피드백만 학습용 CSV·JSON으로 내보내기 |
-
-`POST /api/v1/analyses`의 `analysis_mode`는 `precheck` 또는 `contract_review`입니다. `precheck`에는 등기부등본과 건축물대장만 필요하며, `contract_review`에는 임대차계약서도 필요합니다. `save_history=true`인 경우에만 비식별 결과를 저장하며 `retention_days`는 `7`, `30`, `90` 중 하나입니다. 주소정보에서 법정동 코드와 지번을 확인하고, 건축HUB 표제부 및 최근 12개월 연립·다세대 매매 실거래가를 조회합니다. 같은 지번 또는 같은 법정동의 유사 전용면적 거래만 비교하고, 중간가격과 함께 비교 거래의 25~75백분위 예상 범위를 반환합니다. 일부 조회 월의 실거래 API만 실패하면 성공한 월의 거래를 사용하고 누락 월 수를 결과 메시지에 표시합니다. 모든 월이 실패하거나 근거가 부족하면 `estimated_value`를 `null`, `market_data.status`를 `unavailable`로 반환하며 시세 대비 보증금·근저당 비율을 계산하지 않습니다.
-
-입력 주소와 건축HUB 공식 도로명주소의 대조 결과는 업로드 문서 OCR 주소 대조와 별도 항목으로 표시합니다. 위반건축물 여부는 건축HUB 응답에 관련 플래그가 있을 때 공식 값을 우선 사용하고, 현재 표제부 API처럼 해당 필드가 없으면 업로드한 건축물대장 원문 확인이 필요하다고 명시합니다.
-
-추출값 확인 화면에서 수정한 값은 자동 추출값을 덮어쓰되 수정 전·후 값을 `corrections`에 남깁니다. 결과의 위험 신호와 문서 검증 항목에는 `sources` 배열로 문서 종류, 페이지, 추출 원문, 추출 방식, 신뢰도와 사용자 수정 여부를 반환합니다. 사용자 수정은 원문 추출과 구분되어 표시됩니다.
-
-실제 샘플 확보와 익명화 방법은 `docs/sample-data-guide.md`를 참고합니다.
-ML 특성·라벨·데이터 분할 기준은 `docs/ml-dataset-v1.md`에 정리되어 있습니다. 생성되는 학습 행에는 주소·이름·OCR 원문·규칙 점수와 등급이 포함되지 않습니다.
-
-## ML 모델과 성능
-
-### 운영 모델
-
-현재 API에 실제 연결된 모델은 `models/deposit-quantile-v2.joblib` 하나입니다.
-전세/월세와 p50/p95 조합별로 학습한
-`HistGradientBoostingRegressor` 분위수 회귀기로 구성됩니다. p50은 유사 조건의 예상
-보증금 중앙값, p95는 유사 계약 약 95%가 그 이하에 있을 것으로 예상하는 상한입니다.
-입력 보증금이 p95를 넘으면 규칙 기반 위험점수와 별도의 시장 이상 신호로만 표시합니다.
-
-| 항목 | 설정 |
-|---|---|
-| 라이브러리 | scikit-learn 1.9.0 |
-| 전처리 | 결측치 중앙값 대체 및 결측 indicator 추가 |
-| 회귀기 | `HistGradientBoostingRegressor(loss="quantile")` |
-| 분위수 | p50 `0.50`, p95 `0.95` |
-| 주요 하이퍼파라미터 | learning rate `0.06`, 최대 250회, leaf 31개, leaf 최소 표본 30개, L2 `0.2` |
-| 조기 종료 | 검증 비율 10%, 20회 연속 개선이 없으면 종료 |
-| 목표값 | `log1p(보증금(백만원) / 전용면적㎡)` |
-| 모델 분리 | 전세·월세별 p50/p95 모델 |
-| p50 입력 | 면적·층/지하 여부·연식·월세·계약 시점/유형·갱신권·직전 계약·유사 계약 통계 등 23개 |
-| p95 입력 | 면적·층·연식·월세·계약 시점·갱신 여부·직전 보증금·유사 계약 통계 등 12개 |
-| 개인정보 사용 여부 | 이름·상세주소·PDF·OCR 원문·등기 권리정보를 학습에 사용하지 않음 |
-| 적용 범위 | 서울 연립·다세대 전월세이며 면적과 유사 계약 기준을 확보한 경우 |
-| 무결성 | manifest의 파일명·크기·SHA-256 검증 후 로드 |
-
-모델 파일은 `deposit-quantile-model-2.0` 스키마이며 크기는 3,872,049바이트,
-SHA-256은 `1e62a7c48bd59790b462cea3ca7448a09f57c3e77d144191203552b92b788531`입니다.
-전체 설정과 무결성 정보는
-[`models/deposit-quantile-v2.manifest.json`](models/deposit-quantile-v2.manifest.json),
-학습·평가 구현은
-[`scripts/train_deposit_quantile.py`](scripts/train_deposit_quantile.py)에 있습니다. 원본 학습
-리포트는 재학습 시 Git 제외 경로인 `data/ml/deposit-quantile-v2-report.json`에 생성됩니다.
-
-### 학습·보정·검증 데이터
-
-국토교통부 서울 연립·다세대 전월세 신고자료만 모델 학습에 사용했습니다. 현재 제안
-보증금 자체는 예측 입력에서 제외해, 사용자가 새로 입력한 보증금과 독립적인 기준을
-만듭니다. 시간 누수를 막기 위해 과거 데이터로 학습하고 미래 3개월을 홀드아웃으로
-완전히 격리했습니다.
-
-| 구분 | 건수·기간 |
-|---|---:|
-| 적격 공공 거래 | 271,142건 |
-| 부적격 제외 | 700건 |
-| 최종 학습 표본 | 119,951건 |
-| 학습 표본 중 전세 | 47,215건 |
-| 학습 표본 중 월세 | 72,736건 |
-| 보정 표본 | 23,161건, 2026-04~2026-05 |
-| 최종 홀드아웃 | 30,780건, 2026-06~2026-08 |
-| 파이프라인 시험용 합성 이상 조건 | 19,985건 |
-
-개인 등기부·건축물대장·임대차계약서는 OCR·파싱·교차검증 회귀 확인에만 사용하며
-ML 학습·보정·성능평가 데이터에는 포함하지 않습니다.
-
-### 보증금 분위수 모델 성능
-
-| 지표 | v1(이전) | v2(현재 운영) |
-|---|---:|---:|
-| 홀드아웃 p50 평균 절대오차(MAE) | 2,996.61만원 | 2,946.94만원 |
-| 홀드아웃 p50 중앙 절대비율오차 | 14.3594% | 13.9317% |
-| 홀드아웃 p95 포함률 | 92.2807% | 95.0325% |
-| 홀드아웃 p95 초과 플래그 비율 | 7.7193% | 4.9675% |
-| 합성 이상 조건 전체 탐지율 | 78.8291% | 75.9019% |
-| 합성 보증금 급등 탐지율 | 84.9258% | 84.0258% |
-| 합성 갱신 보증금 급등 탐지율 | 92.7993% | 91.1341% |
-| 합성 월세 급등 탐지율 | 58.7192% | 52.4955% |
-| 합성 보증금/p95 중앙 비율 | 2.010699배 | 1.895515배 |
-
-v2는 합성 탐지율을 최대로 만드는 모델을 선택한 것이 아니라, 실제 미래 홀드아웃에서
-p50 오차를 낮추고 p95 상한이 약속한 95% 포함률에 맞도록 선택했습니다. 보정 전·후
-p95 포함률은 다음과 같습니다.
-
-| 계약 형태 | 보정 표본 | 보정 전 | 보정 후 |
-|---|---:|---:|---:|
-| 전세 | 8,986건 | 91.8985% | 95.0256% |
-| 월세 | 14,175건 | 92.4938% | 95.0194% |
-
-### 실험용 시장 이상치 모델
-
-`models/market-anomaly-v1.joblib`은 `IsolationForest`로 학습한 연구용 모델이며 현재
-API·위험점수·프론트 결과에는 연결하지 않았습니다. 전세·월세별 파이프라인에 결측치
-중앙값 대체, 표준화, 트리 200개, 최대 표본 4,096개, contamination 2%를 적용했습니다.
-이 모델은 제안 보증금까지 입력으로 사용하므로 운영 중인 보증금 분위수 모델과 목적이
-다릅니다. 학습·평가 구현은
-[`scripts/train_market_anomaly.py`](scripts/train_market_anomaly.py)에 있으며 원본 학습
-리포트는 Git 제외 경로인 `data/ml/market-anomaly-v1-report.json`에 생성됩니다.
-
-| 항목 | 결과 |
-|---|---:|
-| 전체 공공 거래 | 271,842건 |
-| 학습 후보 / 실제 표본 | 240,966건 / 100,000건 |
-| 학습 표본 중 전세 / 월세 | 39,201건 / 60,799건 |
-| 미래 홀드아웃 | 30,876건, 2026-06~2026-08 |
-| 합성 이상 조건 | 20,000건 |
-| 공공 홀드아웃 이상 플래그율 | 2.7886% |
-| 합성 이상 조건 전체 탐지율 | 62.0650% |
-| 합성 보증금 급등 탐지율 | 44.1578% |
-| 합성 갱신 보증금 급등 탐지율 | 42.0342% |
-| 합성 월세 급등 탐지율 | 100.0000% |
-
-| IsolationForest 점수 백분위 | 1% | 5% | 50% | 95% | 99% |
-|---|---:|---:|---:|---:|---:|
-| 공공 홀드아웃 | -0.038811 | 0.021796 | 0.096779 | 0.130782 | 0.138268 |
-| 합성 이상 조건 | -0.178464 | -0.159108 | -0.062465 | 0.105680 | 0.122247 |
-
-공공 신고자료에는 정상·사기·보증사고 정답 라벨이 없으므로 정확도·정밀도·재현율·F1을
-실제 사고 예측 성능처럼 계산하지 않습니다. 위 합성 탐지율은 파이프라인 시험 지표이며
-실제 사기 탐지 정확도가 아닙니다. 두 ML 모델 모두 근저당·소유권·법적 우선순위를
-판단하지 않으며 규칙 엔진과 공식 문서 확인을 대체하지 않습니다.
-
-서울 연립·다세대 전월세 시장 기준 데이터는 아래 명령으로 수집합니다. 국토교통부 전월세 API 활용신청과 `DATA_GO_KR_SERVICE_KEY`가 필요하며, 지번·건물명은 출력 파일에 저장하지 않습니다.
-
-```bat
-apps\api\.venv\Scripts\python scripts\collect_rent_market.py --months 24
-apps\api\.venv\Scripts\python scripts\inspect_rent_dataset.py data\ml\seoul-rh-rent-market-v1.jsonl
-apps\api\.venv\Scripts\python scripts\generate_synthetic_rent_data.py --count 20000
-apps\api\.venv\Scripts\python -m pip install -r apps\api\requirements-ml.txt
-apps\api\.venv\Scripts\python scripts\train_market_anomaly.py
-apps\api\.venv\Scripts\python scripts\train_deposit_quantile.py
-```
-
-학습 결과 `models/deposit-quantile-v2.joblib`이 있으면 분석 API가 자동으로 모델을 불러옵니다. 모델 파일·전용면적이 없거나 학습 범위 밖이면 기존 규칙 분석은 유지하고 `unavailable` 또는 `out_of_scope`로 판단을 보류합니다. 다른 위치의 모델을 사용할 때만 `.env`의 `DEPOSIT_MODEL_PATH`에 신뢰할 수 있는 로컬 모델의 절대경로를 설정합니다.
-
-## 구조
-
-```text
-apps/web        Next.js 사용자 인터페이스
-apps/api        FastAPI 분석 API와 위험도 엔진
-docs            제품 및 아키텍처 문서
-scripts         합성 PDF 생성 및 추출 정확도 비교 도구
-output/pdf      테스트용 합성 PDF와 정답 데이터
-```
-
-## 현재 데모의 경계
-
-업로드 문서의 텍스트 추출과 OCR, 주요 필드 추출, 교차검증, 주소 검색, 건축HUB 대조, 국토교통부 실거래가 기반 추정과 비식별 분석 기록까지 실제로 동작합니다. 자동 추출 실패, 비교 거래 부족이나 일부증명서는 `needs_review` 또는 시세 `unavailable`로 보내며, 실제 계약 판단에는 원문과 공식 사이트 확인이 필요합니다.
+| [apps/web](apps/web) | Next.js・React UI, 추출값 확인・결과・기록・피드백 |
+| [apps/api](apps/api) | FastAPI, 파서・대조・규칙・공공 API・모델 추론・SQLite |
+| [scripts](scripts) | 공공자료 수집, 학습・평가, 합성 PDF 생성 |
+| [models](models) | 신뢰하는 학습 모델과 무결성 manifest |
+| [모델 카드](docs/model-card.md) | 모델 상세・평가 수치・보정 방식・한계 |
+| [개발 가이드](docs/development.md) | API・실행・수집/학습・재현 명령 |
+| [위험 정책](docs/risk-policy-v2.md) | 위험 규칙과 가중치의 제품 내부 정의 |
+| [HANDOFF.md](HANDOFF.md) | 상세 인수인계 및 현재 구현 상태 |

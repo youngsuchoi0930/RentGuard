@@ -1,0 +1,184 @@
+{
+  "schema_version": "rentguard-public-model-reports-1.0",
+  "provenance": "Aggregate historical training reports copied from the local data/ml outputs. No transaction rows or private documents are included.",
+  "reports": {
+    "deposit-quantile-v1": {
+      "schema_version": "deposit-quantile-report-1.0",
+      "trained_at": "2026-09-09T15:53:03.066835+00:00",
+      "library": {
+        "scikit_learn": "1.9.0"
+      },
+      "data": {
+        "source_sha256": "c3158cb4ebb5d2c597e2db28e2c325910c8eb187783383dd32edcfc6b69bd510",
+        "eligible_rows": 271142,
+        "excluded_ineligible_rows": 700,
+        "train_candidates": 240362,
+        "train_sampled_before_trim": 120000,
+        "train_sampled": 119761,
+        "train_sampled_by_rent_mode": {
+          "jeonse": 47205,
+          "monthly": 72556
+        },
+        "holdout_candidates": 30780,
+        "holdout_sampled": 30780,
+        "holdout_periods": [
+          202606,
+          202607,
+          202608
+        ],
+        "synthetic_rows": 19985
+      },
+      "evaluation": {
+        "public_holdout_p50_mae_million_won": 29.966058,
+        "public_holdout_p50_median_absolute_percentage_error": 0.143594,
+        "public_holdout_p95_coverage": 0.922807,
+        "public_holdout_flag_rate": 0.077193,
+        "synthetic_detection_rate": 0.788291,
+        "synthetic_detection_by_scenario": {
+          "deposit_spike": 0.849258,
+          "renewal_jump": 0.927993,
+          "rent_spike": 0.587192
+        },
+        "synthetic_p95_excess_ratio_median": 2.010699
+      },
+      "interpretation": {
+        "p50": "유사 계약 조건에서 예상되는 보증금 중앙값",
+        "p95": "유사 계약 100건 중 약 95건이 이 값 이하일 것으로 보는 상한",
+        "flag": "입력 보증금이 예측 p95를 초과한 경우의 시장 이상 조건 신호"
+      },
+      "limitations": [
+        "공공 신고자료는 정상/사고 라벨이 아니므로 시장 범위를 학습하는 용도입니다.",
+        "합성 탐지율은 모델 배관 시험 지표이며 실제 보증사고 탐지 정확도가 아닙니다.",
+        "보증금 시장 이상 신호는 근저당과 시세 대비 총부담 규칙을 대체하지 않습니다."
+      ]
+    },
+    "deposit-quantile-v2": {
+      "schema_version": "deposit-quantile-report-2.0",
+      "trained_at": "2026-09-12T05:20:29.380731+00:00",
+      "library": {
+        "scikit_learn": "1.9.0"
+      },
+      "data": {
+        "source_sha256": "c3158cb4ebb5d2c597e2db28e2c325910c8eb187783383dd32edcfc6b69bd510",
+        "eligible_rows": 271142,
+        "excluded_ineligible_rows": 700,
+        "train_candidates": 240362,
+        "train_sampled_before_trim": 120000,
+        "train_sampled": 119951,
+        "train_sampled_by_rent_mode": {
+          "jeonse": 47215,
+          "monthly": 72736
+        },
+        "provisional_train_candidates": 217201,
+        "provisional_train_sampled": 119759,
+        "calibration_candidates": 23161,
+        "calibration_sampled": 23161,
+        "calibration_periods": [
+          202604,
+          202605
+        ],
+        "holdout_candidates": 30780,
+        "holdout_sampled": 30780,
+        "holdout_periods": [
+          202606,
+          202607,
+          202608
+        ],
+        "synthetic_rows": 19985
+      },
+      "evaluation": {
+        "public_holdout_p50_mae_million_won": 29.469362,
+        "public_holdout_p50_median_absolute_percentage_error": 0.139317,
+        "public_holdout_p95_coverage": 0.950325,
+        "public_holdout_flag_rate": 0.049675,
+        "synthetic_detection_rate": 0.759019,
+        "synthetic_detection_by_scenario": {
+          "deposit_spike": 0.840258,
+          "renewal_jump": 0.911341,
+          "rent_spike": 0.524955
+        },
+        "synthetic_p95_excess_ratio_median": 1.895515,
+        "calibration": {
+          "jeonse": {
+            "rows": 8986,
+            "p50_log_offset": 0.00744561341697092,
+            "p95_log_offset": 0.025674766756240697,
+            "p95_coverage_before": 0.9189850879145337,
+            "p95_coverage_after": 0.9502559537057645
+          },
+          "monthly": {
+            "rows": 14175,
+            "p50_log_offset": 0.002758344636365817,
+            "p95_log_offset": 0.04697417912533819,
+            "p95_coverage_before": 0.9249382716049382,
+            "p95_coverage_after": 0.9501940035273369
+          }
+        }
+      },
+      "interpretation": {
+        "p50": "유사 계약 조건에서 예상되는 보증금 중앙값",
+        "p95": "유사 계약 100건 중 약 95건이 이 값 이하일 것으로 보는 상한",
+        "flag": "입력 보증금이 예측 p95를 초과한 경우의 시장 이상 조건 신호"
+      },
+      "limitations": [
+        "공공 신고자료는 정상/사고 라벨이 아니므로 시장 범위를 학습하는 용도입니다.",
+        "합성 탐지율은 모델 배관 시험 지표이며 실제 보증사고 탐지 정확도가 아닙니다.",
+        "보증금 시장 이상 신호는 근저당과 시세 대비 총부담 규칙을 대체하지 않습니다.",
+        "2026년 4~5월로 보정값을 먼저 고정한 뒤 최종 모델에 재학습했으며, 6~8월 평가는 끝까지 격리했습니다."
+      ]
+    },
+    "market-anomaly-v1": {
+      "schema_version": "market-anomaly-report-1.0",
+      "trained_at": "2026-09-09T15:40:43.001441+00:00",
+      "library": {
+        "scikit_learn": "1.9.0"
+      },
+      "data": {
+        "source_sha256": "c3158cb4ebb5d2c597e2db28e2c325910c8eb187783383dd32edcfc6b69bd510",
+        "source_rows": 271842,
+        "train_candidates": 240966,
+        "train_sampled": 100000,
+        "train_sampled_by_rent_mode": {
+          "jeonse": 39201,
+          "monthly": 60799
+        },
+        "holdout_candidates": 30876,
+        "holdout_sampled": 30876,
+        "holdout_periods": [
+          202606,
+          202607,
+          202608
+        ],
+        "synthetic_rows": 20000
+      },
+      "evaluation": {
+        "public_holdout_flag_rate": 0.027886,
+        "synthetic_detection_rate": 0.62065,
+        "synthetic_detection_by_scenario": {
+          "deposit_spike": 0.441578,
+          "renewal_jump": 0.420342,
+          "rent_spike": 1
+        },
+        "holdout_score_percentiles": {
+          "1": -0.038811,
+          "5": 0.021796,
+          "50": 0.096779,
+          "95": 0.130782,
+          "99": 0.138268
+        },
+        "synthetic_score_percentiles": {
+          "1": -0.178464,
+          "5": -0.159108,
+          "50": -0.062465,
+          "95": 0.10568,
+          "99": 0.122247
+        }
+      },
+      "limitations": [
+        "공공데이터는 정상 라벨이 아니라 신고된 시장 거래의 기준 분포입니다.",
+        "합성 탐지율은 파이프라인 시험 지표이며 실제 위험 탐지 정확도가 아닙니다.",
+        "근저당·소유권·실제 보증사고는 이 시장 이상치 모델의 입력에 포함되지 않습니다."
+      ]
+    }
+  }
+}

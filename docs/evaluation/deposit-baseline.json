@@ -1,0 +1,62 @@
+{
+  "schema_version": "deposit-baseline-evaluation-1.0",
+  "evaluation_kind": "retrospective_comparison_on_existing_holdout",
+  "source_sha256": "c3158cb4ebb5d2c597e2db28e2c325910c8eb187783383dd32edcfc6b69bd510",
+  "model_sha256": "1e62a7c48bd59790b462cea3ca7448a09f57c3e77d144191203552b92b788531",
+  "model_integrity": "verified",
+  "holdout_periods": [
+    202606,
+    202607,
+    202608
+  ],
+  "baseline": {
+    "method": "training-only peer median deposit per m2 multiplied by target area",
+    "group_fallback": [
+      "district/legal-dong/10m2-band/rent-mode",
+      "district/10m2-band/rent-mode",
+      "district/rent-mode",
+      "rent-mode"
+    ],
+    "minimum_group_rows": [
+      20,
+      40,
+      80,
+      1
+    ],
+    "reference": "same peer_reference stored in the v2 artifact; no holdout targets"
+  },
+  "metrics": {
+    "all": {
+      "rows": 30780,
+      "baseline_mae_million_won": 65.82839,
+      "model_mae_million_won": 29.469362,
+      "baseline_median_absolute_percentage_error": 0.463761,
+      "model_median_absolute_percentage_error": 0.139317,
+      "mae_reduction_fraction": 0.552331,
+      "model_p95_coverage": 0.950325
+    },
+    "jeonse": {
+      "rows": 11507,
+      "baseline_mae_million_won": 60.916817,
+      "model_mae_million_won": 28.149409,
+      "baseline_median_absolute_percentage_error": 0.184224,
+      "model_median_absolute_percentage_error": 0.06687,
+      "mae_reduction_fraction": 0.537904,
+      "model_p95_coverage": 0.949335
+    },
+    "monthly": {
+      "rows": 19273,
+      "baseline_mae_million_won": 68.760858,
+      "model_mae_million_won": 30.257443,
+      "baseline_median_absolute_percentage_error": 0.703734,
+      "model_median_absolute_percentage_error": 0.247112,
+      "mae_reduction_fraction": 0.559961,
+      "model_p95_coverage": 0.950916
+    }
+  },
+  "limitations": [
+    "Existing historical holdout reused for comparison; this is not a new untouched evaluation set.",
+    "Baseline does not explicitly adjust for monthly-rent amount, age or floor.",
+    "Overall coverage does not establish conditional coverage or fraud detection performance."
+  ]
+}
