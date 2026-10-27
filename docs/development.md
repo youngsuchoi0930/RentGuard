@@ -104,5 +104,5 @@ node --experimental-strip-types scripts/capture-readme-demo.mts
 Pop-Location
 ```
 
-`user1` 프로필의 빈 첫 화면을 `docs/screenshots/home.png`로 캡처합니다. 이어서 페이지 배경만 제거한 `home-transparent.png`를 브라우저의 투명 배경 캡처로 생성하며, 글자·카드·사이드바의 배치는 유지합니다. 합성 E2E fixture를 업로드하고 API 응답을 모킹하여 같은 폴더의 입력·확인·결과 PNG도 재생성합니다.
+`user1` 프로필의 빈 첫 화면을 원본 배경과 구성을 유지하여 `docs/screenshots/home.png`로 캡처합니다. 합성 E2E fixture를 업로드하고 API 응답을 모킹하여 같은 폴더의 입력·확인·결과 PNG도 재생성합니다.
 공공 API·Gemini·개인 원본 문서에는 접근하지 않습니다. 현재 캡처는 데스크톱 화면이며 실제 서비스 성능이나 모델 평가의 증거로 사용하지 않습니다.

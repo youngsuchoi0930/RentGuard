@@ -15,19 +15,6 @@ try {
   await expect(landing.locator(".profile strong")).toHaveText("user1");
   await landing.evaluate(() => document.fonts.ready);
   await landing.screenshot({ path: path.join(output, "home.png"), fullPage: true });
-  const foregroundLayout = await landing.locator(".sidebar, .topbar, .page-heading, .form-card, .profile").evaluateAll(elements =>
-    elements.map(element => element.getBoundingClientRect().toJSON()),
-  );
-  // Repaint the editable UI with only the page canvas removed. Browser rendering
-  // retains Korean glyphs, card surfaces, shadows and exact foreground geometry.
-  // The negative-z decorative underline is hidden by the original opaque canvas;
-  // keep it hidden so removing that canvas does not reveal a new foreground item.
-  await landing.addStyleTag({ content: "html, body { background: transparent !important; } .page-heading h1 em::after { visibility: hidden !important; }" });
-  await expect(landing.locator("body")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-  expect(await landing.locator(".sidebar, .topbar, .page-heading, .form-card, .profile").evaluateAll(elements =>
-    elements.map(element => element.getBoundingClientRect().toJSON()),
-  )).toEqual(foregroundLayout);
-  await landing.screenshot({ path: path.join(output, "home-transparent.png"), fullPage: true, omitBackground: true });
   await landing.close();
 
   const page = await browser.newPage({ viewport: { width: 1440, height: 1080 }, deviceScaleFactor: 1 });
