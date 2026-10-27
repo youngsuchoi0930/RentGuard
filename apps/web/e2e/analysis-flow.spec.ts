@@ -46,6 +46,16 @@ test("사전점검 전체 흐름이 결과 리포트까지 이어진다", async 
     page.getByRole("heading", { name: "확인 후 계약을 진행하세요" }),
   ).toBeVisible();
   await expect(page.getByText("73점")).toBeVisible();
+  const chart = page.getByRole("img", { name: "예상 주택가액 대비 근저당 50%, 보증금 68%" });
+  await expect(chart).toBeVisible();
+  const shares = await chart.evaluate((element) => ({
+    mortgage: parseFloat((element.querySelector(".mortgage-segment") as HTMLElement).style.width),
+    deposit: parseFloat((element.querySelector(".deposit-segment") as HTMLElement).style.width),
+    marker: parseFloat((element as HTMLElement).style.getPropertyValue("--value-marker")),
+  }));
+  expect(shares.mortgage).toBeCloseTo(110 / 260 * 100, 2);
+  expect(shares.deposit).toBeCloseTo(150 / 260 * 100, 2);
+  expect(shares.marker).toBeCloseTo(220 / 260 * 100, 2);
   expect(analysisPayload).toMatchObject({
     mode: "precheck",
     deposit: 150_000_000,
@@ -54,6 +64,37 @@ test("사전점검 전체 흐름이 결과 리포트까지 이어진다", async 
     retention_days: 30,
   });
 });
+
+for (const scenario of [
+  { name: "근저당 0원", mortgage: 0, deposit: 150_000_000, value: 470_000_000 },
+  { name: "주택가액 100%", mortgage: 100_000_000, deposit: 150_000_000, value: 250_000_000 },
+]) {
+  test(`금액 그래프는 ${scenario.name}을 실제 비율로 표시한다`, async ({ page }) => {
+    await page.route("**/api/v1/document-bundles/extract", route => route.fulfill({ json: documentBundle(false) }));
+    await page.route("**/api/v1/analyses/from-extractions", route => {
+      const result = analysisResult();
+      result.facts.mortgage_amount = scenario.mortgage;
+      result.facts.deposit = scenario.deposit;
+      result.facts.estimated_value = scenario.value;
+      return route.fulfill({ json: result });
+    });
+    await page.goto("/");
+    await fillContractInputs(page);
+    await uploadRequiredDocuments(page);
+    await page.getByRole("button", { name: "문서에서 값 추출하기" }).click();
+    await page.getByRole("button", { name: /확인한 값으로 위험 분석/ }).click();
+    const chart = page.locator(".bar-track");
+    await expect(chart).toBeVisible();
+    const shares = await chart.evaluate((element) => ({
+      mortgage: parseFloat((element.querySelector(".mortgage-segment") as HTMLElement).style.width),
+      deposit: parseFloat((element.querySelector(".deposit-segment") as HTMLElement).style.width),
+      marker: parseFloat((element as HTMLElement).style.getPropertyValue("--value-marker")),
+    }));
+    expect(shares.mortgage).toBeCloseTo(scenario.mortgage / scenario.value * 100, 2);
+    expect(shares.deposit).toBeCloseTo(scenario.deposit / scenario.value * 100, 2);
+    expect(shares.marker).toBe(100);
+  });
+}
 
 test("계약서 교차검증은 세 문서와 기록 보관 설정을 전달한다", async ({ page }) => {
   let analysisPayload: Record<string, unknown> | null = null;

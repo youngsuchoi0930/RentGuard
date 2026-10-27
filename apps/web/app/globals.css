@@ -384,9 +384,9 @@ main { min-height: 100vh; margin-left: var(--sidebar); }
 .bar-labels strong { color: #4c596e; font-size: 10px; }
 .bar-labels em { color: var(--red); font-style: normal; margin-left: 3px; }
 .bar-track { height: 13px; background: #e8ebf0; border-radius: 10px; margin: 9px 0 10px; display: flex; overflow: hidden; position: relative; }
-.bar-track:after { content: ""; position: absolute; left: 84.75%; top: -3px; bottom: -3px; border-left: 2px solid var(--ink); }
-.mortgage-segment { width: 42.4%; background: #eaa196; }
-.deposit-segment { width: 57.6%; background: var(--red); }
+.bar-track:after { content: ""; position: absolute; left: clamp(0px, var(--value-marker), calc(100% - 2px)); top: -3px; bottom: -3px; border-left: 2px solid var(--ink); }
+.mortgage-segment { flex: 0 0 auto; background: #eaa196; }
+.deposit-segment { flex: 0 0 auto; background: var(--red); }
 .legend { display: flex; gap: 17px; color: #8891a1; font-size: 9px; }
 .legend span { display: flex; align-items: center; gap: 5px; }
 .legend i { width: 7px; height: 7px; border-radius: 2px; }

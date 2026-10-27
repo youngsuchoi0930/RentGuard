@@ -3,6 +3,7 @@ import { chromium, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { analysisResult, documentBundle, pdfFixtures } from "../e2e/fixtures.ts";
+import { maskedAddress, maskedApartmentBundle, maskedApartmentResult } from "./masked-apartment-demo.mts";
 
 const baseURL = process.env.DEMO_BASE_URL ?? "http://127.0.0.1:3101";
 const output = path.resolve(process.cwd(), "../../docs/screenshots");
@@ -51,6 +52,33 @@ try {
   await expect(page.locator(".result-stage")).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: path.join(output, "report.png"), fullPage: true });
+
+  // One full-height result image from the user's displayed apartment scenario.
+  // Only the public, already-masked reconstruction is loaded; no private PDF,
+  // browser session or real analysis-history endpoint is read or written.
+  const masked = await browser.newPage({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 1.5 });
+  await masked.route("**/api/v1/document-bundles/extract", route => route.fulfill({ json: maskedApartmentBundle() }));
+  await masked.route("**/api/v1/analyses/from-extractions", route => route.fulfill({ json: maskedApartmentResult() }));
+  await masked.route("**/api/v1/analysis-history/*/feedback", route => route.fulfill({ json: { items: [] } }));
+  await masked.goto(baseURL);
+  await masked.getByLabel("집 주소").fill(maskedAddress);
+  await masked.getByLabel("보증금", { exact: true }).fill("150000000");
+  await masked.getByLabel("월세", { exact: true }).fill("2000000");
+  await masked.locator('input[type="file"]').nth(0).setInputFiles(pdfFixtures.registry);
+  await masked.locator('input[type="file"]').nth(1).setInputFiles(pdfFixtures.buildingLedger);
+  await masked.getByRole("button", { name: "문서에서 값 추출하기" }).click();
+  await expect(masked.getByRole("heading", { name: "분석 전에 추출값을 확인해주세요" })).toBeVisible();
+  await masked.getByRole("button", { name: /확인한 값으로 위험 분석/ }).click();
+  await expect(masked.getByRole("heading", { name: "현재 확인된 위험 신호는 낮습니다" })).toBeVisible();
+  await expect(masked.getByRole("heading", { name: "실제 서류와 결과가 맞나요?" })).toBeVisible();
+  await expect(masked.getByText("모델 범위 밖", { exact: true })).toBeVisible();
+  await expect(masked.locator(".result-header h1")).toHaveText(maskedAddress);
+  await expect(masked.getByText("단일 시세 대신 복수의 감정·거래 자료를 비교하세요.")).toBeVisible();
+  await masked.addStyleTag({ content: "nextjs-portal, .sidebar, .topbar { display: none !important; } main { margin-left: 0 !important; } .page-wrap { max-width: none; padding: 24px 32px; } *, *::before, *::after { animation: none !important; transition: none !important; }" });
+  await masked.evaluate(() => document.fonts.ready);
+  await masked.evaluate(() => window.scrollTo(0, 0));
+  await masked.screenshot({ path: path.join(output, "result-masked.png"), fullPage: true });
+  await masked.close();
   console.log(`Synthetic UI screenshots: ${output}`);
 } finally {
   await browser.close();

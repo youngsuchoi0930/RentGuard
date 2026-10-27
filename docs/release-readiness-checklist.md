@@ -14,7 +14,7 @@
 | PDF 업로드 방어 | 통과 | 모든 PDF 업로드 경로에서 MIME, 실제 `%PDF-` 서명, 문서당 20MB 제한 검증 |
 | 웹 정적 검사 | 통과 | ESLint 오류 없음 |
 | 웹 프로덕션 빌드 | 통과 | Next.js 16.4.3 production build 성공 |
-| 브라우저 E2E | 통과 | 사전점검·계약서 교차검증, 업로드 오류, API 장애, 콘솔 오류 감시까지 `9 passed` |
+| 브라우저 E2E | 통과 | 분석 흐름·오류 UX·접근성·모바일·콘솔 및 근저당 0원·100%·초과 부담 그래프까지 `11 passed` |
 | 접근성 자동 검사 | 통과 | 키보드 모드 전환과 초기 화면 WCAG A/AA serious·critical 위반 0건 |
 | 의존성 보안 | 통과 | Python·Node.js 알려진 취약점 0건; CI에서 자동 차단 |
 | Docker 구성 | 통과 | `docker compose config -q` 성공 |

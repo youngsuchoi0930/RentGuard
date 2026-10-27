@@ -633,7 +633,11 @@ export default function HomePage() {
   const canAnalyze = address.trim().length >= 5
     && parseMoney(deposit) > 0
     && requiredDocuments.every((document) => files[document.key]);
-  const hasMarketData = analysis?.market_data.status === "available" && analysis.facts.estimated_value !== null;
+  const hasMarketData = analysis?.market_data.status === "available" && analysis.facts.estimated_value !== null && analysis.facts.estimated_value > 0;
+  const chartValue = Math.max(0, analysis?.facts.estimated_value ?? 0);
+  const chartMortgage = Math.max(0, analysis?.facts.mortgage_amount ?? 0);
+  const chartDeposit = Math.max(0, analysis?.facts.deposit ?? 0);
+  const chartScale = Math.max(chartValue, chartMortgage + chartDeposit, 1);
   const officialBuildingCheck = analysis?.checks.find((check) => check.label === "공식 건축물대장");
   const hasOfficialBuildingData = officialBuildingCheck !== undefined && officialBuildingCheck.status !== "needs_review";
   const steps = useMemo(() => [
@@ -1454,7 +1458,12 @@ export default function HomePage() {
                     {hasMarketData && analysis.facts.estimated_value !== null ? (
                       <div className="burden-bar">
                         <div className="bar-labels"><span>예상 주택가액 {money(analysis.facts.estimated_value)}</span><strong>부담 합계 {money(analysis.facts.mortgage_amount + analysis.facts.deposit)} <em>{Math.round((analysis.facts.mortgage_amount + analysis.facts.deposit) / analysis.facts.estimated_value * 100)}%</em></strong></div>
-                        <div className="bar-track"><span className="mortgage-segment" /><span className="deposit-segment" /></div>
+                        <div
+                          className="bar-track"
+                          role="img"
+                          aria-label={`예상 주택가액 대비 근저당 ${Math.round(chartMortgage / chartValue * 100)}%, 보증금 ${Math.round(chartDeposit / chartValue * 100)}%`}
+                          style={{ "--value-marker": `${chartValue / chartScale * 100}%` } as React.CSSProperties}
+                        ><span className="mortgage-segment" style={{ width: `${chartMortgage / chartScale * 100}%` }} /><span className="deposit-segment" style={{ width: `${chartDeposit / chartScale * 100}%` }} /></div>
                         <div className="legend"><span><i className="legend-mortgage" />근저당</span><span><i className="legend-deposit" />보증금</span><span><i className="legend-limit" />주택가액 100%</span></div>
                       </div>
                     ) : (
